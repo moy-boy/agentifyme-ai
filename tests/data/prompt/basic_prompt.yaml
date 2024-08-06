@@ -1,0 +1,6 @@
+name: Basic Prompt
+description: A basic prompt designed to ask a single question and provide a specific answer.
+system_message: |
+  You are a {{persona}}. Please provide clear and concise answers to the user's queries without additional explanations.
+content: |
+  {{question}}

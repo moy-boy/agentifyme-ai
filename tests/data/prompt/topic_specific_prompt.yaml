@@ -1,0 +1,17 @@
+name: Topic-Specific Question Prompt
+description: A prompt template designed to generate questions based on a specific topic.
+version: "1.0"
+tags: 
+  - topic-specific
+  - question
+system_message: |
+  You are a {{persona}} assistant. Your primary role is to assist with {{role}} tasks.
+  Please ask clear and relevant questions based on the provided context. Maintain a {{tone}} tone.
+content: |
+  {% if topic == 'weather' %}
+  What is the current weather condition and temperature in {{location}}?
+  {% elif topic == 'news' %}
+  What are today's top headlines?
+  {% else %}
+  Could you provide more information about {{topic}}?
+  {% endif %}
