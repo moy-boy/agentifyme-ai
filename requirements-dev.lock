@@ -183,7 +183,9 @@ pygments==2.18.0
     # via rich
 pytest==8.3.1
     # via pytest-cov
+    # via pytest-mock
 pytest-cov==5.0.0
+pytest-mock==3.14.0
 python-dateutil==2.9.0.post0
     # via botocore
     # via jupyter-client

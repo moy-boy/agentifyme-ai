@@ -1,5 +1,7 @@
 # pylint: disable=missing-function-docstring
 
+from pydantic import BaseModel
+
 from agentifyme.tasks import Task, TaskConfig, task
 
 
@@ -15,6 +17,50 @@ def test_simple_task():
     task_instance = TaskConfig.get("say_hello")
     assert task_instance is not None
     assert task_instance("world") == "Hello, world!"
+
+
+def test_task_registry_string_arguments():
+    TaskConfig.reset_registry()
+
+    @task
+    def say_hello(name: str) -> str:
+        return f"Hello, {name}!"
+
+    assert say_hello("world") == "Hello, world!"
+
+    task_instance = TaskConfig.get("say_hello")
+    assert task_instance is not None
+    assert task_instance("world") == "Hello, world!"
+
+    for task_name, task_instance in TaskConfig._registry.items():
+        print(task_name, task_instance)
+        print(task_instance.config.model_dump_json(indent=2, exclude={"func"}))
+
+
+def test_task_registry_pydantic_arguments():
+    TaskConfig.reset_registry()
+
+    class QuoteRequest(BaseModel):
+        question: str
+
+    class QuoteResponse(BaseModel):
+        quote: str
+        author: str
+        icons: list[str]
+
+    @task
+    def get_quote(question: QuoteRequest) -> QuoteResponse | None:
+        return QuoteResponse(
+            quote="Hello, world!", author="AgentifyMe", icons=["🚀", "🤖"]
+        )
+
+    assert get_quote(
+        QuoteRequest(question="What is the meaning of life?")
+    ) == QuoteResponse(quote="Hello, world!", author="AgentifyMe", icons=["🚀", "🤖"])
+
+    for task_name, task_instance in TaskConfig._registry.items():
+        print(task_name, task_instance)
+        print(task_instance.config.model_dump_json(indent=2, exclude={"func"}))
 
 
 def test_task_with_name_and_description():
