@@ -1,6 +1,9 @@
 import inspect
 import re
-from typing import Any, Callable, Dict, List, Union, get_args, get_origin
+from datetime import date, datetime
+from enum import Enum
+from typing import Any, Callable, Dict, List, Optional, Union, get_args, get_origin
+from uuid import UUID
 
 from docstring_parser import parse
 from pydantic import BaseModel
@@ -60,25 +63,42 @@ def json_datatype_from_python_type(python_type: Any) -> str:
     """
     Converts a Python data type to its corresponding JSON data type.
     """
-    if python_type in (str, "<class 'str'>"):
+    if python_type in (str, "<class 'str'>", date, datetime, UUID):
         return "string"
     if python_type in (int, float, "<class 'int'>", "<class 'float'>"):
         return "number"
     if python_type in (bool, "<class 'bool'>"):
         return "boolean"
     if python_type in (list, List, "<class 'list'>") or (
-        get_origin(python_type) is list
+        hasattr(python_type, "__origin__") and python_type.__origin__ is list
     ):
         return "array"
-    if python_type in (dict, Dict, "<class 'dict'>") or (
-        get_origin(python_type) is dict
+    if python_type in (dict, Dict, "<class 'dict'>", "object") or (
+        hasattr(python_type, "__origin__") and python_type.__origin__ is dict
     ):
         return "object"
     if python_type is type(None) or python_type is None:
         return "null"
     if isinstance(python_type, str):
-        return json_datatype_from_python_type(eval(python_type))
-    return "string"
+        try:
+            return json_datatype_from_python_type(eval(python_type))
+        except:
+            return "string"
+    if inspect.isclass(python_type) and issubclass(python_type, BaseModel):
+        return "object"
+    if inspect.isclass(python_type) and issubclass(python_type, Enum):
+        return "string"
+    if hasattr(python_type, "__origin__"):
+        if python_type.__origin__ is Union:
+            non_none_types = [t for t in python_type.__args__ if t is not type(None)]
+            if len(non_none_types) == 1:
+                return json_datatype_from_python_type(non_none_types[0])
+            else:
+                return "object"  # or you could return a union of types if your schema supports it
+        elif python_type.__origin__ is Optional:
+            return json_datatype_from_python_type(python_type.__args__[0])
+
+    return "string"  # def
 
 
 def process_return_annotation(
@@ -159,6 +179,64 @@ def process_return_annotation(
     return output_parameters
 
 
+def process_input_type(
+    param_name: str, param_type: Any, default_value: Any
+) -> List[Param]:
+    """
+    Process input type and generate appropriate Param objects.
+    """
+    params = []
+
+    if inspect.isclass(param_type) and issubclass(param_type, BaseModel):
+        for field_name, model_field in param_type.model_fields.items():
+            if model_field is None:
+                continue
+            field_type = model_field.annotation
+            params.append(
+                Param(
+                    name=f"{param_name}.{field_name}",
+                    description=model_field.description or "",
+                    data_type=json_datatype_from_python_type(field_type),
+                    default_value=model_field.default,
+                    required=model_field.is_required(),
+                )
+            )
+    elif get_origin(param_type) is Union:
+        union_types = get_args(param_type)
+        for union_type in union_types:
+            if union_type is type(None):
+                continue
+            params.extend(process_input_type(param_name, union_type, default_value))
+    elif get_origin(param_type) in (list, List):
+        item_type = get_args(param_type)[0]
+        params.append(
+            Param(
+                name=param_name,
+                description="",
+                data_type="array",
+                default_value=default_value
+                if default_value != inspect.Parameter.empty
+                else None,
+                required=default_value == inspect.Parameter.empty,
+            )
+        )
+        params.extend(process_input_type(f"{param_name}[]", item_type, None))
+    else:
+        params.append(
+            Param(
+                name=param_name,
+                description="",
+                data_type=json_datatype_from_python_type(param_type),
+                default_value=default_value
+                if default_value != inspect.Parameter.empty
+                else None,
+                required=default_value == inspect.Parameter.empty,
+            )
+        )
+
+    return params
+
+
 def function_metadata(func: Callable) -> FunctionMetadata:
     """
     Get metadata for a function.
@@ -191,22 +269,9 @@ def function_metadata(func: Callable) -> FunctionMetadata:
         else:
             param_type = "string"
 
-        is_optional = param.default != inspect.Parameter.empty
-        param_desc = (
-            param_doc.description if param_doc and param_doc.description else ""
+        input_parameters.extend(
+            process_input_type(param.name, param_type, param.default)
         )
-
-        _param = Param(
-            name=param.name,
-            description=param_desc,
-            data_type=json_datatype_from_python_type(param_type),
-            default_value=param.default
-            if param.default != inspect.Parameter.empty
-            else None,
-            required=not is_optional,
-        )
-
-        input_parameters.append(_param)
 
     output_parameters = process_return_annotation(
         sig.return_annotation, fn_return_description
