@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Callable, ClassVar, Dict, Optional, Union
 
 from pydantic import BaseModel
+from slugify import slugify
 
 
 class AgentifyMeError(Exception):
@@ -33,7 +34,9 @@ class BaseConfig(BaseModel):
         if name is None:
             name = re.sub(r"(?<!^)(?=[A-Z])", "_", module.__class__.__name__).lower()
 
-        if name not in cls._registry:
+        name = slugify(name)
+
+        if name and name not in cls._registry:
             cls._registry[name] = module
 
     @classmethod

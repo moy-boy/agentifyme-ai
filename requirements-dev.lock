@@ -210,6 +210,8 @@ shellingham==1.5.4
 six==1.16.0
     # via asttokens
     # via python-dateutil
+slugify==0.0.1
+    # via agentifyme
 sniffio==1.3.1
     # via anthropic
     # via anyio
