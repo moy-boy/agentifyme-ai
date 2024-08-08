@@ -1,14 +1,25 @@
+import ast
 import inspect
 import re
 from datetime import date, datetime
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Union, get_args, get_origin
+from textwrap import dedent
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+    Union,
+    get_args,
+    get_origin,
+    get_type_hints,
+)
 from uuid import UUID
 
 from docstring_parser import parse
-from pydantic import BaseModel
-
-from agentifyme.cache import F
+from pydantic import BaseModel, Field
 
 
 class Param(BaseModel):
@@ -28,11 +39,7 @@ class Param(BaseModel):
     data_type: str
     default_value: Any = None
     required: bool = False
-
-    class Config:
-        """Pydantic configuration."""
-
-        frozen = True
+    class_name: Optional[str] = None
 
 
 class FunctionMetadata(BaseModel):
@@ -51,12 +58,9 @@ class FunctionMetadata(BaseModel):
     description: str
     input_params: List[Param]
     output_params: List[Param]
+    input_parameters: Dict[str, Param] = Field(default_factory=dict)
+    output_parameters: Dict[str, Param] = Field(default_factory=dict)
     doc_string: str
-
-    class Config:
-        """Pydantic configuration."""
-
-        frozen = True
 
 
 def json_datatype_from_python_type(python_type: Any) -> str:
@@ -180,7 +184,7 @@ def process_return_annotation(
 
 
 def process_input_type(
-    param_name: str, param_type: Any, default_value: Any
+    param_name: str, param_type: Any, default_value: Any, description: str
 ) -> List[Param]:
     """
     Process input type and generate appropriate Param objects.
@@ -195,7 +199,7 @@ def process_input_type(
             params.append(
                 Param(
                     name=f"{param_name}.{field_name}",
-                    description=model_field.description or "",
+                    description=model_field.description or description or "",
                     data_type=json_datatype_from_python_type(field_type),
                     default_value=model_field.default,
                     required=model_field.is_required(),
@@ -206,13 +210,17 @@ def process_input_type(
         for union_type in union_types:
             if union_type is type(None):
                 continue
-            params.extend(process_input_type(param_name, union_type, default_value))
+            params.extend(
+                process_input_type(
+                    param_name, union_type, default_value, description=description or ""
+                )
+            )
     elif get_origin(param_type) in (list, List):
         item_type = get_args(param_type)[0]
         params.append(
             Param(
                 name=param_name,
-                description="",
+                description=description or "",
                 data_type="array",
                 default_value=default_value
                 if default_value != inspect.Parameter.empty
@@ -220,12 +228,16 @@ def process_input_type(
                 required=default_value == inspect.Parameter.empty,
             )
         )
-        params.extend(process_input_type(f"{param_name}[]", item_type, None))
+        params.extend(
+            process_input_type(
+                f"{param_name}[]", item_type, None, description=description or ""
+            )
+        )
     else:
         params.append(
             Param(
                 name=param_name,
-                description="",
+                description=description or "",
                 data_type=json_datatype_from_python_type(param_type),
                 default_value=default_value
                 if default_value != inspect.Parameter.empty
@@ -235,6 +247,50 @@ def process_input_type(
         )
 
     return params
+
+
+def get_function_metadata_with_ast(func: Callable) -> Tuple[List[str], List[str], str]:
+    """
+    Get metadata for a function.
+
+    Args:
+        func (Callable): The function to analyze.
+
+    Returns:
+        Tuple[List[str], List[str], str]: A tuple containing:
+            - List of argument names
+            - List of argument type annotations (or "Any" if not specified)
+            - Return type annotation (or "Any" if not specified)
+    """
+    # Get the source code of the function
+    source = inspect.getsource(func)
+    source = dedent(source)
+
+    # Parse the source code into an AST
+    tree = ast.parse(source)
+
+    # Find the function definition node
+    function_def = next(
+        node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)
+    )
+
+    # Extract argument names and type annotations
+    args = []
+    arg_types = []
+    for arg in function_def.args.args:
+        args.append(arg.arg)
+        if arg.annotation:
+            arg_types.append(ast.unparse(arg.annotation))
+        else:
+            arg_types.append("Any")
+
+    # Extract return type annotation
+    if function_def.returns:
+        return_type = ast.unparse(function_def.returns)
+    else:
+        return_type = "Any"
+
+    return args, arg_types, return_type
 
 
 def function_metadata(func: Callable) -> FunctionMetadata:
@@ -254,13 +310,26 @@ def function_metadata(func: Callable) -> FunctionMetadata:
             fn_short_description = parsed_docstring.short_description
         fn_parameters = parsed_docstring.params
 
+    # Get type hints
+    type_hints = get_type_hints(func)
+
+    # AST
+    ast_hints = get_function_metadata_with_ast(func)
+
     sig = inspect.signature(func)
+    func_args = get_args(sig.parameters)
+
     input_parameters: List[Param] = []
     for param in sig.parameters.values():
         if param.name == "self":
             continue
 
         param_doc = next((p for p in fn_parameters if p.arg_name == param.name), None)
+        print("Param doc:", param_doc)
+
+        print("Param:", param)
+        print("Param annotation:", param.annotation)
+        print("Param default:", param.default)
 
         if param.annotation != inspect.Parameter.empty:
             param_type = param.annotation
@@ -269,8 +338,10 @@ def function_metadata(func: Callable) -> FunctionMetadata:
         else:
             param_type = "string"
 
+        param_description = param_doc.description if param_doc else ""
+
         input_parameters.extend(
-            process_input_type(param.name, param_type, param.default)
+            process_input_type(param.name, param_type, param.default, param_description)
         )
 
     output_parameters = process_return_annotation(
