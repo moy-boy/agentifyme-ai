@@ -48,4 +48,6 @@ class BaseLogger:
 
 # Convenience function
 def get_logger() -> structlog.BoundLogger:
+    if BaseLogger._logger is None:
+        BaseLogger.configure()
     return BaseLogger.get_logger()

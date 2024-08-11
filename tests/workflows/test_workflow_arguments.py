@@ -37,13 +37,13 @@ def greet(name: str) -> str:
 
 
 def test_simple_workflow():
-    workflow = WorkflowConfig._registry["greet"]
-    result = workflow.run(name="Alice")
-    assert result == {"output": "Hello, Alice!"}
+    _workflow = WorkflowConfig.get("greet")
+    result = _workflow(name="Alice")
+    assert result == "Hello, Alice!"
 
 
 def test_complex_workflow():
-    workflow = WorkflowConfig._registry["Classify email"]
+    _workflow = WorkflowConfig.get("classify-email")
     input_data = {
         "email_message": {
             "from_": "sender@example.com",
@@ -55,23 +55,24 @@ def test_complex_workflow():
             "created_at": "2023-08-06T12:00:00",
         }
     }
-    result = workflow.run(**input_data)
-    assert result == {"category": "actionable", "confidence": 0.9}
+    result = _workflow(**input_data)
+    assert result.category == "actionable"
+    assert result.confidence == 0.9
 
 
 def test_invalid_input():
-    workflow = WorkflowConfig._registry["greet"]
+    _workflow = WorkflowConfig.get("greet")
     with pytest.raises(ValueError):
-        workflow.run(invalid_param="Alice")
+        _workflow.run(invalid_param="Alice")
 
 
 def test_missing_required_input():
-    workflow = WorkflowConfig._registry["greet"]
+    _workflow = WorkflowConfig.get("greet")
     with pytest.raises(ValueError):
-        workflow.run()
+        _workflow.run()
 
 
 def test_extra_input_ignored():
-    workflow = WorkflowConfig._registry["greet"]
-    result = workflow.run(name="Bob", extra_param="Ignored")
-    assert result == {"output": "Hello, Bob!"}
+    _workflow = WorkflowConfig.get("greet")
+    result = _workflow.run(name="Bob", extra_param="Ignored")
+    assert result == "Hello, Bob!"

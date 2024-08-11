@@ -1,5 +1,7 @@
 import ast
+import functools
 import inspect
+import warnings
 from typing import (
     Any,
     Callable,
@@ -55,6 +57,19 @@ class FunctionMetadata(BaseModel):
     input_parameters: Dict[str, Param]
     output_parameters: List[Param]
     doc_string: str
+
+
+def deprecated(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        warnings.warn(
+            f"Function {func.__name__} is deprecated",
+            category=DeprecationWarning,
+            stacklevel=2,
+        )
+        return func(*args, **kwargs)
+
+    return wrapper
 
 
 def json_datatype_from_python_type(python_type: Any) -> str:
@@ -262,7 +277,7 @@ def get_function_metadata(func: Callable) -> FunctionMetadata:
     )
 
 
-def convert_json_to_args(func: callable, json_data: Dict[str, Any]) -> Dict[str, Any]:
+def convert_json_to_args(func: Callable, json_data: Dict[str, Any]) -> Dict[str, Any]:
     """
     Convert JSON data to function arguments based on function signature and type hints.
 
@@ -290,7 +305,12 @@ def convert_json_to_args(func: callable, json_data: Dict[str, Any]) -> Dict[str,
 
         if isinstance(param_type, type) and issubclass(param_type, BaseModel):
             try:
-                converted_args[param_name] = param_type(**value)
+                # If the value is already a Pydantic model instance, use it directly
+                if isinstance(value, param_type):
+                    converted_args[param_name] = value
+                else:
+                    # Otherwise, create a new instance
+                    converted_args[param_name] = param_type(**value)
             except ValidationError as e:
                 raise ValueError(f"Invalid data for parameter {param_name}: {str(e)}")
         else:
@@ -299,6 +319,7 @@ def convert_json_to_args(func: callable, json_data: Dict[str, Any]) -> Dict[str,
     return converted_args
 
 
+@deprecated
 def validate_and_call_workflow(
     workflow_func: Callable, json_data: Dict[str, Any]
 ) -> Any:
@@ -315,8 +336,25 @@ def validate_and_call_workflow(
     Raises:
         ValueError: If the JSON data is invalid or doesn't match the function signature.
     """
+    return execute_function(workflow_func, json_data)
+
+
+def execute_function(func: Callable, json_data: Dict[str, Any]) -> Any:
+    """
+    Executes the given function with the provided JSON data as arguments.
+
+    Args:
+        func (Callable): The function to be executed.
+        json_data (Dict[str, Any]): The JSON data containing the arguments for the function.
+
+    Raises:
+        ValueError: If a required parameter is missing or if the type of a parameter is invalid.
+
+    Returns:
+        Any: The result of the function execution.
+    """
     # Get function metadata
-    metadata: FunctionMetadata = get_function_metadata(workflow_func)
+    metadata: FunctionMetadata = get_function_metadata(func)
 
     # Validate input parameters
     for param_name, param in metadata.input_parameters.items():
@@ -325,8 +363,9 @@ def validate_and_call_workflow(
 
         if param_name in json_data:
             # You might want to add more specific type checking here
-            if param.data_type == "object" and not isinstance(
-                json_data[param_name], dict
+            if param.data_type == "object" and not (
+                isinstance(json_data[param_name], dict)
+                or isinstance(json_data[param_name], BaseModel)
             ):
                 raise ValueError(
                     f"Invalid type for parameter {param_name}. Expected object, got {type(json_data[param_name])}"
@@ -339,9 +378,9 @@ def validate_and_call_workflow(
                 )
 
     # Convert JSON to function arguments
-    args = convert_json_to_args(workflow_func, json_data)
+    args = convert_json_to_args(func, json_data)
 
-    # Call the workflow function
-    result = workflow_func(**args)
+    # Call the workflow workflow function
+    result = func(**args)
 
     return result

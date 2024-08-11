@@ -4,8 +4,8 @@ import pytest
 import structlog
 from structlog.testing import LogCapture
 
+from agentifyme.logger import get_logger
 from agentifyme.tasks import Task, TaskConfig, task
-from agentifyme.utilities.log import configure_logger, get_logger
 
 
 @pytest.fixture(name="log_output")
@@ -33,8 +33,12 @@ def test_task_logger(log_output):
     # The log_output fixture captures the log entries
     assert log_output.entries == [
         {
-            "event": "Saying hello",
-            "name": "world",
+            "event": "Running task: say_hello",
             "log_level": "info",
+        },
+        {
+            "event": "Saying hello",
+            "log_level": "info",
+            "name": "world",
         },
     ]

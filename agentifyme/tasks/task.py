@@ -1,9 +1,22 @@
-import functools
-from typing import Any, Callable, List, Optional, ParamSpec, TypeVar, Union, overload
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Union,
+    overload,
+)
 
 from agentifyme.base_config import BaseConfig, BaseModule
-from agentifyme.tools import Tool
-from agentifyme.utilities.meta import Param, function_metadata
+from agentifyme.logger import get_logger
+from agentifyme.utilities.func_utils import (
+    Param,
+    execute_function,
+    get_function_metadata,
+)
+
+logger = get_logger()
 
 
 class TaskError(Exception):
@@ -27,8 +40,8 @@ class TaskConfig(BaseConfig):
     objective: Optional[str] = None
     instructions: Optional[str] = None
     # tools: Optional[List[Tool]]
-    input_params: List[Param]
-    output_params: List[Param]
+    input_parameters: Dict[str, Param]
+    output_parameters: List[Param]
 
 
 class Task(BaseModule):
@@ -36,11 +49,14 @@ class Task(BaseModule):
         super().__init__(config, **kwargs)
         self.config = config
 
-    def run(self, *args: Any, **kwargs: Any) -> Any:
-        print("Task.run", self.config.name, args, kwargs)
+    def run(self, *args, **kwargs: Any) -> Any:
+        logger.info(f"Running task: {self.config.name}")
         if self.config.func:
             kwargs.update(zip(self.config.func.__code__.co_varnames, args))
-            return self.config.func(**kwargs)
+            result = execute_function(self.config.func, kwargs)
+            return result
+        else:
+            raise NotImplementedError("Task function not implemented")
 
 
 @overload
@@ -62,12 +78,12 @@ def task(
     # tools: Optional[List[Tool]] = None,
 ) -> Callable[..., Any]:
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-        func_metadata = function_metadata(func)
+        func_metadata = get_function_metadata(func)
         task_config = TaskConfig(
             name=func_metadata.name,
             description=description or func_metadata.description,
-            input_params=func_metadata.input_params,
-            output_params=func_metadata.output_params,
+            input_parameters=func_metadata.input_parameters,
+            output_parameters=func_metadata.output_parameters,
             objective=objective,
             instructions=instructions,
             func=func,
@@ -78,7 +94,8 @@ def task(
         TaskConfig.register(_task_instance)
 
         def wrapper(*args, **kwargs) -> Any:
-            result = _task_instance(*args, **kwargs)
+            kwargs.update(zip(func.__code__.co_varnames, args))
+            result = _task_instance(**kwargs)
             return result
 
         # pylint: disable=protected-access

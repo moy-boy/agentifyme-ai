@@ -49,18 +49,17 @@ def test_task_registry_pydantic_arguments():
         icons: list[str]
 
     @task
-    def get_quote(question: QuoteRequest) -> QuoteResponse | None:
+    def get_quote(question: QuoteRequest) -> QuoteResponse:
         return QuoteResponse(
             quote="Hello, world!", author="AgentifyMe", icons=["🚀", "🤖"]
         )
 
+    question = QuoteRequest(question="What is the meaning of life?")
+    response = get_quote(question=question)
+
     assert get_quote(
         QuoteRequest(question="What is the meaning of life?")
     ) == QuoteResponse(quote="Hello, world!", author="AgentifyMe", icons=["🚀", "🤖"])
-
-    for task_name, task_instance in TaskConfig._registry.items():
-        print(task_name, task_instance)
-        print(task_instance.config.model_dump_json(indent=2, exclude={"func"}))
 
 
 def test_task_with_name_and_description():

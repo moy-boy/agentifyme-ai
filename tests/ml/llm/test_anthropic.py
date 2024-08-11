@@ -79,6 +79,8 @@ def test_anthropic_language_model_max_tokens(
 def test_anthropic_language_model_error_handling(
     anthropic_language_model_claude_3_haiku: LanguageModelConfig,
 ):
+    import anthropic
+
     # Intentionally use an invalid API key
     invalid_config = LanguageModelConfig(
         model=LanguageModelType.ANTHROPIC_CLAUDE_3_HAIKU, api_key="invalid_key"
@@ -87,7 +89,7 @@ def test_anthropic_language_model_error_handling(
 
     prompt = "This should fail due to invalid API key."
 
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(anthropic.AuthenticationError) as excinfo:
         language_model.generate_from_prompt(prompt)
 
-    assert "Anthropic API call failed" in str(excinfo.value)
+    assert "invalid x-api-key" in str(excinfo.value)
