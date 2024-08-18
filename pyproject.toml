@@ -1,6 +1,6 @@
 [project]
 name = "agentifyme"
-version = "0.0.11"
+version = "0.0.12"
 description = "Framework for building agentic workflows"
 authors = [
     { name = "Arun Reddy", email = "arun@agentifyme.ai" }
@@ -23,6 +23,8 @@ dependencies = [
     "cohere>=5.6.2",
     "jinja2>=3.1.4",
     "python-slugify>=8.0.4",
+    "networkx>=3.3",
+    "pyvis>=0.3.2",
 ]
 readme = "README.md"
 requires-python = ">= 3.8"
@@ -41,6 +43,7 @@ dev-dependencies = [
     "pytest-cov>=5.0.0",
     "ipykernel>=6.29.5",
     "pytest-mock>=3.14.0",
+    "pytest-asyncio>=0.23.8",
 ]
 
 [tool.hatch.metadata]

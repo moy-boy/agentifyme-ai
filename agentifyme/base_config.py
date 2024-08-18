@@ -1,8 +1,9 @@
+import asyncio
 import re
 from abc import ABC, abstractmethod
-from typing import Any, Callable, ClassVar, Dict, Optional, Union
+from typing import Any, Callable, ClassVar, Coroutine, Dict, Optional, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class AgentifyMeError(Exception):
@@ -17,8 +18,10 @@ class BaseConfig(BaseModel):
     name: Optional[str] = None
     slug: Optional[str] = None
     description: Optional[str] = None
-    func: Union[Callable[..., Any], None] = None
+    func: Optional[Callable[..., Any]] = None
     _registry: ClassVar[Dict[str, "BaseModule"]] = {}
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @classmethod
     def register(cls, module: "BaseModule"):
@@ -57,27 +60,32 @@ class BaseConfig(BaseModel):
         Returns:
             BaseModule: The module.
 
+        Raises:
+            AgentifyMeError: If the module is not found in the registry.
         """
-
         base_module = cls._registry.get(name)
         if base_module is None:
             raise AgentifyMeError(f"Module {name} not found in registry.")
-
         return base_module
 
 
 class BaseModule(ABC):
-    """
-    Base class for modules in the agentifyme framework.
-    """
+    """Base class for modules in the agentifyme framework."""
 
     name = None
 
     def __init__(self, config: BaseConfig, **kwargs: Any):
         self.config = config
 
-    def __call__(self, *args, **kwargs: Any):
-        return self.run(*args, **kwargs)
+    def __call__(self, *args, **kwargs: Any) -> Any:
+        with self:
+            return self.run(*args, **kwargs)
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        pass
 
     def __enter__(self):
         return self
@@ -86,5 +94,9 @@ class BaseModule(ABC):
         pass
 
     @abstractmethod
-    def run(self, *args, **kwargs: Any):
+    def run(self, *args, **kwargs: Any) -> Any:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def arun(self, *args, **kwargs: Any) -> Any:
         raise NotImplementedError

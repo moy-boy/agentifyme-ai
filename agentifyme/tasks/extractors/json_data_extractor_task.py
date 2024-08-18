@@ -11,7 +11,7 @@ from agentifyme.ml.llm import (
     get_language_model,
 )
 from agentifyme.tasks.task import Task, TaskConfig
-from agentifyme.utilities.meta import Param
+from agentifyme.utilities.func_utils import Param
 
 
 class JSONParsingError(Exception):
@@ -41,14 +41,14 @@ class JSONDataExtractorTask(Task):
             config = TaskConfig(
                 name="JSON Data Extractor",
                 description="Extracts a JSON object from a given text.",
-                input_params=[
-                    Param(
+                input_parameters={
+                    "text": Param(
                         name="text",
                         data_type="str",
                         description="The text to extract JSON from.",
                     )
-                ],
-                output_params=[
+                },
+                output_parameters=[
                     Param(
                         name="json",
                         data_type="str",
@@ -166,6 +166,44 @@ class JSONDataExtractorTask(Task):
 
         return "No JSON Found"
 
+    async def arun(
+        self,
+        text: str,
+        output_schema: Optional[Union[str, Dict[str, Any]]] = None,
+    ) -> Union[str, Dict[str, Any]]:
+        output_schema = output_schema or self.output_schema
+        if output_schema is None:
+            raise ValueError("output_schema must be provided")
+
+        if self.prompt_template is None:
+            raise ValueError("prompt_template must be provided")
+
+        for attempt in range(self.max_retries):
+            try:
+                prompt = self.prompt_template.format(
+                    output_schema=output_schema,
+                    text=text,
+                )
+
+                response = self.language_model.generate_from_prompt(prompt)
+
+                if response.message is not None:
+                    # Extract JSON from the response
+                    json_data = self.extract_json(response.message)
+
+                    if json_data is not None:
+                        return json_data
+
+                    # If no JSON is found, raise an error
+                    raise JSONParsingError("No JSON object found in the response")
+
+            except (JSONParsingError, LLMResponseError) as e:
+                if attempt == self.max_retries - 1:
+                    raise
+                logging.warning(f"Attempt {attempt + 1} failed: {e}. Retrying...")
+
+        return "No JSON Found"
+
 
 class PydanticDataExtractorTask(Task):
     def __init__(
@@ -182,14 +220,14 @@ class PydanticDataExtractorTask(Task):
             config = TaskConfig(
                 name="Pydantic Data Extractor",
                 description="Extracts a JSON object from a given text.",
-                input_params=[
-                    Param(
+                input_parameters={
+                    "text": Param(
                         name="text",
                         data_type="str",
                         description="The text to extract JSON from.",
                     )
-                ],
-                output_params=[
+                },
+                output_parameters=[
                     Param(
                         name="json",
                         data_type="str",
@@ -207,14 +245,14 @@ class PydanticDataExtractorTask(Task):
             config=TaskConfig(
                 name="JSON Data Extractor",
                 description="Extracts a JSON object from a given text.",
-                input_params=[
-                    Param(
+                input_parameters={
+                    "text": Param(
                         name="text",
                         data_type="str",
                         description="The text to extract JSON from.",
                     )
-                ],
-                output_params=[
+                },
+                output_parameters=[
                     Param(
                         name="json",
                         data_type="str",
@@ -236,6 +274,25 @@ class PydanticDataExtractorTask(Task):
 
         output_schema = output_type.model_json_schema()
         json_data = self.json_extractor_task.run(text, output_schema=output_schema)
+
+        if isinstance(json_data, str):
+            raise JSONParsingError("No JSON object found in the response")
+
+        return output_type(**json_data)
+
+    async def arun(
+        self, input_data: Union[str, Dict[str, Any]], output_type: Type[BaseModel]
+    ) -> BaseModel:
+        text = ""
+        if isinstance(input_data, str):
+            text = input_data
+        elif isinstance(input_data, dict):
+            text = json.dumps(input_data, indent=2)
+
+        output_schema = output_type.model_json_schema()
+        json_data = await self.json_extractor_task.arun(
+            text, output_schema=output_schema
+        )
 
         if isinstance(json_data, str):
             raise JSONParsingError("No JSON object found in the response")

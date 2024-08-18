@@ -1,12 +1,5 @@
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    List,
-    Optional,
-    Union,
-    overload,
-)
+import asyncio
+from typing import Any, Callable, Coroutine, Dict, List, Optional, Union, overload
 
 from agentifyme.base_config import BaseConfig, BaseModule
 from agentifyme.logger import get_logger
@@ -20,6 +13,14 @@ logger = get_logger()
 
 
 class TaskError(Exception):
+    pass
+
+
+class TaskExecutionError(TaskError):
+    pass
+
+
+class AsyncTaskExecutionError(TaskError):
     pass
 
 
@@ -53,8 +54,28 @@ class Task(BaseModule):
         logger.info(f"Running task: {self.config.name}")
         if self.config.func:
             kwargs.update(zip(self.config.func.__code__.co_varnames, args))
-            result = execute_function(self.config.func, kwargs)
-            return result
+            try:
+                return execute_function(self.config.func, kwargs)
+            except Exception as e:
+                raise TaskExecutionError(
+                    f"Error executing task {self.config.name}: {str(e)}"
+                ) from e
+        else:
+            raise NotImplementedError("Task function not implemented")
+
+    async def arun(self, *args, **kwargs: Any) -> Any:
+        logger.info(f"Running async task: {self.config.name}")
+        if self.config.func:
+            kwargs.update(zip(self.config.func.__code__.co_varnames, args))
+            try:
+                if asyncio.iscoroutinefunction(self.config.func):
+                    return await self.config.func(**kwargs)
+                else:
+                    return await asyncio.to_thread(self.config.func, **kwargs)
+            except Exception as e:
+                raise AsyncTaskExecutionError(
+                    f"Error executing async task {self.config.name}: {str(e)}"
+                ) from e
         else:
             raise NotImplementedError("Task function not implemented")
 
@@ -69,7 +90,7 @@ def task(*, name: str, description: Optional[str] = None) -> Callable[..., Any]:
 
 
 def task(
-    func: Union[Callable[..., Any], None] = None,
+    func: Optional[Callable[..., Any]] = None,
     *,
     name: Optional[str] = None,
     description: Optional[str] = None,
@@ -98,8 +119,23 @@ def task(
             result = _task_instance(**kwargs)
             return result
 
-        # pylint: disable=protected-access
+        # Add visualization metadata
         wrapper.__agentifyme = _task_instance  # type: ignore
+        wrapper.__agentifyme_metadata = {  # type: ignore
+            "type": "task",
+            "name": task_config.name,
+            "description": task_config.description,
+            "objective": task_config.objective,
+            "instructions": task_config.instructions,
+            "input_parameters": {
+                name: param.name for name, param in task_config.input_parameters.items()
+            },
+            "output_parameters": [
+                param.name for param in task_config.output_parameters
+            ],
+        }
+
+        # pylint: enable=protected-access
 
         return wrapper
 

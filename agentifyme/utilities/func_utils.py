@@ -5,6 +5,7 @@ import warnings
 from typing import (
     Any,
     Callable,
+    Coroutine,
     Dict,
     List,
     Optional,
