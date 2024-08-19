@@ -23,8 +23,6 @@ dependencies = [
     "cohere>=5.6.2",
     "jinja2>=3.1.4",
     "python-slugify>=8.0.4",
-    "networkx>=3.3",
-    "pyvis>=0.3.2",
 ]
 readme = "README.md"
 requires-python = ">= 3.8"

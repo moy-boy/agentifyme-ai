@@ -105,12 +105,10 @@ iniconfig==2.0.0
 ipykernel==6.29.5
 ipython==8.26.0
     # via ipykernel
-    # via pyvis
 jedi==0.19.1
     # via ipython
 jinja2==3.1.4
     # via agentifyme
-    # via pyvis
 jiter==0.5.0
     # via anthropic
 jmespath==1.0.1
@@ -118,8 +116,6 @@ jmespath==1.0.1
     # via botocore
 joblib==1.4.2
     # via agentifyme
-jsonpickle==3.2.2
-    # via pyvis
 jupyter-client==8.6.2
     # via ipykernel
 jupyter-core==5.7.2
@@ -141,9 +137,6 @@ multidict==6.0.5
     # via yarl
 nest-asyncio==1.6.0
     # via ipykernel
-networkx==3.3
-    # via agentifyme
-    # via pyvis
 numpy==2.0.1
     # via pyarrow
     # via together
@@ -201,8 +194,6 @@ python-dateutil==2.9.0.post0
 python-dotenv==1.0.1
     # via environs
 python-slugify==8.0.4
-    # via agentifyme
-pyvis==0.3.2
     # via agentifyme
 pyyaml==6.0.1
     # via huggingface-hub

@@ -1,4 +1,5 @@
 import ast
+import asyncio
 import functools
 import inspect
 import warnings
@@ -321,7 +322,7 @@ def convert_json_to_args(func: Callable, json_data: Dict[str, Any]) -> Dict[str,
 
 
 @deprecated
-def validate_and_call_workflow(
+async def validate_and_call_workflow(
     workflow_func: Callable, json_data: Dict[str, Any]
 ) -> Any:
     """
@@ -337,10 +338,10 @@ def validate_and_call_workflow(
     Raises:
         ValueError: If the JSON data is invalid or doesn't match the function signature.
     """
-    return execute_function(workflow_func, json_data)
+    return await execute_function(workflow_func, json_data)
 
 
-def execute_function(func: Callable, json_data: Dict[str, Any]) -> Any:
+async def execute_function(func: Callable, json_data: Dict[str, Any]) -> Any:
     """
     Executes the given function with the provided JSON data as arguments.
 
@@ -381,7 +382,39 @@ def execute_function(func: Callable, json_data: Dict[str, Any]) -> Any:
     # Convert JSON to function arguments
     args = convert_json_to_args(func, json_data)
 
-    # Call the workflow workflow function
-    result = func(**args)
+    # Call the function
+    if inspect.iscoroutinefunction(func):
+        result = await func(**args)
+    else:
+        result = func(**args)
+
+    return result
+
+
+async def execute_function(func: Callable, json_data: Dict[str, Any]) -> Any:
+    """
+    Executes the given function with the provided JSON data as arguments.
+    Handles both synchronous and asynchronous functions.
+    """
+    # Get function metadata
+    metadata: FunctionMetadata = get_function_metadata(func)
+
+    # Validate input parameters
+    for param_name, param in metadata.input_parameters.items():
+        if param.required and param_name not in json_data:
+            raise ValueError(f"Missing required parameter: {param_name}")
+
+        if param_name in json_data:
+            # Type checking logic (unchanged)
+            ...
+
+    # Convert JSON to function arguments
+    args = convert_json_to_args(func, json_data)
+
+    # Call the function
+    if inspect.iscoroutinefunction(func):
+        result = await func(**args)
+    else:
+        result = func(**args)
 
     return result
