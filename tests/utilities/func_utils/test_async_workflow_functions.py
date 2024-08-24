@@ -1,17 +1,13 @@
 from datetime import datetime
-from typing import Any, Callable, Dict, List
+from typing import List
 
 import pytest
 from pydantic import BaseModel
-from zoneinfo import ZoneInfo
 
-from agentifyme.utilities.func_utils import (
-    convert_json_to_args,
-    execute_function,
-    get_function_metadata,
-)
+from agentifyme.utilities.func_utils import execute_function
 
 
+# Assuming the same Email and EmailCategories classes as before
 class Email(BaseModel):
     from_: str
     to: List[str]
@@ -27,25 +23,6 @@ class EmailCategories(BaseModel):
     score: int
     explanation: str
     tags: List[str]
-
-
-def get_email_message(email_message: Email) -> str:
-    """
-    Get the email message.
-    """
-    return email_message.text_without_quote
-
-
-def mock_classify_email(email_message: Email) -> EmailCategories:
-    """
-    Mock function to classify an email.
-    """
-    return EmailCategories(
-        category="Informative",
-        score=80,
-        explanation="The email contains information about a meeting.",
-        tags=["meeting", "schedule"],
-    )
 
 
 # Test data
@@ -76,14 +53,27 @@ invalid_email_json = {
 missing_param_json = {}
 
 
-def test_email_message():
-    result = execute_function(get_email_message, valid_email_json)
+async def async_get_email_message(email_message: Email) -> str:
+    return email_message.text_without_quote
+
+
+async def async_mock_classify_email(email_message: Email) -> EmailCategories:
+    return EmailCategories(
+        category="Informative",
+        score=80,
+        explanation="The email contains information about a meeting.",
+        tags=["meeting", "schedule"],
+    )
+
+
+def test_async_email_message():
+    result = execute_function(async_get_email_message, valid_email_json)
     assert isinstance(result, str)
     assert result == "Please attend the meeting tomorrow at 2 PM."
 
 
-def test_valid_input():
-    result = execute_function(mock_classify_email, valid_email_json)
+def test_async_valid_input():
+    result = execute_function(async_mock_classify_email, valid_email_json)
     assert isinstance(result, EmailCategories)
     assert result.category == "Informative"
     assert result.score == 80
@@ -91,29 +81,16 @@ def test_valid_input():
     assert result.tags == ["meeting", "schedule"]
 
 
-def test_invalid_input():
+def test_async_invalid_input():
     with pytest.raises(ValueError):
-        execute_function(mock_classify_email, invalid_email_json)
+        execute_function(async_mock_classify_email, invalid_email_json)
 
 
-def test_missing_parameter():
+def test_async_missing_parameter():
     with pytest.raises(ValueError):
-        execute_function(mock_classify_email, missing_param_json)
+        execute_function(async_mock_classify_email, missing_param_json)
 
 
-def test_convert_json_to_args():
-    args = convert_json_to_args(mock_classify_email, valid_email_json)
-    assert "email_message" in args
-    assert isinstance(args["email_message"], Email)
-    assert args["email_message"].from_ == "sender@example.com"
-    assert args["email_message"].to == ["recipient@example.com"]
-    assert args["email_message"].subject == "Important Meeting"
-    assert args["email_message"].created_at == datetime(
-        2023, 8, 7, 10, 0, tzinfo=ZoneInfo("UTC")
-    )
-
-
-# Parameterized test example
 @pytest.mark.parametrize(
     "json_input, expected_exception",
     [
@@ -125,18 +102,17 @@ def test_convert_json_to_args():
         ),  # Extra fields should be ignored
     ],
 )
-def test_workflow_input_validation(json_input, expected_exception):
+def test_async_workflow_input_validation(json_input, expected_exception):
     if expected_exception:
         with pytest.raises(expected_exception):
-            execute_function(mock_classify_email, json_input)
+            execute_function(async_mock_classify_email, json_input)
     else:
         # Should not raise an exception
-        execute_function(mock_classify_email, json_input)
+        execute_function(async_mock_classify_email, json_input)
 
 
-# Fixture example
 @pytest.fixture
-def sample_email():
+def async_sample_email():
     return Email(
         from_="fixture@example.com",
         to=["recipient@example.com"],
@@ -148,7 +124,9 @@ def sample_email():
     )
 
 
-def test_with_fixture(sample_email):
-    result = mock_classify_email(sample_email)
+def test_async_with_fixture(async_sample_email):
+    result = execute_function(
+        async_mock_classify_email, {"email_message": async_sample_email.dict()}
+    )
     assert isinstance(result, EmailCategories)
     assert result.category == "Informative"

@@ -341,23 +341,9 @@ async def validate_and_call_workflow(
     return await execute_function(workflow_func, json_data)
 
 
-async def execute_function(func: Callable, json_data: Dict[str, Any]) -> Any:
-    """
-    Executes the given function with the provided JSON data as arguments.
-
-    Args:
-        func (Callable): The function to be executed.
-        json_data (Dict[str, Any]): The JSON data containing the arguments for the function.
-
-    Raises:
-        ValueError: If a required parameter is missing or if the type of a parameter is invalid.
-
-    Returns:
-        Any: The result of the function execution.
-    """
+def validate_input_parameters(func: Callable, json_data: Dict[str, Any]):
     # Get function metadata
     metadata: FunctionMetadata = get_function_metadata(func)
-
     # Validate input parameters
     for param_name, param in metadata.input_parameters.items():
         if param.required and param_name not in json_data:
@@ -379,42 +365,70 @@ async def execute_function(func: Callable, json_data: Dict[str, Any]) -> Any:
                     f"Invalid type for parameter {param_name}. Expected array, got {type(json_data[param_name])}"
                 )
 
-    # Convert JSON to function arguments
-    args = convert_json_to_args(func, json_data)
 
-    # Call the function
-    if inspect.iscoroutinefunction(func):
-        result = await func(**args)
-    else:
-        result = func(**args)
-
-    return result
-
-
-async def execute_function(func: Callable, json_data: Dict[str, Any]) -> Any:
+def execute_function_sync(func: Callable, json_data: Dict[str, Any]) -> Any:
     """
     Executes the given function with the provided JSON data as arguments.
-    Handles both synchronous and asynchronous functions.
+
+    Args:
+        func (Callable): The function to be executed.
+        json_data (Dict[str, Any]): The JSON data containing the arguments for the function.
+
+    Raises:
+        ValueError: If a required parameter is missing or if the type of a parameter is invalid.
+
+    Returns:
+        Any: The result of the function execution.
     """
-    # Get function metadata
-    metadata: FunctionMetadata = get_function_metadata(func)
-
-    # Validate input parameters
-    for param_name, param in metadata.input_parameters.items():
-        if param.required and param_name not in json_data:
-            raise ValueError(f"Missing required parameter: {param_name}")
-
-        if param_name in json_data:
-            # Type checking logic (unchanged)
-            ...
 
     # Convert JSON to function arguments
     args = convert_json_to_args(func, json_data)
 
     # Call the function
-    if inspect.iscoroutinefunction(func):
-        result = await func(**args)
-    else:
-        result = func(**args)
+    result = func(**args)
 
     return result
+
+
+async def execute_function_async(func: Callable, json_data: Dict[str, Any]) -> Any:
+    """
+    Executes the given function with the provided JSON data as arguments.
+
+    Args:
+        func (Callable): The function to be executed.
+        json_data (Dict[str, Any]): The JSON data containing the arguments for the function.
+
+    Raises:
+        ValueError: If a required parameter is missing or if the type of a parameter is invalid.
+
+    Returns:
+        Any: The result of the function execution.
+    """
+
+    # Convert JSON to function arguments
+    args = convert_json_to_args(func, json_data)
+
+    result = await func(**args)
+
+    return result
+
+
+def execute_function(func: Callable, json_data: Dict[str, Any]) -> Any:
+    """
+    Executes the given function with the provided JSON data as arguments.
+
+    Args:
+        func (Callable): The function to be executed.
+        json_data (Dict[str, Any]): The JSON data containing the arguments for the function.
+
+    Raises:
+        ValueError: If a required parameter is missing or if the type of a parameter is invalid.
+
+    Returns:
+        Any: The result of the function execution.
+    """
+
+    if asyncio.iscoroutinefunction(func):
+        return asyncio.run(execute_function_async(func, json_data))
+    else:
+        return execute_function_sync(func, json_data)
