@@ -1,6 +1,6 @@
 [project]
 name = "agentifyme"
-version = "0.0.14"
+version = "0.0.16"
 description = "Framework for building agentic workflows"
 authors = [
     { name = "Arun Reddy", email = "arun@agentifyme.ai" }
