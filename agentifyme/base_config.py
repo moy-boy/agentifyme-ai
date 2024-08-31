@@ -1,7 +1,6 @@
-import asyncio
 import re
 from abc import ABC, abstractmethod
-from typing import Any, Callable, ClassVar, Coroutine, Dict, Optional, Union
+from typing import Any, Callable, ClassVar, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict
 
@@ -67,6 +66,26 @@ class BaseConfig(BaseModel):
         if base_module is None:
             raise AgentifyMeError(f"Module {name} not found in registry.")
         return base_module
+
+    @classmethod
+    def get_all(cls) -> List[str]:
+        """
+        Get all the modules in the registry.
+
+        Returns:
+            List[str]: The names of the modules.
+        """
+        return list(cls._registry.keys())
+
+    @classmethod
+    def get_registry(cls) -> Dict[str, "BaseModule"]:
+        """
+        Get the registry.
+
+        Returns:
+            Dict[str, BaseModule]: The registry.
+        """
+        return cls._registry
 
 
 class BaseModule(ABC):
