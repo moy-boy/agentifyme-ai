@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Callable, List, Optional
 
 import structlog
 
@@ -6,6 +6,11 @@ import structlog
 class BaseLogger:
     _instance: Optional["BaseLogger"] = None
     _logger: Optional[structlog.BoundLogger] = None
+    _processors: List[Callable] = [
+        structlog.processors.add_log_level,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ]
 
     def __new__(cls):
         if cls._instance is None:
@@ -13,41 +18,37 @@ class BaseLogger:
         return cls._instance
 
     @classmethod
-    def initialize(cls, logger: structlog.BoundLogger):
-        if cls._logger is None:
-            cls._logger = logger
-        else:
-            print("Warning: Logger was already initialized. Ignoring this call.")
+    def configure(cls, additional_processors: List[Callable] = None):
+        """
+        Configure the structlog logger with the option to add additional processors.
+        """
+        processors = cls._processors.copy()
+        if additional_processors:
+            processors = additional_processors + processors
+
+        structlog.configure(
+            processors=processors,
+            wrapper_class=structlog.BoundLogger,
+            logger_factory=structlog.PrintLoggerFactory(),
+            cache_logger_on_first_use=False,  # Important: Disable caching
+        )
+        cls._logger = structlog.get_logger()
 
     @classmethod
     def get_logger(cls) -> structlog.BoundLogger:
         if cls._logger is None:
-            raise RuntimeError(
-                "Logger has not been initialized. Call BaseLogger.initialize() first."
-            )
+            cls.configure()
         return cls._logger
 
     @classmethod
-    def configure(cls):
+    def add_processors(cls, processors: List[Callable]):
         """
-        Configure the basic structlog logger.
-        Override this method to customize the logger configuration.
+        Add new processors to the logger configuration.
         """
-        structlog.configure(
-            processors=[
-                structlog.processors.add_log_level,
-                structlog.processors.TimeStamper(fmt="iso"),
-                structlog.processors.JSONRenderer(),
-            ],
-            wrapper_class=structlog.BoundLogger,
-            logger_factory=structlog.PrintLoggerFactory(),
-        )
-        logger = structlog.get_logger()
-        cls.initialize(logger)
+        cls._processors = processors + cls._processors
+        cls.configure()
 
 
 # Convenience function
 def get_logger() -> structlog.BoundLogger:
-    if BaseLogger._logger is None:
-        BaseLogger.configure()
     return BaseLogger.get_logger()
