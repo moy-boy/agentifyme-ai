@@ -1,6 +1,6 @@
 from typing import Any
 
-from agentifyme.base_config import BaseConfig, BaseModule
+from agentifyme.config import BaseConfig, BaseModule
 
 
 class TriggerError(Exception):
@@ -21,7 +21,6 @@ class Trigger(BaseModule):
         self.config = config
 
     def run(self, *args: Any, **kwargs: Any) -> Any:
-        print("Trigger.run", self.config.name, args, kwargs)
         if self.config.func:
             kwargs.update(zip(self.config.func.__code__.co_varnames, args))
             return self.config.func(**kwargs)

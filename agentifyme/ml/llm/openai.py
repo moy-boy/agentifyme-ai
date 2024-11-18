@@ -7,6 +7,7 @@ from joblib import Memory
 from openai import (
     APIConnectionError,
     APIError,
+    AsyncOpenAI,
     NotGiven,
     OpenAI,
     OpenAIError,
@@ -85,6 +86,14 @@ class OpenAILanguageModel(LanguageModel):
 
         self.api_key = _api_key
         self.client = OpenAI(
+            api_key=_api_key,
+            base_url=api_base_url,
+            organization=organization,
+            project=project,
+            timeout=timeout,
+            max_retries=max_retries,
+        )
+        self.async_client = AsyncOpenAI(
             api_key=_api_key,
             base_url=api_base_url,
             organization=organization,
@@ -181,42 +190,35 @@ class OpenAILanguageModel(LanguageModel):
                 **kwargs,
             )
 
-        usage = None
-        if response.usage:
-            cost = self.calculate_cost(
-                model_name,
-                response.usage.prompt_tokens,
-                response.usage.completion_tokens,
-            )
-            usage = TokenUsage(
-                prompt_tokens=response.usage.prompt_tokens,
-                completion_tokens=response.usage.completion_tokens,
-                cost=cost,
-                calls=1,
-            )
+        llm_response = self._process_response(response)
 
-        tool_calls: List[ToolCall] = []
+        return llm_response
 
-        for choice in response.choices:
-            if choice.message.tool_calls is not None:
-                for t in choice.message.tool_calls:
-                    _function = t.function
-                    tool = ToolCall(
-                        name=_function.name,
-                        arguments=json.loads(_function.arguments),
-                        tool_call_id=t.id,
-                    )
-                    tool_calls.append(tool)
+    async def agenerate(
+        self,
+        messages: List[Message],
+        tools: Optional[List[ToolCall]] = None,
+        max_tokens: int = 256,
+        temperature: float = 0.5,
+        top_p: float = 1.0,
+        **kwargs: Any,
+    ) -> LanguageModelResponse:
+        llm_messages = self._prepare_messages(messages)
+        provider, model_name = self.get_model_name(self.model)
+        assert provider == LanguageModelProvider.OPENAI, f"Invalid provider: {provider}"
+        openai_tools = self._to_openai_tools(tools)
 
-        llm_response = LanguageModelResponse(
-            message=response.choices[0].message.content,
-            role=Role.ASSISTANT,
-            tool_calls=len(tool_calls) > 0 and tool_calls or None,
-            usage=usage,
-            cached=False,
-            error=None,
+        # TODO: Add support for async cache
+        response = await self._call_openai_async(
+            model_name,
+            llm_messages,
+            openai_tools,
+            max_tokens,
+            temperature,
+            **kwargs,
         )
 
+        llm_response = self._process_response(response)
         return llm_response
 
     def generate_stream(
@@ -302,6 +304,32 @@ class OpenAILanguageModel(LanguageModel):
         except Exception as e:
             raise ValueError(f"OpenAI API call failed: {str(e)}") from e
 
+    async def _call_openai_async(
+        self,
+        model_name: str,
+        llm_messages: List[ChatCompletionMessageParam],
+        tools: Iterable[ChatCompletionToolParam] | NotGiven = NotGiven(),
+        max_tokens: int = 256,
+        temperature: float = 0.5,
+        **kwargs: Any,
+    ) -> ChatCompletion:
+        try:
+            response_format: ResponseFormat = {
+                "type": "json_object" if self.json_mode else "text"
+            }
+            response = await self.async_client.chat.completions.create(
+                model=model_name,
+                messages=llm_messages,
+                tools=tools,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                response_format=response_format,
+                **kwargs,
+            )
+            return response
+        except Exception as e:
+            raise ValueError(f"OpenAI API call failed: {str(e)}") from e
+
     def _prepare_messages(
         self, messages: List[Message]
     ) -> List[ChatCompletionMessageParam]:
@@ -342,3 +370,40 @@ class OpenAILanguageModel(LanguageModel):
             return (prompt_tokens * 0.03 + completion_tokens * 0.06) / 1000
         else:
             return 0.0
+
+    def _process_response(self, response: ChatCompletion) -> LanguageModelResponse:
+        """Process the API response into a LanguageModelResponse"""
+        usage = None
+        if response.usage:
+            cost = self.calculate_cost(
+                self.model.value,
+                response.usage.prompt_tokens,
+                response.usage.completion_tokens,
+            )
+            usage = TokenUsage(
+                prompt_tokens=response.usage.prompt_tokens,
+                completion_tokens=response.usage.completion_tokens,
+                cost=cost,
+                calls=1,
+            )
+
+        tool_calls: List[ToolCall] = []
+        for choice in response.choices:
+            if choice.message.tool_calls is not None:
+                for t in choice.message.tool_calls:
+                    _function = t.function
+                    tool = ToolCall(
+                        name=_function.name,
+                        arguments=json.loads(_function.arguments),
+                        tool_call_id=t.id,
+                    )
+                    tool_calls.append(tool)
+
+        return LanguageModelResponse(
+            message=response.choices[0].message.content,
+            role=Role.ASSISTANT,
+            tool_calls=tool_calls if tool_calls else None,
+            usage=usage,
+            cached=False,
+            error=None,
+        )

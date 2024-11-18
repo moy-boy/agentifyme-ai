@@ -166,9 +166,7 @@ class GroqLanguageModel(LanguageModel):
                 error=f"Groq API Error: {str(e)}",
             )
 
-    def _prepare_messages(
-        self, messages: List[Message]
-    ) -> List[ChatCompletionMessageParam]:
+    def _prepare_messages(self, messages: List[Message]):
         llm_messages: List[ChatCompletionMessageParam] = []
 
         for message in messages:

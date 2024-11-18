@@ -1,6 +1,5 @@
 from .workflow import (
     AsyncWorkflowExecutionError,
-    Param,
     Workflow,
     WorkflowConfig,
     WorkflowError,
@@ -9,7 +8,6 @@ from .workflow import (
 )
 
 __all__ = [
-    "Param",
     "workflow",
     "WorkflowConfig",
     "Workflow",

@@ -3,8 +3,8 @@ from enum import Enum
 
 class EmbeddingProvider(str, Enum):
     OPENAI = "openai"
-    ANTHROPIC = "anthropic"
     COHERE = "cohere"
+    VOYAGEAI = "voyageai"
 
 
 class EmbeddingModelType(str, Enum):

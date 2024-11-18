@@ -49,6 +49,10 @@ class LanguageModelResponse(BaseModel):
     error: Optional[str] = None
 
 
+class LLMResponseError(Exception):
+    """Error raised when LLM response is invalid"""
+
+
 class LanguageModelProvider(str, Enum):
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
@@ -111,6 +115,18 @@ class LanguageModel(ABC):
 
     @abstractmethod
     def generate(
+        self,
+        messages: List[Message],
+        tools: Optional[List[ToolCall]] = None,
+        max_tokens: int = 256,
+        temperature: float = 0.5,
+        top_p: float = 1.0,
+        **kwargs,
+    ) -> LanguageModelResponse:
+        pass
+
+    @abstractmethod
+    async def agenerate(
         self,
         messages: List[Message],
         tools: Optional[List[ToolCall]] = None,
@@ -195,6 +211,40 @@ class LanguageModel(ABC):
             )
         )
         return self.generate(
+            messages,
+            tools=tools,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_p=top_p,
+        )
+
+    async def generate_from_prompt_async(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        tools: Optional[List[ToolCall]] = None,
+        max_tokens: int = 256,
+        temperature: float = 0.5,
+        top_p: float = 1.0,
+    ) -> LanguageModelResponse:
+        messages = []
+        if system_prompt is not None:
+            messages.append(
+                Message(
+                    role=Role.SYSTEM,
+                    content=system_prompt,
+                    tools=None,
+                )
+            )
+
+        messages.append(
+            Message(
+                role=Role.USER,
+                content=prompt,
+                tools=None,
+            )
+        )
+        return await self.agenerate(
             messages,
             tools=tools,
             max_tokens=max_tokens,

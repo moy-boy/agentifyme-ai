@@ -1,15 +1,13 @@
 import asyncio
-from typing import Any, Callable, Coroutine, Dict, List, Optional, Union, overload
+from typing import Any, Callable, Optional, overload
 
-from agentifyme.base_config import BaseConfig, BaseModule
-from agentifyme.logger import get_logger
+from loguru import logger
+
+from agentifyme.config import BaseModule, TaskConfig
 from agentifyme.utilities.func_utils import (
-    Param,
     execute_function,
     get_function_metadata,
 )
-
-logger = get_logger()
 
 
 class TaskError(Exception):
@@ -22,27 +20,6 @@ class TaskExecutionError(TaskError):
 
 class AsyncTaskExecutionError(TaskError):
     pass
-
-
-class TaskConfig(BaseConfig):
-    """
-    Represents the configuration for a task.
-
-    Attributes:
-        name (str): The name of the task.
-        description (str): The description of the task.
-        objective (Optional[str]): The objective of the task.
-        instructions (Optional[str]): The instructions for completing the task.
-        tools (Optional[List[Tool]]): The list of tools required for the task.
-        input_params (List[Param]): The list of input parameters for the task.
-        output_params (List[Param]): The list of output parameters for the task.
-    """
-
-    objective: Optional[str] = None
-    instructions: Optional[str] = None
-    # tools: Optional[List[Tool]]
-    input_parameters: Dict[str, Param]
-    output_parameters: List[Param]
 
 
 class Task(BaseModule):
@@ -96,7 +73,7 @@ def task(
     description: Optional[str] = None,
     objective: Optional[str] = None,
     instructions: Optional[str] = None,
-    # tools: Optional[List[Tool]] = None,
+    # tools: Optional[list[Tool]] = None,
 ) -> Callable[..., Any]:
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         func_metadata = get_function_metadata(func)

@@ -1,12 +1,8 @@
-import ast
 import asyncio
-import inspect
 from datetime import timedelta
 from typing import (
     Any,
     Callable,
-    Dict,
-    List,
     Optional,
     ParamSpec,
     TypeVar,
@@ -14,22 +10,16 @@ from typing import (
     overload,
 )
 
-from pydantic import field_validator
+from loguru import logger
 
-from agentifyme.base_config import BaseConfig, BaseModule
-from agentifyme.logger import get_logger
-from agentifyme.tasks import TaskConfig
+from agentifyme.config import BaseModule, WorkflowConfig
 from agentifyme.utilities.func_utils import (
-    Param,
     execute_function,
     get_function_metadata,
 )
-from agentifyme.utilities.time import timedelta_to_cron
 
 P = ParamSpec("P")
 R = TypeVar("R", bound=Callable[..., Any])
-
-logger = get_logger()
 
 
 class WorkflowError(Exception):
@@ -42,38 +32,6 @@ class WorkflowExecutionError(WorkflowError):
 
 class AsyncWorkflowExecutionError(WorkflowError):
     pass
-
-
-class WorkflowConfig(BaseConfig):
-    """
-    Represents a workflow.
-
-    Attributes:
-        name (str): The name of the workflow.
-        slug (str): The slug of the workflow.
-        description (Optional[str]): The description of the workflow (optional).
-        func (Callable[..., Any]): The function associated with the workflow.
-        input_parameters (Dict[str, Param]): A dictionary of input parameters for the workflow.
-        output_parameters (List[Param]): The list of output parameters for the workflow.
-        schedule (Optional[Union[str, timedelta]]): The schedule for the workflow.
-            Can be either a cron expression string or a timedelta object.
-    """
-
-    input_parameters: Dict[str, Param]
-    output_parameters: List[Param]
-    schedule: Optional[Union[str, timedelta]]
-
-    @field_validator("schedule")
-    @classmethod
-    def normalize_schedule(cls, v: Optional[Union[str, timedelta]]) -> Optional[str]:
-        if isinstance(v, timedelta):
-            try:
-                return timedelta_to_cron(v)
-            except ValueError as e:
-                raise ValueError(
-                    f"Cannot convert this timedelta to a cron expression: {e}"
-                )
-        return v  # Return as-is if it's already a string or None
 
 
 class Workflow(BaseModule):

@@ -1,4 +1,5 @@
 from typing import Any, Dict, List
+
 from pydantic import BaseModel, Field
 from pydantic.json_schema import SkipJsonSchema
 
@@ -18,4 +19,4 @@ class Document(BaseModel):
 class VectorDocument(Document):
     """Represents a document with an embedding."""
 
-    embedding: List[float] = SkipJsonSchema(Field())
+    embedding: List[float] = SkipJsonSchema()

@@ -1,6 +1,5 @@
 import ast
 import inspect
-import re
 from datetime import date, datetime
 from enum import Enum
 from textwrap import dedent
@@ -142,9 +141,11 @@ def process_return_annotation(
                     name="output",
                     description=fn_return_description,
                     data_type=json_datatype_from_python_type(union_type),
-                    default_value=[]
-                    if json_datatype_from_python_type(union_type) == "array"
-                    else None,
+                    default_value=(
+                        []
+                        if json_datatype_from_python_type(union_type) == "array"
+                        else None
+                    ),
                     required=True,
                 )
                 output_parameters.append(_param)
@@ -222,9 +223,9 @@ def process_input_type(
                 name=param_name,
                 description=description or "",
                 data_type="array",
-                default_value=default_value
-                if default_value != inspect.Parameter.empty
-                else None,
+                default_value=(
+                    default_value if default_value != inspect.Parameter.empty else None
+                ),
                 required=default_value == inspect.Parameter.empty,
             )
         )
@@ -239,9 +240,9 @@ def process_input_type(
                 name=param_name,
                 description=description or "",
                 data_type=json_datatype_from_python_type(param_type),
-                default_value=default_value
-                if default_value != inspect.Parameter.empty
-                else None,
+                default_value=(
+                    default_value if default_value != inspect.Parameter.empty else None
+                ),
                 required=default_value == inspect.Parameter.empty,
             )
         )

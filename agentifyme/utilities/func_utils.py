@@ -1,12 +1,11 @@
-import ast
 import asyncio
 import functools
 import inspect
 import warnings
+from datetime import timedelta
 from typing import (
     Any,
     Callable,
-    Coroutine,
     Dict,
     List,
     Optional,
@@ -15,10 +14,9 @@ from typing import (
     get_args,
     get_origin,
 )
-from uuid import UUID
 
 from docstring_parser import Docstring, parse
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, ValidationError
 
 
 class Param(BaseModel):
@@ -179,16 +177,18 @@ def get_input_parameters(
 
             input_parameters[param_name] = Param(
                 name=param_name,
-                description=next(
-                    (
-                        "" if p.description is None else p.description
-                        for p in parsed_docstring.params
-                        if p.arg_name == param_name
-                    ),
-                    "",
-                )
-                if parsed_docstring
-                else "",
+                description=(
+                    next(
+                        (
+                            "" if p.description is None else p.description
+                            for p in parsed_docstring.params
+                            if p.arg_name == param_name
+                        ),
+                        "",
+                    )
+                    if parsed_docstring
+                    else ""
+                ),
                 data_type="object",
                 default_value=default_value,
                 required=required,
@@ -197,16 +197,18 @@ def get_input_parameters(
         else:
             input_parameters[param_name] = Param(
                 name=param_name,
-                description=next(
-                    (
-                        "" if p.description is None else p.description
-                        for p in parsed_docstring.params
-                        if p.arg_name == param_name
-                    ),
-                    "",
-                )
-                if parsed_docstring
-                else "",
+                description=(
+                    next(
+                        (
+                            "" if p.description is None else p.description
+                            for p in parsed_docstring.params
+                            if p.arg_name == param_name
+                        ),
+                        "",
+                    )
+                    if parsed_docstring
+                    else ""
+                ),
                 data_type=json_datatype_from_python_type(param_type),
                 default_value=default_value,
                 required=required,
@@ -432,3 +434,34 @@ def execute_function(func: Callable, json_data: Dict[str, Any]) -> Any:
         return asyncio.run(execute_function_async(func, json_data))
     else:
         return execute_function_sync(func, json_data)
+
+
+def timedelta_to_cron(td: timedelta) -> str:
+    """
+    Convert a timedelta object to a cron expression.
+    Returns a cron string in format: minute hour day month dow
+    Only handles periods up to 1 month.
+    """
+    total_minutes = int(td.total_seconds() / 60)
+
+    # Handle common cases
+    if total_minutes == 0:
+        return "* * * * *"  # Every minute
+    elif total_minutes == 60:
+        return "0 * * * *"  # Every hour
+    elif total_minutes == 1440:
+        return "0 0 * * *"  # Every day
+
+    minutes = total_minutes % 60
+    hours = (total_minutes // 60) % 24
+    days = total_minutes // (24 * 60)
+
+    if days > 31:
+        raise ValueError("Timedelta too large - max 31 days supported")
+
+    # Build cron components
+    minute_expr = str(minutes) if minutes else "0"
+    hour_expr = str(hours) if hours else "0"
+    day_expr = f"*/{days}" if days else "*"
+
+    return f"{minute_expr} {hour_expr} {day_expr} * *"

@@ -109,7 +109,7 @@ class AnthropicLanguageModel(LanguageModel):
             "AgentifyMe does not support Anthropic streaming yet."
         )
 
-    def convert_messages_to_params(self, messages: List[Message]) -> List[MessageParam]:
+    def convert_messages_to_params(self, messages: List[Message]):
         anthropic_messages: List[MessageParam] = []
 
         for message in messages:
@@ -151,7 +151,7 @@ class AnthropicLanguageModel(LanguageModel):
         else:
             raise ValueError(f"Unsupported content block type: {block['type']}")
 
-    def convert_params_to_messages(self, messages: List[MessageParam]) -> List[Message]:
+    def convert_params_to_messages(self, messages) -> List[Message]:
         converted_messages: List[Message] = []
 
         for message in messages:
@@ -175,15 +175,7 @@ class AnthropicLanguageModel(LanguageModel):
 
         return converted_messages
 
-    def prepare_content_block(
-        self, block: Union[str, dict]
-    ) -> Union[
-        TextBlockParam,
-        ImageBlockParam,
-        ToolUseBlockParam,
-        ToolResultBlockParam,
-        ContentBlock,
-    ]:
+    def prepare_content_block(self, block: Union[str, dict]):
         if isinstance(block, str):
             return {"type": "text", "text": block}
         elif isinstance(block, dict):

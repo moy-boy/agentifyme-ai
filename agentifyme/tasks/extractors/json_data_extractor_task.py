@@ -1,9 +1,8 @@
-import json
-import logging
 import re
-from typing import Any, Dict, Optional, Type, Union
+from typing import Any, Optional, Union
 
-from pydantic import BaseModel
+import orjson
+from loguru import logger
 
 from agentifyme.ml.llm import (
     LanguageModelConfig,
@@ -30,13 +29,14 @@ class JSONDataExtractorTask(Task):
     def __init__(
         self,
         config: Optional[TaskConfig] = None,
-        output_schema: Optional[Union[str, Dict[str, str]]] = None,
+        output_schema: Optional[Union[str, dict[str, str]]] = None,
         language_model: Optional[Union[LanguageModelType, str]] = None,
         language_model_config: Optional[LanguageModelConfig] = None,
         prompt_template: Optional[str] = None,
         max_retries: int = 3,
         **kwargs,
     ) -> None:
+        Task.__init__(self, config, **kwargs)
         if config is None:
             config = TaskConfig(
                 name="JSON Data Extractor",
@@ -88,7 +88,7 @@ class JSONDataExtractorTask(Task):
         if prompt_template is None:
             self.prompt_template = self.get_default_prompt()
 
-    def extract_json(self, text: str) -> Dict[str, Any] | None:
+    def extract_json(self, text: str) -> dict[str, Any] | None:
         """
         Extracts the first JSON object from the given text.
 
@@ -104,8 +104,8 @@ class JSONDataExtractorTask(Task):
         if json_match:
             try:
                 # Parse the JSON object
-                return json.loads(json_match.group())
-            except json.JSONDecodeError:
+                return orjson.loads(json_match.group())
+            except orjson.JSONDecodeError:
                 # If parsing fails, return None
                 return None
         return None
@@ -131,8 +131,8 @@ class JSONDataExtractorTask(Task):
     def run(
         self,
         text: str,
-        output_schema: Optional[Union[str, Dict[str, Any]]] = None,
-    ) -> Union[str, Dict[str, Any]]:
+        output_schema: Optional[Union[str, dict[str, Any]]] = None,
+    ) -> Union[str, dict[str, Any]]:
         output_schema = output_schema or self.output_schema
         if output_schema is None:
             raise ValueError("output_schema must be provided")
@@ -162,15 +162,15 @@ class JSONDataExtractorTask(Task):
             except (JSONParsingError, LLMResponseError) as e:
                 if attempt == self.max_retries - 1:
                     raise
-                logging.warning(f"Attempt {attempt + 1} failed: {e}. Retrying...")
+                logger.warning(f"Attempt {attempt + 1} failed: {e}. Retrying...")
 
         return "No JSON Found"
 
     async def arun(
         self,
         text: str,
-        output_schema: Optional[Union[str, Dict[str, Any]]] = None,
-    ) -> Union[str, Dict[str, Any]]:
+        output_schema: Optional[Union[str, dict[str, Any]]] = None,
+    ) -> Union[str, dict[str, Any]]:
         output_schema = output_schema or self.output_schema
         if output_schema is None:
             raise ValueError("output_schema must be provided")
@@ -185,7 +185,7 @@ class JSONDataExtractorTask(Task):
                     text=text,
                 )
 
-                response = self.language_model.generate_from_prompt(prompt)
+                response = await self.language_model.generate_from_prompt_async(prompt)
 
                 if response.message is not None:
                     # Extract JSON from the response
@@ -200,101 +200,6 @@ class JSONDataExtractorTask(Task):
             except (JSONParsingError, LLMResponseError) as e:
                 if attempt == self.max_retries - 1:
                     raise
-                logging.warning(f"Attempt {attempt + 1} failed: {e}. Retrying...")
+                logger.warning(f"Attempt {attempt + 1} failed: {e}. Retrying...")
 
         return "No JSON Found"
-
-
-class PydanticDataExtractorTask(Task):
-    def __init__(
-        self,
-        config: Optional[TaskConfig] = None,
-        output_schema: Optional[Union[str, Dict[str, str]]] = None,
-        language_model: Optional[Union[LanguageModelType, str]] = None,
-        language_model_config: Optional[LanguageModelConfig] = None,
-        prompt_template: Optional[str] = None,
-        max_retries: int = 3,
-        **kwargs,
-    ) -> None:
-        if config is None:
-            config = TaskConfig(
-                name="Pydantic Data Extractor",
-                description="Extracts a JSON object from a given text.",
-                input_parameters={
-                    "text": Param(
-                        name="text",
-                        data_type="str",
-                        description="The text to extract JSON from.",
-                    )
-                },
-                output_parameters=[
-                    Param(
-                        name="json",
-                        data_type="str",
-                        description="The extracted JSON object.",
-                    )
-                ],
-            )
-        super().__init__(config, **kwargs)
-        self.config = config
-        self.output_schema = output_schema
-        self.prompt_template = prompt_template
-        self.max_retries = max_retries
-
-        self.json_extractor_task = JSONDataExtractorTask(
-            config=TaskConfig(
-                name="JSON Data Extractor",
-                description="Extracts a JSON object from a given text.",
-                input_parameters={
-                    "text": Param(
-                        name="text",
-                        data_type="str",
-                        description="The text to extract JSON from.",
-                    )
-                },
-                output_parameters=[
-                    Param(
-                        name="json",
-                        data_type="str",
-                        description="The extracted JSON object.",
-                    )
-                ],
-            ),
-            language_model_config=language_model_config,
-        )
-
-    def run(
-        self, input_data: Union[str, Dict[str, Any]], output_type: Type[BaseModel]
-    ) -> BaseModel:
-        text = ""
-        if isinstance(input_data, str):
-            text = input_data
-        elif isinstance(input_data, dict):
-            text = json.dumps(input_data, indent=2)
-
-        output_schema = output_type.model_json_schema()
-        json_data = self.json_extractor_task.run(text, output_schema=output_schema)
-
-        if isinstance(json_data, str):
-            raise JSONParsingError("No JSON object found in the response")
-
-        return output_type(**json_data)
-
-    async def arun(
-        self, input_data: Union[str, Dict[str, Any]], output_type: Type[BaseModel]
-    ) -> BaseModel:
-        text = ""
-        if isinstance(input_data, str):
-            text = input_data
-        elif isinstance(input_data, dict):
-            text = json.dumps(input_data, indent=2)
-
-        output_schema = output_type.model_json_schema()
-        json_data = await self.json_extractor_task.arun(
-            text, output_schema=output_schema
-        )
-
-        if isinstance(json_data, str):
-            raise JSONParsingError("No JSON object found in the response")
-
-        return output_type(**json_data)
