@@ -3,7 +3,6 @@ from typing import List
 
 import pytest
 
-from agentifyme.logger import BaseLogger
 from agentifyme.ml.llm import (
     LanguageModelConfig,
     LanguageModelResponse,
@@ -12,12 +11,6 @@ from agentifyme.ml.llm import (
     get_language_model,
 )
 from agentifyme.utilities.env import load_env_file
-
-
-@pytest.fixture(scope="session", autouse=True)
-def config():
-    # Initialize your configuration here
-    BaseLogger.configure()
 
 
 @pytest.fixture(scope="session", autouse=True)

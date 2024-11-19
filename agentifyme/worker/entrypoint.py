@@ -34,6 +34,10 @@ def run():
         load_modules(agentifyme_project_dir)
         # OTELInstrumentor.instrument()
 
+        # List workflows
+        for workflow_name in WorkflowConfig.get_all():
+            logger.info(f"Workflow: {workflow_name}")
+
         logger.info(
             "Starting Agentifyme service",
             env=agentifyme_env,

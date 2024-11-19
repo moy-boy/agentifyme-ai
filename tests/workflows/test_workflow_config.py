@@ -4,12 +4,11 @@ from datetime import timedelta
 import pytest
 from pydantic import ValidationError
 
+from agentifyme.config import Param
 from agentifyme.workflows import (
     AsyncWorkflowExecutionError,
-    Param,
     Workflow,
     WorkflowConfig,
-    WorkflowError,
     WorkflowExecutionError,
     workflow,
 )

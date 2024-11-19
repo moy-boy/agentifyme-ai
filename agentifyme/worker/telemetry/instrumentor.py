@@ -6,17 +6,16 @@ import time
 import traceback
 
 import wrapt
-from agentifyme.tasks.task import TaskConfig
-from agentifyme.workflows.workflow import WorkflowConfig
 from loguru import logger
-from opentelemetry import context, metrics, trace
+from opentelemetry import context, trace
 from opentelemetry.semconv.resource import ResourceAttributes
 from opentelemetry.trace import SpanKind, Status, StatusCode
 from pydantic import BaseModel
 
-from agentifyme_worker.telemetry.agentifyme_instrumentor import auto_instrument
-from agentifyme_worker.telemetry.semconv import SemanticAttributes, SpanType
-from agentifyme_worker.utilities.modules import load_modules_from_directory
+from agentifyme.tasks.task import TaskConfig
+from agentifyme.utilities.modules import load_modules_from_directory
+from agentifyme.worker.telemetry.semconv import SemanticAttributes
+from agentifyme.workflows.workflow import WorkflowConfig
 
 
 # Custom processor to add trace info
@@ -254,4 +253,4 @@ class OTELInstrumentor:
 
         logger.info("Found workflows", workflows=WorkflowConfig.get_all())
 
-        auto_instrument()
+        # auto_instrument()
