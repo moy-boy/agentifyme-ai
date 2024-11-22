@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 import signal
 import sys
 import traceback
@@ -237,6 +238,11 @@ class WorkerService:
 
 
 async def run_worker_service():
+    agentifyme_api_gateway_url = os.getenv("AGENTIFYME_API_GATEWAY_URL")
+    if not agentifyme_api_gateway_url:
+        logger.error("AGENTIFYME_API_GATEWAY_URL is not set")
+        sys.exit(1)
+
     def signal_handler():
         logger.info("Shutting down worker immediately...")
         worker.running = False
@@ -269,7 +275,7 @@ async def run_worker_service():
                 worker.register_handler(workflow_name, _workflow_handler)
 
             channel = grpc.aio.insecure_channel(
-                "localhost:34185",
+                agentifyme_api_gateway_url,
                 options=[
                     ("grpc.keepalive_time_ms", 60000),
                     ("grpc.keepalive_timeout_ms", 20000),
