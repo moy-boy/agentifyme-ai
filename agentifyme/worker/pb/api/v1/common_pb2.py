@@ -25,7 +25,7 @@ _sym_db = _symbol_database.Default()
 from google.protobuf import struct_pb2 as google_dot_protobuf_dot_struct__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x13\x61pi/v1/common.proto\x12\x06\x61pi.v1\x1a\x1cgoogle/protobuf/struct.proto\"\xa8\x01\n\tJobStatus\x12\x0e\n\x06job_id\x18\x01 \x01(\t\x12\'\n\x06status\x18\x02 \x01(\x0e\x32\x17.api.v1.WorkerJobStatus\x12\x31\n\x08metadata\x18\x03 \x03(\x0b\x32\x1f.api.v1.JobStatus.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\xa8\x01\n\tJobResult\x12\x0e\n\x06job_id\x18\x01 \x01(\t\x12\'\n\x06output\x18\x02 \x01(\x0b\x32\x17.google.protobuf.Struct\x12\x31\n\x08metadata\x18\x03 \x03(\x0b\x32\x1f.api.v1.JobResult.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\x8e\x01\n\x08JobError\x12\x0e\n\x06job_id\x18\x01 \x01(\t\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\x30\n\x08metadata\x18\x03 \x03(\x0b\x32\x1e.api.v1.JobError.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"M\n\x10WorkflowFunction\x12\x0c\n\x04name\x18\x01 \x01(\t\x12+\n\nparameters\x18\x02 \x01(\x0b\x32\x17.google.protobuf.Struct*Q\n\x07JobType\x12\x18\n\x14JOB_TYPE_UNSPECIFIED\x10\x00\x12\x18\n\x14JOB_TYPE_INTERACTIVE\x10\x01\x12\x12\n\x0eJOB_TYPE_BATCH\x10\x02*\xb1\x02\n\x0fWorkerJobStatus\x12!\n\x1dWORKER_JOB_STATUS_UNSPECIFIED\x10\x00\x12\x1c\n\x18WORKER_JOB_STATUS_QUEUED\x10\x01\x12 \n\x1cWORKER_JOB_STATUS_PROCESSING\x10\x02\x12\x1f\n\x1bWORKER_JOB_STATUS_COMPLETED\x10\x03\x12\x1c\n\x18WORKER_JOB_STATUS_FAILED\x10\x04\x12\x1e\n\x1aWORKER_JOB_STATUS_RETRYING\x10\x05\x12\x1f\n\x1bWORKER_JOB_STATUS_CANCELLED\x10\x06\x12\x1d\n\x19WORKER_JOB_STATUS_TIMEOUT\x10\x07\x12\x1c\n\x18WORKER_JOB_STATUS_PAUSED\x10\x08\x42\x06Z\x04.;v1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x13\x61pi/v1/common.proto\x12\x06\x61pi.v1\x1a\x1cgoogle/protobuf/struct.proto\"\xa8\x01\n\tJobStatus\x12\x0e\n\x06job_id\x18\x01 \x01(\t\x12\'\n\x06status\x18\x02 \x01(\x0e\x32\x17.api.v1.WorkerJobStatus\x12\x31\n\x08metadata\x18\x03 \x03(\x0b\x32\x1f.api.v1.JobStatus.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\xa8\x01\n\tJobResult\x12\x0e\n\x06job_id\x18\x01 \x01(\t\x12\'\n\x06output\x18\x02 \x01(\x0b\x32\x17.google.protobuf.Struct\x12\x31\n\x08metadata\x18\x03 \x03(\x0b\x32\x1f.api.v1.JobResult.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\x8e\x01\n\x08JobError\x12\x0e\n\x06job_id\x18\x01 \x01(\t\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\x30\n\x08metadata\x18\x03 \x03(\x0b\x32\x1e.api.v1.JobError.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"M\n\x10WorkflowFunction\x12\x0c\n\x04name\x18\x01 \x01(\t\x12+\n\nparameters\x18\x02 \x01(\x0b\x32\x17.google.protobuf.Struct\"\x16\n\x14ListWorkflowsRequest\"D\n\x15ListWorkflowsResponse\x12+\n\tworkflows\x18\x01 \x03(\x0b\x32\x18.api.v1.WorkflowFunction*Q\n\x07JobType\x12\x18\n\x14JOB_TYPE_UNSPECIFIED\x10\x00\x12\x18\n\x14JOB_TYPE_INTERACTIVE\x10\x01\x12\x12\n\x0eJOB_TYPE_BATCH\x10\x02*\xb1\x02\n\x0fWorkerJobStatus\x12!\n\x1dWORKER_JOB_STATUS_UNSPECIFIED\x10\x00\x12\x1c\n\x18WORKER_JOB_STATUS_QUEUED\x10\x01\x12 \n\x1cWORKER_JOB_STATUS_PROCESSING\x10\x02\x12\x1f\n\x1bWORKER_JOB_STATUS_COMPLETED\x10\x03\x12\x1c\n\x18WORKER_JOB_STATUS_FAILED\x10\x04\x12\x1e\n\x1aWORKER_JOB_STATUS_RETRYING\x10\x05\x12\x1f\n\x1bWORKER_JOB_STATUS_CANCELLED\x10\x06\x12\x1d\n\x19WORKER_JOB_STATUS_TIMEOUT\x10\x07\x12\x1c\n\x18WORKER_JOB_STATUS_PAUSED\x10\x08\x42\x06Z\x04.;v1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -39,10 +39,10 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_JOBRESULT_METADATAENTRY']._serialized_options = b'8\001'
   _globals['_JOBERROR_METADATAENTRY']._loaded_options = None
   _globals['_JOBERROR_METADATAENTRY']._serialized_options = b'8\001'
-  _globals['_JOBTYPE']._serialized_start=627
-  _globals['_JOBTYPE']._serialized_end=708
-  _globals['_WORKERJOBSTATUS']._serialized_start=711
-  _globals['_WORKERJOBSTATUS']._serialized_end=1016
+  _globals['_JOBTYPE']._serialized_start=721
+  _globals['_JOBTYPE']._serialized_end=802
+  _globals['_WORKERJOBSTATUS']._serialized_start=805
+  _globals['_WORKERJOBSTATUS']._serialized_end=1110
   _globals['_JOBSTATUS']._serialized_start=62
   _globals['_JOBSTATUS']._serialized_end=230
   _globals['_JOBSTATUS_METADATAENTRY']._serialized_start=183
@@ -57,4 +57,8 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_JOBERROR_METADATAENTRY']._serialized_end=230
   _globals['_WORKFLOWFUNCTION']._serialized_start=548
   _globals['_WORKFLOWFUNCTION']._serialized_end=625
+  _globals['_LISTWORKFLOWSREQUEST']._serialized_start=627
+  _globals['_LISTWORKFLOWSREQUEST']._serialized_end=649
+  _globals['_LISTWORKFLOWSRESPONSE']._serialized_start=651
+  _globals['_LISTWORKFLOWSRESPONSE']._serialized_end=719
 # @@protoc_insertion_point(module_scope)
