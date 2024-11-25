@@ -1,12 +1,11 @@
 import os
 from abc import ABC, abstractmethod
-from typing import Any, Tuple, List, Dict, Optional, Union
+from typing import Any, List, Dict, Optional, Union
 
 import openai
-from openai import NOT_GIVEN, OpenAI
+from openai import OpenAI
 
 from pydantic import BaseModel
-from agentifyme.cache import cache, CacheType
 from .providers import EmbeddingModelType
 
 

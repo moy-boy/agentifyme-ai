@@ -3,7 +3,7 @@
 import pytest
 from pydantic import BaseModel
 
-from agentifyme.tasks import Task, TaskConfig, task
+from agentifyme.tasks import TaskConfig, task
 
 
 def test_simple_task():

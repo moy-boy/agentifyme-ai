@@ -2,7 +2,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from pydantic import BaseModel, Field
 
-from agentifyme.utilities.meta import FunctionMetadata, Param, function_metadata
+from agentifyme.utilities.meta import Param, function_metadata
 
 
 def simple_function(x: int, y: float = 1.0) -> str:
@@ -218,7 +218,7 @@ def test_complex_return_type():
 
 # Test function with type annotations from 'typing' module
 def test_typing_annotations():
-    from typing import Any, Sequence
+    from typing import Sequence
 
     def typing_func(x: Sequence[Any]) -> Optional[Dict[str, Any]]:
         """A function with annotations from the typing module."""

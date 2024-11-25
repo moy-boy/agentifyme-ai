@@ -67,6 +67,7 @@ frozenlist==1.4.1
     # via aiohttp
     # via aiosignal
 googleapis-common-protos==1.66.0
+    # via agentifyme
     # via opentelemetry-exporter-otlp-proto-grpc
 grpcio==1.68.0
     # via agentifyme

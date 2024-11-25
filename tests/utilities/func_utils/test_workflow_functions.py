@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Callable, Dict, List
+from typing import List
 
 import pytest
 from pydantic import BaseModel
@@ -8,7 +8,6 @@ from zoneinfo import ZoneInfo
 from agentifyme.utilities.func_utils import (
     convert_json_to_args,
     execute_function,
-    get_function_metadata,
 )
 
 

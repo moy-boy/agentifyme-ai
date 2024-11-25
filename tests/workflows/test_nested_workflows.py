@@ -1,6 +1,5 @@
 import asyncio
 import traceback
-from typing import List
 
 import pytest
 from pydantic import BaseModel
@@ -94,7 +93,7 @@ def handle_customer_query(customer_query: CustomerQuery) -> Response:
 
         response_message = f"Hello {customer_info.name}, we've received your {query_category.category} query and will respond shortly."
         return Response(message=response_message)
-    except Exception as e:
+    except Exception:
         logger.error(traceback.format_exc())
         raise
 
@@ -110,7 +109,7 @@ async def handle_customer_query_async(customer_query: CustomerQuery) -> Response
 
         response_message = f"Hello {customer_info.name}, we've received your {query_category.category} query and will respond shortly."
         return Response(message=response_message)
-    except Exception as e:
+    except Exception:
         logger.error(traceback.format_exc())
         raise
 

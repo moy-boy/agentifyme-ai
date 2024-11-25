@@ -1,8 +1,8 @@
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
-from agentifyme.utilities.meta import FunctionMetadata, Param, function_metadata
+from agentifyme.utilities.meta import FunctionMetadata, function_metadata
 
 
 class SimpleModel(BaseModel):

@@ -1,254 +1,245 @@
 import asyncio
-import json
-import os
 import signal
 import sys
 import traceback
-import uuid
-from typing import AsyncGenerator
 
 import grpc
+from grpc.aio import StreamStreamCall
 from loguru import logger
 
-import agentifyme.worker.pb.api.v1.common_pb2 as common_pb2
+import agentifyme.worker.pb.api.v1.common_pb2 as common_pb
 
 # Import generated protobuf code (assuming pb directory structure matches Go)
-import agentifyme.worker.pb.api.v1.worker_pb2 as worker_pb2
-import agentifyme.worker.pb.api.v1.worker_pb2_grpc as worker_pb2_grpc
-from agentifyme.worker.workflow_handler import WorkflowHandler
-from agentifyme.workflows import WorkflowConfig
+import agentifyme.worker.pb.api.v1.gateway_pb2 as pb
+import agentifyme.worker.pb.api.v1.gateway_pb2_grpc as pb_grpc
+from agentifyme.worker.workflows import WorkflowCommandHandler
 
 
 class WorkerService:
-    def __init__(self, max_concurrent_jobs: int = 20):
-        self.worker_id = str(uuid.uuid4())
+    def __init__(
+        self,
+        deployment_id: str,
+        worker_id: str,
+        workflows: list[str],
+        max_concurrent_jobs: int = 20,
+        heartbeat_interval: int = 60,
+    ):
+        self.deployment_id = deployment_id
+        self.worker_id = worker_id
+        self.workflows = workflows
         self.worker_type = "python-worker"
-        self.capabilities = ["batch", "interactive"]
-        self._workflow_handlers: dict[str, WorkflowHandler] = {}
+        self.connected = False
         self.running = True
-        self._stream = None
-        self._job_semaphore = asyncio.Semaphore(max_concurrent_jobs)
-        self._current_jobs = 0
-        self._active_tasks: dict[str, asyncio.Task] = {}
-
-    def register_handler(self, name: str, handler: WorkflowHandler):
-        self._workflow_handlers[name] = handler
-
-    async def register(self) -> worker_pb2.WorkerStreamOutbound:
-        registration = worker_pb2.WorkerRegistration(
-            worker_type=self.worker_type,
-            capabilities=self.capabilities,
+        self._stream: StreamStreamCall | None = None
+        self._workflow_command_handler = WorkflowCommandHandler(
+            self._stream, max_concurrent_jobs
         )
+        self._active_tasks: dict[str, asyncio.Task] = {}
+        self._heartbeat_task: asyncio.Task | None = None
+        self._heartbeat_interval = heartbeat_interval
 
-        return worker_pb2.WorkerStreamOutbound(
+    async def register_worker(self) -> pb.InboundWorkerMessage:
+        registration = pb.WorkerRegistration(workflows=self.workflows)
+
+        return pb.InboundWorkerMessage(
             worker_id=self.worker_id,
-            type=worker_pb2.WORKER_SERVICE_OUTBOUND_TYPE_REGISTER,
+            deployment_id=self.deployment_id,
+            type=pb.INBOUND_WORKER_MESSAGE_TYPE_REGISTER,
             registration=registration,
         )
 
-    async def process_job(
-        self, job: worker_pb2.JobAssignment
-    ) -> AsyncGenerator[worker_pb2.WorkerStreamOutbound, None]:
-        async with self._job_semaphore:
-            try:
-                self._current_jobs += 1
-                logger.info(
-                    f"Starting job {job.job_id}. Current concurrent jobs: {self._current_jobs}"
-                )
-
-                workflow_name = job.function.name
-                if workflow_name not in self._workflow_handlers:
-                    raise ValueError(
-                        f"No handler registered for workflow: {workflow_name}"
-                    )
-
-                workflow_parameters = dict(job.function.parameters)
-
-                logger.info(f"Processing job {job.job_id}")
-
-                yield worker_pb2.WorkerStreamOutbound(
-                    worker_id=self.worker_id,
-                    type=worker_pb2.WORKER_SERVICE_OUTBOUND_TYPE_JOB_STATUS,
-                    job=common_pb2.JobStatus(
-                        job_id=job.job_id,
-                        status=common_pb2.WORKER_JOB_STATUS_PROCESSING,
-                        metadata=job.metadata,
-                    ),
-                )
-
-                workflow_handler = self._workflow_handlers[workflow_name]
-                result = await workflow_handler(workflow_parameters)
-
-                yield worker_pb2.WorkerStreamOutbound(
-                    worker_id=self.worker_id,
-                    type=worker_pb2.WORKER_SERVICE_OUTBOUND_TYPE_JOB_RESULT,
-                    result=common_pb2.JobResult(
-                        job_id=job.job_id,
-                        output=result,
-                        metadata=job.metadata,
-                    ),
-                )
-
-            except Exception as e:
-                logger.error(f"Error processing job: {e}")
-                yield worker_pb2.WorkerStreamOutbound(
-                    worker_id=self.worker_id,
-                    type=worker_pb2.WORKER_SERVICE_OUTBOUND_TYPE_JOB_ERROR,
-                    error=common_pb2.JobError(
-                        job_id=job.job_id, message=str(e), metadata=job.metadata
-                    ),
-                )
-            finally:
-                self._current_jobs -= 1
-                logger.info(
-                    f"Completed job {job.job_id}. Remaining concurrent jobs: {self._current_jobs}"
-                )
-
-    async def process_job_wrapper(self, job: worker_pb2.JobAssignment, stream) -> None:
+    async def _heartbeat_loop(self, stream: StreamStreamCall) -> None:
+        """Continuously send heartbeats at the specified interval."""
         try:
-            async with self._job_semaphore:
-                logger.info(
-                    f"Starting job {job.job_id}. Active tasks: {len(self._active_tasks)}"
-                )
-
-                # Send processing status
-                await stream.write(
-                    worker_pb2.WorkerStreamOutbound(
-                        worker_id=self.worker_id,
-                        type=worker_pb2.WORKER_SERVICE_OUTBOUND_TYPE_JOB_STATUS,
-                        job=common_pb2.JobStatus(
-                            job_id=job.job_id,
-                            status=common_pb2.WORKER_JOB_STATUS_PROCESSING,
-                            metadata=job.metadata,
-                        ),
-                    )
-                )
-
-                logger.info(
-                    f"Sending processing status for job {job.job_id}: {common_pb2.JobStatus(job_id=job.job_id, status=common_pb2.WORKER_JOB_STATUS_PROCESSING, metadata=job.metadata)}"
+            while self.running and self.connected:
+                logger.debug(f"Sending heartbeat for worker {self.worker_id}")
+                heartbeat = pb.WorkerHeartbeat(status="active")
+                heartbeat_msg = pb.InboundWorkerMessage(
+                    worker_id=self.worker_id,
+                    type=pb.INBOUND_WORKER_MESSAGE_TYPE_HEARTBEAT,
+                    heartbeat=heartbeat,
                 )
 
                 try:
-                    workflow_name = job.function.name
-                    if workflow_name not in self._workflow_handlers:
-                        raise ValueError(
-                            f"No handler registered for workflow: {workflow_name}"
-                        )
-
-                    workflow_parameters = dict(job.function.parameters)
-                    workflow_handler = self._workflow_handlers[workflow_name]
-                    result = await workflow_handler(workflow_parameters)
-
-                    # Send success result
-                    await stream.write(
-                        worker_pb2.WorkerStreamOutbound(
-                            worker_id=self.worker_id,
-                            type=worker_pb2.WORKER_SERVICE_OUTBOUND_TYPE_JOB_RESULT,
-                            result=common_pb2.JobResult(
-                                job_id=job.job_id,
-                                output=result,
-                                metadata=job.metadata,
-                            ),
-                        )
-                    )
-
-                    logger.info(
-                        f"Sending success result for job {job.job_id}: {common_pb2.JobResult(job_id=job.job_id, output=result, metadata=job.metadata)}"
-                    )
-
+                    await stream.write(heartbeat_msg)
+                    logger.debug(f"Sent heartbeat for worker {self.worker_id}")
                 except Exception as e:
-                    logger.error(f"Error processing job {job.job_id}: {e}")
-                    # Send error result
-                    await stream.write(
-                        worker_pb2.WorkerStreamOutbound(
-                            worker_id=self.worker_id,
-                            type=worker_pb2.WORKER_SERVICE_OUTBOUND_TYPE_JOB_ERROR,
-                            error=common_pb2.JobError(
-                                job_id=job.job_id, message=str(e), metadata=job.metadata
-                            ),
-                        )
-                    )
+                    logger.error(f"Failed to send heartbeat: {e}")
+                    break
 
-        finally:
-            if job.job_id in self._active_tasks:
-                del self._active_tasks[job.job_id]
-            logger.info(
-                f"Completed job {job.job_id}. Remaining tasks: {len(self._active_tasks)}"
-            )
+                await asyncio.sleep(self._heartbeat_interval)
+        except asyncio.CancelledError:
+            logger.debug("Heartbeat loop cancelled")
+        except Exception as e:
+            logger.error(f"Heartbeat loop error: {e}")
+            raise
 
-    async def worker_stream(self, stub: worker_pb2_grpc.WorkerServiceStub) -> None:
+    def _start_heartbeat(self, stream: StreamStreamCall) -> None:
+        """Start the heartbeat task."""
+        if self._heartbeat_task is not None:
+            self._heartbeat_task.cancel()
+        self._heartbeat_task = asyncio.create_task(self._heartbeat_loop(stream))
+
+    def _stop_heartbeat(self) -> None:
+        """Stop the heartbeat task."""
+        if self._heartbeat_task is not None:
+            self._heartbeat_task.cancel()
+            self._heartbeat_task = None
+
+    async def process_workflow_command(
+        self, command: pb.WorkflowCommand, stream: StreamStreamCall
+    ) -> None:
         try:
-            stream = stub.WorkerStream()
+            async with self._job_semaphore:
+                self._current_jobs += 1
+
+                #             workflow_name = job.function.name
+        #             if workflow_name not in self._workflow_handlers:
+        #                 raise ValueError(
+        #                     f"No handler registered for workflow: {workflow_name}"
+        #                 )
+
+        #             workflow_parameters = dict(job.function.parameters)
+
+        #             logger.info(f"Processing job {job.job_id}")
+
+        #             yield pb.WorkerStreamOutbound(
+        #                 worker_id=self.worker_id,
+        #                 type=pb.WORKER_SERVICE_OUTBOUND_TYPE_JOB_STATUS,
+        #                 job=common_pb2.JobStatus(
+        #                     job_id=job.job_id,
+        #                     status=common_pb2.WORKER_JOB_STATUS_PROCESSING,
+        #                     metadata=job.metadata,
+        #                 ),
+        #             )
+
+        #             workflow_handler = self._workflow_handlers[workflow_name]
+        #             result = await workflow_handler(workflow_parameters)
+
+        except Exception as e:
+            logger.error(f"Error processing workflow command: {e}")
+        finally:
+            self._current_jobs -= 1
+
+    async def send_heartbeat(self, stream: StreamStreamCall) -> None:
+        heartbeat = pb.WorkerHeartbeat(status="active")
+
+        heartbeat_msg = pb.InboundWorkerMessage(
+            worker_id=self.worker_id,
+            type=pb.INBOUND_WORKER_MESSAGE_TYPE_HEARTBEAT,
+            heartbeat=heartbeat,
+        )
+
+        await stream.write(heartbeat_msg)
+
+    async def worker_stream(self, stub: pb_grpc.GatewayServiceStub) -> None:
+        try:
+            stream: StreamStreamCall = stub.WorkerStream()
             self._stream = stream
 
             # Register worker with gateway
-            reg_msg = await self.register()
+            reg_msg: pb.InboundWorkerMessage = await self.register_worker()
             logger.info(f"Sending registration: {reg_msg}")
             await stream.write(reg_msg)
             logger.info(f"Worker {self.worker_id} registered")
 
-            while self.running:
-                try:
-                    await asyncio.sleep(0.1)
-                    message = await stream.read()
+            async for message in stream:
+                if isinstance(message, pb.OutboundWorkerMessage):
+                    match message.type:
+                        case pb.OUTBOUND_WORKER_MESSAGE_TYPE_ACK:
+                            if message.ack.status == "registered":
+                                self.connected = True
+                                logger.info("Registered worker")
 
-                    if message is None:  # Stream closed by server
-                        logger.info("Stream closed by server")
-                        return  # Return instead of break to allow reconnection
+                                # Start heartbeat
+                                self._start_heartbeat(stream)
+                            else:
+                                logger.error("Failed to register worker")
+                                self.connected = False
+                                return
 
-                    if hasattr(message, "HasField") and message.HasField("job"):
-                        job = message.job
-                        logger.info(f"Received job: {job.job_id}")
-                        # Create new task for job processing
-                        task = asyncio.create_task(
-                            self.process_job_wrapper(job, stream)
-                        )
-                        self._active_tasks[job.job_id] = task
+                        case pb.OUTBOUND_WORKER_MESSAGE_TYPE_WORKFLOW_COMMAND:
+                            result = await self._workflow_command_handler(
+                                message.workflow_command
+                            )
+                            if result is not None:
+                                msg = pb.InboundWorkerMessage(
+                                    request_id=message.request_id,
+                                    worker_id=self.worker_id,
+                                    deployment_id=self.deployment_id,
+                                    type=pb.INBOUND_WORKER_MESSAGE_TYPE_WORKFLOW_RESULT,
+                                    workflow_result=common_pb.WorkflowResult(
+                                        request_id=message.request_id,
+                                        data=result,
+                                    ),
+                                )
+                                await stream.write(msg)
 
-                except grpc.aio.AioRpcError as e:
-                    if e.code() == grpc.StatusCode.EOF:
-                        logger.warning("Server closed connection (EOF)")
-                        return  # Return to allow reconnection
+                        case pb.OUTBOUND_WORKER_MESSAGE_TYPE_LIST_WORKFLOWS:
+                            response = (
+                                await self._workflow_command_handler.list_workflows()
+                            )
+                            msg = pb.InboundWorkerMessage(
+                                request_id=message.request_id,
+                                worker_id=self.worker_id,
+                                deployment_id=self.deployment_id,
+                                type=pb.INBOUND_WORKER_MESSAGE_TYPE_LIST_WORKFLOWS,
+                                list_workflows=response,
+                            )
+                            await stream.write(msg)
+
+                        case _:
+                            logger.error(
+                                f"Received unexpected message type: {message.type}"
+                            )
+
+        except grpc.aio.AioRpcError as e:
+            match e.code():
+                case grpc.StatusCode.UNAVAILABLE:
+                    logger.warning(f"Gateway unavailable: {e.details()}")
+                    return
+                case grpc.StatusCode.UNIMPLEMENTED:
+                    logger.warning(f"Unsupported command: {e.details()}")
+                    return
+                case _:
                     logger.error(f"Stream error: {e.code()}: {e.details()}")
                     if not self.running:
                         return
 
-                    # Log error but don't exit
-                    logger.error(traceback.format_exc())
-                    return  # Return to allow reconnection
+            if not self.running:
+                return
 
-                except Exception as e:
-                    logger.error(f"Unexpected error: {type(e)}: {str(e)}")
-                    if not self.running:
-                        return
-
-                    # Log error but don't exit
-                    logger.error(traceback.format_exc())
-                    return  # Return to allow reconnection
+            # Log error but don't exit
+            logger.error(traceback.format_exc())
+            return  # Return to allow reconnection
 
         except Exception as e:
+            traceback.print_exc()
             logger.error(f"Stream error: {e}", exc_info=True)
             self.running = True  # Keep running to allow reconnection
             return
         finally:
+            # Stop heartbeat
+            self._stop_heartbeat()
+
             self._stream = None
             # Cancel any remaining tasks
             for task in self._active_tasks.values():
                 task.cancel()
 
 
-async def run_worker_service():
-    agentifyme_api_gateway_url = os.getenv("AGENTIFYME_API_GATEWAY_URL")
-    if not agentifyme_api_gateway_url:
-        logger.error("AGENTIFYME_API_GATEWAY_URL is not set")
-        sys.exit(1)
-
+async def run_worker_service(
+    deployment_id: str,
+    worker_id: str,
+    api_gateway_url: str,
+    workflows: list[str],
+):
     def signal_handler():
         logger.info("Shutting down worker immediately...")
         worker.running = False
         sys.exit(0)
 
-    worker = WorkerService(max_concurrent_jobs=20)
+    worker = WorkerService(deployment_id, worker_id, workflows, max_concurrent_jobs=20)
     retry_delays = [5, 10, 20, 45, 90]  # Specific retry delays in seconds
     retry_attempt = 0
 
@@ -268,14 +259,8 @@ async def run_worker_service():
                 )
                 await asyncio.sleep(delay)
 
-            logger.info("Registering handlers")
-            for workflow_name in WorkflowConfig.get_all():
-                _workflow = WorkflowConfig.get(workflow_name)
-                _workflow_handler = WorkflowHandler(_workflow)
-                worker.register_handler(workflow_name, _workflow_handler)
-
             channel = grpc.aio.insecure_channel(
-                agentifyme_api_gateway_url,
+                api_gateway_url,
                 options=[
                     ("grpc.keepalive_time_ms", 60000),
                     ("grpc.keepalive_timeout_ms", 20000),
@@ -283,7 +268,7 @@ async def run_worker_service():
                     ("grpc.enable_retries", 1),
                 ],
             )
-            stub = worker_pb2_grpc.WorkerServiceStub(channel)
+            stub = pb_grpc.GatewayServiceStub(channel)
 
             for sig in (signal.SIGTERM, signal.SIGINT):
                 asyncio.get_event_loop().add_signal_handler(sig, signal_handler)

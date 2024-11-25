@@ -1,6 +1,6 @@
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from agentifyme.utilities.meta import FunctionMetadata, Param, function_metadata
 

@@ -1,7 +1,7 @@
 import hashlib
 import json
 import os
-from typing import Any, Dict, Iterable, Iterator, List, Literal, Optional, Tuple
+from typing import Any, Dict, Iterable, Iterator, List, Optional
 
 from joblib import Memory
 from openai import (
@@ -16,9 +16,7 @@ from openai import (
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionAssistantMessageParam,
-    ChatCompletionChunk,
     ChatCompletionMessageParam,
-    ChatCompletionMessageToolCall,
     ChatCompletionSystemMessageParam,
     ChatCompletionToolParam,
     ChatCompletionUserMessageParam,

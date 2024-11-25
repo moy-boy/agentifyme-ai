@@ -1,13 +1,9 @@
 from typing import Dict, List
 
-import pytest
-from docstring_parser import parse
 from pydantic import BaseModel
 
 from agentifyme.utilities.func_utils import (
     get_function_metadata,
-    get_input_parameters,
-    get_output_parameters,
 )
 
 

@@ -4,7 +4,7 @@ import grpc
 import warnings
 
 from agentifyme.worker.pb.api.v1 import common_pb2 as api_dot_v1_dot_common__pb2
-from agentifyme.worker.pb.api.v1 import worker_pb2 as api_dot_v1_dot_worker__pb2
+from agentifyme.worker.pb.api.v1 import gateway_pb2 as api_dot_v1_dot_gateway__pb2
 
 GRPC_GENERATED_VERSION = '1.68.0'
 GRPC_VERSION = grpc.__version__
@@ -19,14 +19,14 @@ except ImportError:
 if _version_not_supported:
     raise RuntimeError(
         f'The grpc package installed is at version {GRPC_VERSION},'
-        + f' but the generated code in api/v1/worker_pb2_grpc.py depends on'
+        + f' but the generated code in api/v1/gateway_pb2_grpc.py depends on'
         + f' grpcio>={GRPC_GENERATED_VERSION}.'
         + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
         + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'
     )
 
 
-class WorkerServiceStub(object):
+class GatewayServiceStub(object):
     """Missing associated documentation comment in .proto file."""
 
     def __init__(self, channel):
@@ -35,57 +35,83 @@ class WorkerServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
+        self.ClientStream = channel.stream_stream(
+                '/api.v1.GatewayService/ClientStream',
+                request_serializer=api_dot_v1_dot_common__pb2.InboundClientMessage.SerializeToString,
+                response_deserializer=api_dot_v1_dot_common__pb2.OutboundClientMessage.FromString,
+                _registered_method=True)
         self.WorkerStream = channel.stream_stream(
-                '/api.v1.WorkerService/WorkerStream',
-                request_serializer=api_dot_v1_dot_worker__pb2.WorkerStreamOutbound.SerializeToString,
-                response_deserializer=api_dot_v1_dot_worker__pb2.WorkerStreamInbound.FromString,
-                _registered_method=True)
-        self.ListWorkflows = channel.unary_unary(
-                '/api.v1.WorkerService/ListWorkflows',
-                request_serializer=api_dot_v1_dot_common__pb2.ListWorkflowsRequest.SerializeToString,
-                response_deserializer=api_dot_v1_dot_common__pb2.ListWorkflowsResponse.FromString,
+                '/api.v1.GatewayService/WorkerStream',
+                request_serializer=api_dot_v1_dot_gateway__pb2.InboundWorkerMessage.SerializeToString,
+                response_deserializer=api_dot_v1_dot_gateway__pb2.OutboundWorkerMessage.FromString,
                 _registered_method=True)
 
 
-class WorkerServiceServicer(object):
+class GatewayServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
-    def WorkerStream(self, request_iterator, context):
-        """Worker registration and bidirectional communication
-        """
+    def ClientStream(self, request_iterator, context):
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def ListWorkflows(self, request, context):
+    def WorkerStream(self, request_iterator, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
 
-def add_WorkerServiceServicer_to_server(servicer, server):
+def add_GatewayServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
+            'ClientStream': grpc.stream_stream_rpc_method_handler(
+                    servicer.ClientStream,
+                    request_deserializer=api_dot_v1_dot_common__pb2.InboundClientMessage.FromString,
+                    response_serializer=api_dot_v1_dot_common__pb2.OutboundClientMessage.SerializeToString,
+            ),
             'WorkerStream': grpc.stream_stream_rpc_method_handler(
                     servicer.WorkerStream,
-                    request_deserializer=api_dot_v1_dot_worker__pb2.WorkerStreamOutbound.FromString,
-                    response_serializer=api_dot_v1_dot_worker__pb2.WorkerStreamInbound.SerializeToString,
-            ),
-            'ListWorkflows': grpc.unary_unary_rpc_method_handler(
-                    servicer.ListWorkflows,
-                    request_deserializer=api_dot_v1_dot_common__pb2.ListWorkflowsRequest.FromString,
-                    response_serializer=api_dot_v1_dot_common__pb2.ListWorkflowsResponse.SerializeToString,
+                    request_deserializer=api_dot_v1_dot_gateway__pb2.InboundWorkerMessage.FromString,
+                    response_serializer=api_dot_v1_dot_gateway__pb2.OutboundWorkerMessage.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
-            'api.v1.WorkerService', rpc_method_handlers)
+            'api.v1.GatewayService', rpc_method_handlers)
     server.add_generic_rpc_handlers((generic_handler,))
-    server.add_registered_method_handlers('api.v1.WorkerService', rpc_method_handlers)
+    server.add_registered_method_handlers('api.v1.GatewayService', rpc_method_handlers)
 
 
  # This class is part of an EXPERIMENTAL API.
-class WorkerService(object):
+class GatewayService(object):
     """Missing associated documentation comment in .proto file."""
+
+    @staticmethod
+    def ClientStream(request_iterator,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.stream_stream(
+            request_iterator,
+            target,
+            '/api.v1.GatewayService/ClientStream',
+            api_dot_v1_dot_common__pb2.InboundClientMessage.SerializeToString,
+            api_dot_v1_dot_common__pb2.OutboundClientMessage.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
 
     @staticmethod
     def WorkerStream(request_iterator,
@@ -101,36 +127,9 @@ class WorkerService(object):
         return grpc.experimental.stream_stream(
             request_iterator,
             target,
-            '/api.v1.WorkerService/WorkerStream',
-            api_dot_v1_dot_worker__pb2.WorkerStreamOutbound.SerializeToString,
-            api_dot_v1_dot_worker__pb2.WorkerStreamInbound.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def ListWorkflows(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/api.v1.WorkerService/ListWorkflows',
-            api_dot_v1_dot_common__pb2.ListWorkflowsRequest.SerializeToString,
-            api_dot_v1_dot_common__pb2.ListWorkflowsResponse.FromString,
+            '/api.v1.GatewayService/WorkerStream',
+            api_dot_v1_dot_gateway__pb2.InboundWorkerMessage.SerializeToString,
+            api_dot_v1_dot_gateway__pb2.OutboundWorkerMessage.FromString,
             options,
             channel_credentials,
             insecure,

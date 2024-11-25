@@ -94,19 +94,10 @@ def test_json_data_extractor_nested(
 
 # pylint: disable=redefined-outer-name, invalid-name
 
-import os
-from datetime import date
-from typing import List
 
 import pytest
-from pydantic import BaseModel
 
-from agentifyme.ml.llm import (
-    LanguageModelConfig,
-    LanguageModelType,
-)
 from agentifyme.tasks.extractors import PydanticDataExtractorTask
-from agentifyme.utilities.env import load_env_file
 
 # Keep the existing fixtures
 
