@@ -174,9 +174,7 @@ def test_extract_json(json_extractor_task: JSONDataExtractorTask):
 
     for i, case in enumerate(test_cases):
         result = json_extractor_task.extract_json(case["input"])
-        assert (
-            result == case["expected"]
-        ), f"Test case {i + 1} failed: {case['description']}"
+        assert result == case["expected"], f"Test case {i + 1} failed: {case['description']}"
         print(f"Test case {i + 1} passed: {case['description']}")
 
 
@@ -319,7 +317,5 @@ async def test_extract_json_async(json_extractor_task: JSONDataExtractorTask):
 
     for i, case in enumerate(test_cases):
         result = json_extractor_task.extract_json(case["input"])
-        assert (
-            result == case["expected"]
-        ), f"Test case {i + 1} failed: {case['description']}"
+        assert result == case["expected"], f"Test case {i + 1} failed: {case['description']}"
         print(f"Test case {i + 1} passed: {case['description']}")

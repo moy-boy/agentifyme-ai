@@ -45,6 +45,16 @@ class GatewayServiceStub(object):
                 request_serializer=api_dot_v1_dot_gateway__pb2.InboundWorkerMessage.SerializeToString,
                 response_deserializer=api_dot_v1_dot_gateway__pb2.OutboundWorkerMessage.FromString,
                 _registered_method=True)
+        self.RegisterWorker = channel.unary_unary(
+                '/api.v1.GatewayService/RegisterWorker',
+                request_serializer=api_dot_v1_dot_gateway__pb2.RegisterWorkerRequest.SerializeToString,
+                response_deserializer=api_dot_v1_dot_gateway__pb2.RegisterWorkerResponse.FromString,
+                _registered_method=True)
+        self.RuntimeExecutionEvent = channel.unary_unary(
+                '/api.v1.GatewayService/RuntimeExecutionEvent',
+                request_serializer=api_dot_v1_dot_gateway__pb2.RuntimeExecutionEventRequest.SerializeToString,
+                response_deserializer=api_dot_v1_dot_gateway__pb2.RuntimeExecutionEventResponse.FromString,
+                _registered_method=True)
 
 
 class GatewayServiceServicer(object):
@@ -62,6 +72,19 @@ class GatewayServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def RegisterWorker(self, request, context):
+        """Unary RPCs
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RuntimeExecutionEvent(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_GatewayServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -74,6 +97,16 @@ def add_GatewayServiceServicer_to_server(servicer, server):
                     servicer.WorkerStream,
                     request_deserializer=api_dot_v1_dot_gateway__pb2.InboundWorkerMessage.FromString,
                     response_serializer=api_dot_v1_dot_gateway__pb2.OutboundWorkerMessage.SerializeToString,
+            ),
+            'RegisterWorker': grpc.unary_unary_rpc_method_handler(
+                    servicer.RegisterWorker,
+                    request_deserializer=api_dot_v1_dot_gateway__pb2.RegisterWorkerRequest.FromString,
+                    response_serializer=api_dot_v1_dot_gateway__pb2.RegisterWorkerResponse.SerializeToString,
+            ),
+            'RuntimeExecutionEvent': grpc.unary_unary_rpc_method_handler(
+                    servicer.RuntimeExecutionEvent,
+                    request_deserializer=api_dot_v1_dot_gateway__pb2.RuntimeExecutionEventRequest.FromString,
+                    response_serializer=api_dot_v1_dot_gateway__pb2.RuntimeExecutionEventResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -130,6 +163,60 @@ class GatewayService(object):
             '/api.v1.GatewayService/WorkerStream',
             api_dot_v1_dot_gateway__pb2.InboundWorkerMessage.SerializeToString,
             api_dot_v1_dot_gateway__pb2.OutboundWorkerMessage.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RegisterWorker(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/api.v1.GatewayService/RegisterWorker',
+            api_dot_v1_dot_gateway__pb2.RegisterWorkerRequest.SerializeToString,
+            api_dot_v1_dot_gateway__pb2.RegisterWorkerResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RuntimeExecutionEvent(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/api.v1.GatewayService/RuntimeExecutionEvent',
+            api_dot_v1_dot_gateway__pb2.RuntimeExecutionEventRequest.SerializeToString,
+            api_dot_v1_dot_gateway__pb2.RuntimeExecutionEventResponse.FromString,
             options,
             channel_credentials,
             insecure,

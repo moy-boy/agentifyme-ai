@@ -27,12 +27,8 @@ def create_valid_config(**kwargs):
         "name": "Test Workflow",
         "slug": "test-workflow",
         "func": dummy_func,
-        "input_parameters": {
-            "param1": Param(name="param1", data_type="int", description="A parameter")
-        },
-        "output_parameters": [
-            Param(name="output1", data_type="str", description="An output parameter")
-        ],
+        "input_parameters": {"param1": Param(name="param1", data_type="int", description="A parameter")},
+        "output_parameters": [Param(name="output1", data_type="str", description="An output parameter")],
         "schedule": "* * * * *",  # Default schedule
     }
     default_config.update(kwargs)

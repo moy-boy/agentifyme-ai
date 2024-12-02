@@ -174,9 +174,7 @@ class WorkflowConfig(BaseConfig):
             try:
                 return timedelta_to_cron(v)
             except ValueError as e:
-                raise ValueError(
-                    f"Cannot convert this timedelta to a cron expression: {e}"
-                )
+                raise ValueError(f"Cannot convert this timedelta to a cron expression: {e}")
         return v  # Return as-is if it's already a string or None
 
 

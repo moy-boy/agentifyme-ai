@@ -85,9 +85,7 @@ class StructuredDataExtractorTask(Task, ReflectionMixin):
             language_model_config=language_model_config,
         )
 
-    def _validate_and_parse_data(
-        self, json_data: Dict[str, Any], output_type: Type[BaseModel]
-    ) -> BaseModel:
+    def _validate_and_parse_data(self, json_data: Dict[str, Any], output_type: Type[BaseModel]) -> BaseModel:
         """Validate and parse extracted JSON data"""
         if isinstance(json_data, str):
             raise JSONParsingError("No JSON object found in the response")
@@ -101,10 +99,7 @@ class StructuredDataExtractorTask(Task, ReflectionMixin):
                 error_details.append(f"Field '{location}': {error['msg']}")
 
             raise JSONParsingError(
-                f"Data validation failed:\n"
-                f"{chr(10).join(error_details)}\n\n"
-                f"Schema: {output_type.model_json_schema()}\n"
-                f"Data: {json_data}",
+                f"Data validation failed:\n" f"{chr(10).join(error_details)}\n\n" f"Schema: {output_type.model_json_schema()}\n" f"Data: {json_data}",
                 None,  # No raw_errors attribute available
             ) from e
 
@@ -114,23 +109,17 @@ class StructuredDataExtractorTask(Task, ReflectionMixin):
 
             raise e
 
-    async def _extract_with_reflection(
-        self, text: str, output_type: Type[BaseModel]
-    ) -> Union[BaseModel, ReflectionResult]:
+    async def _extract_with_reflection(self, text: str, output_type: Type[BaseModel]) -> Union[BaseModel, ReflectionResult]:
         """Extract data with reflection support"""
         try:
             output_schema = output_type.model_json_schema()
-            json_data = await self.json_extractor_task.arun(
-                text, output_schema=output_schema
-            )
+            json_data = await self.json_extractor_task.arun(text, output_schema=output_schema)
             return self._validate_and_parse_data(json_data, output_type)
 
         except (ValidationError, JSONParsingError) as e:
 
             async def correction_handler(reflection_response: str) -> BaseModel:
-                corrected_json = self.json_extractor_task.extract_json(
-                    reflection_response
-                )
+                corrected_json = self.json_extractor_task.extract_json(reflection_response)
                 if corrected_json is None:
                     raise JSONParsingError("Failed to extract JSON from reflection")
                 return self._validate_and_parse_data(corrected_json, output_type)
@@ -142,21 +131,13 @@ class StructuredDataExtractorTask(Task, ReflectionMixin):
                 correction_handler=correction_handler,
             )
 
-    async def arun(
-        self, input_data: Union[str, Dict[str, Any]], output_type: Type[BaseModel]
-    ) -> Union[BaseModel, ReflectionResult]:
+    async def arun(self, input_data: Union[str, Dict[str, Any]], output_type: Type[BaseModel]) -> Union[BaseModel, ReflectionResult]:
         """Async execution with reflection support"""
-        text = (
-            input_data
-            if isinstance(input_data, str)
-            else orjson.dumps(input_data, option=orjson.OPT_INDENT_2).decode()
-        )
+        text = input_data if isinstance(input_data, str) else orjson.dumps(input_data, option=orjson.OPT_INDENT_2).decode()
 
         return await self._extract_with_reflection(text, output_type)
 
-    def run(
-        self, input_data: Union[str, Dict[str, Any]], output_type: Type[BaseModel]
-    ) -> Union[BaseModel, ReflectionResult]:
+    def run(self, input_data: Union[str, Dict[str, Any]], output_type: Type[BaseModel]) -> Union[BaseModel, ReflectionResult]:
         """Synchronous execution with reflection support"""
         import asyncio
 

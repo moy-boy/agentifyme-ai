@@ -4,7 +4,6 @@ from qdrant_client import QdrantClient
 
 
 class QdrantVectorDocumentStore(VectorDocumentStore):
-
     def __init__(
         self,
         location: Optional[str] = None,
@@ -15,7 +14,6 @@ class QdrantVectorDocumentStore(VectorDocumentStore):
         api_key: Optional[str] = None,
         path: Optional[str] = None,
     ):
-
         self.client = QdrantClient(
             location=location,
             url=url,

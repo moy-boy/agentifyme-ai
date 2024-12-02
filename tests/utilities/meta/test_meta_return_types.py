@@ -49,12 +49,8 @@ def test_simple_function_metadata():
     assert metadata.name == "simple_function"
     assert metadata.description == "A simple function."
     assert len(metadata.input_params) == 2
-    assert metadata.input_params[0] == Param(
-        name="x", description="", data_type="number", default_value=None, required=True
-    )
-    assert metadata.input_params[1] == Param(
-        name="y", description="", data_type="number", default_value=1.0, required=False
-    )
+    assert metadata.input_params[0] == Param(name="x", description="", data_type="number", default_value=None, required=True)
+    assert metadata.input_params[1] == Param(name="y", description="", data_type="number", default_value=1.0, required=False)
     assert len(metadata.output_params) == 1
     assert metadata.output_params[0] == Param(
         name="output",
@@ -72,9 +68,7 @@ def test_function_with_model_metadata():
     assert metadata.name == "function_with_model"
     assert metadata.description == "Function returning a model."
     assert len(metadata.input_params) == 1
-    assert metadata.input_params[0] == Param(
-        name="x", description="", data_type="number", default_value=None, required=True
-    )
+    assert metadata.input_params[0] == Param(name="x", description="", data_type="number", default_value=None, required=True)
     assert len(metadata.output_params) == 1
     assert metadata.output_params[0] == Param(
         name="value",
@@ -91,9 +85,7 @@ def test_function_with_model_or_none_metadata():
     assert metadata.name == "function_with_model_or_none"
     assert metadata.description == "Function returning a model or None."
     assert len(metadata.input_params) == 1
-    assert metadata.input_params[0] == Param(
-        name="x", description="", data_type="number", default_value=None, required=True
-    )
+    assert metadata.input_params[0] == Param(name="x", description="", data_type="number", default_value=None, required=True)
     assert len(metadata.output_params) == 1
     assert metadata.output_params[0] == Param(
         name="value",
@@ -111,9 +103,7 @@ def test_function_with_list_return_metadata():
     assert metadata.name == "function_with_list_return"
     assert metadata.description == "Function returning a list of strings."
     assert len(metadata.input_params) == 1
-    assert metadata.input_params[0] == Param(
-        name="x", description="", data_type="number", default_value=None, required=True
-    )
+    assert metadata.input_params[0] == Param(name="x", description="", data_type="number", default_value=None, required=True)
     assert len(metadata.output_params) == 1
     assert metadata.output_params[0] == Param(
         name="output",
@@ -131,9 +121,7 @@ def test_function_with_empty_return_metadata():
     assert metadata.name == "function_with_empty_return"
     assert metadata.description == "Function returning None."
     assert len(metadata.input_params) == 1
-    assert metadata.input_params[0] == Param(
-        name="x", description="", data_type="number", default_value=None, required=True
-    )
+    assert metadata.input_params[0] == Param(name="x", description="", data_type="number", default_value=None, required=True)
     assert len(metadata.output_params) == 0
     assert metadata.doc_string == "Function returning None."
 
@@ -174,13 +162,9 @@ def test_union_types():
     metadata = function_metadata(union_func)
     assert len(metadata.input_params) == 1
     assert metadata.input_params[0].name == "x"
-    assert (
-        metadata.input_params[0].data_type == "string"
-    )  # Default to string for complex types
+    assert metadata.input_params[0].data_type == "string"  # Default to string for complex types
     assert len(metadata.output_params) == 1
-    assert (
-        metadata.output_params[0].data_type == "number"
-    )  # Default to number for Union[float, bool]
+    assert metadata.output_params[0].data_type == "number"  # Default to number for Union[float, bool]
 
 
 # Test function with nested Pydantic models
@@ -211,9 +195,7 @@ def test_complex_return_type():
 
     metadata = function_metadata(complex_return_func)
     assert len(metadata.output_params) == 1
-    assert (
-        metadata.output_params[0].data_type == "string"
-    )  # Default to string for complex types
+    assert metadata.output_params[0].data_type == "string"  # Default to string for complex types
 
 
 # Test function with type annotations from 'typing' module
@@ -229,9 +211,7 @@ def test_typing_annotations():
     assert metadata.input_params[0].name == "x"
     assert metadata.input_params[0].data_type == "array"  # Sequence is treated as array
     assert len(metadata.output_params) == 1
-    assert (
-        metadata.output_params[0].data_type == "string"
-    )  # Default to string for complex types
+    assert metadata.output_params[0].data_type == "string"  # Default to string for complex types
 
 
 # Test function with Pydantic model using Field
@@ -264,13 +244,9 @@ def test_callable_parameter():
     metadata = function_metadata(higher_order_func)
     assert len(metadata.input_params) == 1
     assert metadata.input_params[0].name == "func"
-    assert (
-        metadata.input_params[0].data_type == "string"
-    )  # Default to string for complex types
+    assert metadata.input_params[0].data_type == "string"  # Default to string for complex types
     assert len(metadata.output_params) == 1
-    assert (
-        metadata.output_params[0].data_type == "string"
-    )  # Default to string for complex types
+    assert metadata.output_params[0].data_type == "string"  # Default to string for complex types
 
 
 # Test function with generic types
@@ -290,13 +266,9 @@ def test_generic_types():
     metadata = function_metadata(generic_func)
     assert len(metadata.input_params) == 1
     assert metadata.input_params[0].name == "data"
-    assert (
-        metadata.input_params[0].data_type == "string"
-    )  # Default to string for complex types
+    assert metadata.input_params[0].data_type == "string"  # Default to string for complex types
     assert len(metadata.output_params) == 1
-    assert (
-        metadata.output_params[0].data_type == "string"
-    )  # Default to string for complex types
+    assert metadata.output_params[0].data_type == "string"  # Default to string for complex types
 
 
 # Test function with complex docstring
@@ -333,6 +305,4 @@ def test_complex_docstring():
     assert metadata.input_params[1].name == "b"
     assert metadata.input_params[1].description == "The second parameter."
     assert len(metadata.output_params) == 1
-    assert (
-        metadata.output_params[0].description == "The result of the complex operation."
-    )
+    assert metadata.output_params[0].description == "The result of the complex operation."

@@ -44,13 +44,9 @@ class AnthropicLanguageModel(LanguageModel):
         **kwargs: Any,
     ) -> None:
         if not ANTHROPIC_AVAILABLE:
-            raise ImportError(
-                "Anthropic library is not installed. Please install it to use AnthropicLanguageModel."
-            )
+            raise ImportError("Anthropic library is not installed. Please install it to use AnthropicLanguageModel.")
 
-        super().__init__(
-            llm_model, llm_cache_type, system_prompt=system_prompt, **kwargs
-        )
+        super().__init__(llm_model, llm_cache_type, system_prompt=system_prompt, **kwargs)
 
         _api_key = os.getenv("ANTHROPIC_API_KEY") if api_key is None else api_key
         if not _api_key:
@@ -104,9 +100,7 @@ class AnthropicLanguageModel(LanguageModel):
         top_p: float = 1.0,
         **kwargs: Any,
     ) -> Iterator[LanguageModelResponse]:
-        raise NotImplementedError(
-            "AgentifyMe does not support Anthropic streaming yet."
-        )
+        raise NotImplementedError("AgentifyMe does not support Anthropic streaming yet.")
 
     def convert_messages_to_params(self, messages: List[Message]):
         anthropic_messages: List[MessageParam] = []
@@ -120,9 +114,7 @@ class AnthropicLanguageModel(LanguageModel):
                 content = message.content
             elif isinstance(message.content, list):
                 # Assuming content is a list of content blocks
-                content = [
-                    self.prepare_content_block(block) for block in message.content
-                ]
+                content = [self.prepare_content_block(block) for block in message.content]
             else:
                 raise ValueError(f"Unsupported content type: {type(message.content)}")
 
@@ -161,13 +153,9 @@ class AnthropicLanguageModel(LanguageModel):
                 content = message["content"]
             elif isinstance(message["content"], list):
                 # Assuming content is a list of content blocks
-                content = [
-                    self.convert_content_block(block) for block in message["content"]
-                ]
+                content = [self.convert_content_block(block) for block in message["content"]]
             else:
-                raise ValueError(
-                    f"Unsupported content type: {type(message['content'])}"
-                )
+                raise ValueError(f"Unsupported content type: {type(message['content'])}")
 
             converted_message = Message(role=role, content=content)
             converted_messages.append(converted_message)

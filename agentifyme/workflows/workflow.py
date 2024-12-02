@@ -46,9 +46,7 @@ class Workflow(BaseModule):
             try:
                 return execute_function(self.config.func, kwargs)
             except Exception as e:
-                raise WorkflowExecutionError(
-                    f"Error executing workflow {self.config.name}: {str(e)}"
-                ) from e
+                raise WorkflowExecutionError(f"Error executing workflow {self.config.name}: {str(e)}") from e
         else:
             raise NotImplementedError("Workflow function not implemented")
 
@@ -62,9 +60,7 @@ class Workflow(BaseModule):
                 else:
                     return await asyncio.to_thread(self.config.func, **kwargs)
             except Exception as e:
-                raise AsyncWorkflowExecutionError(
-                    f"Error executing async workflow {self.config.name}: {str(e)}"
-                ) from e
+                raise AsyncWorkflowExecutionError(f"Error executing async workflow {self.config.name}: {str(e)}") from e
         else:
             raise NotImplementedError("Workflow function not implemented")
 
@@ -86,9 +82,7 @@ def workflow(
     description: Optional[str] = None,
     schedule: Optional[Union[str, timedelta]] = None,
 ) -> Callable[..., Any]:
-    def decorator(
-        func: Callable[..., Any], outer_name: Optional[str] = name
-    ) -> Callable[..., Any]:
+    def decorator(func: Callable[..., Any], outer_name: Optional[str] = name) -> Callable[..., Any]:
         func_metadata = get_function_metadata(func)
         _name = func_metadata.name
         if outer_name:
@@ -132,9 +126,7 @@ def workflow(
             "type": "workflow",
             "name": _workflow.name,
             "description": _workflow.description,
-            "input_parameters": {
-                name: param.name for name, param in _workflow.input_parameters.items()
-            },
+            "input_parameters": {name: param.name for name, param in _workflow.input_parameters.items()},
             "output_parameters": [param.name for param in _workflow.output_parameters],
             "nested_calls": [],
             "is_async": asyncio.iscoroutinefunction(func),

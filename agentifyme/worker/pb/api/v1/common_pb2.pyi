@@ -84,7 +84,7 @@ class Schedule(_message.Message):
     def __init__(self, cron_expression: _Optional[str] = ..., interval: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...) -> None: ...
 
 class WorkflowConfig(_message.Message):
-    __slots__ = ("name", "slug", "description", "input_parameters", "output_parameters", "schedule", "version", "metadata")
+    __slots__ = ("id", "name", "slug", "description", "input_parameters", "output_parameters", "schedule", "version", "metadata")
     class MetadataEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -92,6 +92,7 @@ class WorkflowConfig(_message.Message):
         key: str
         value: str
         def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+    ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     SLUG_FIELD_NUMBER: _ClassVar[int]
     DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
@@ -100,6 +101,7 @@ class WorkflowConfig(_message.Message):
     SCHEDULE_FIELD_NUMBER: _ClassVar[int]
     VERSION_FIELD_NUMBER: _ClassVar[int]
     METADATA_FIELD_NUMBER: _ClassVar[int]
+    id: str
     name: str
     slug: str
     description: str
@@ -108,7 +110,7 @@ class WorkflowConfig(_message.Message):
     schedule: Schedule
     version: str
     metadata: _containers.ScalarMap[str, str]
-    def __init__(self, name: _Optional[str] = ..., slug: _Optional[str] = ..., description: _Optional[str] = ..., input_parameters: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., output_parameters: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., schedule: _Optional[_Union[Schedule, _Mapping]] = ..., version: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ...) -> None: ...
+    def __init__(self, id: _Optional[str] = ..., name: _Optional[str] = ..., slug: _Optional[str] = ..., description: _Optional[str] = ..., input_parameters: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., output_parameters: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., schedule: _Optional[_Union[Schedule, _Mapping]] = ..., version: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ...) -> None: ...
 
 class ListWorkflowsRequest(_message.Message):
     __slots__ = ("deployment_id",)

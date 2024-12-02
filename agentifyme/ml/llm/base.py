@@ -85,17 +85,11 @@ class LanguageModelType(str, Enum):
     GROQ_LLAMA_3_1_405B_REASONING = "groq/llama-3.1-405b-reasoning"
     GROQ_LLAMA_3_1_70B_VERSATILE = "groq/llama-3.1-70b-versatile"
     GROQ_LLAMA_3_1_8B_INSTANT = "groq/llama-3.1-8b-instant"
-    GROQ_LLAMA3_GROQ_70B_8192_TOOL_USE_PREVIEW = (
-        "groq/llama3-groq-70b-8192-tool-use-preview"
-    )
-    GROQ_LLAMA3_GROQ_8B_8192_TOOL_USE_PREVIEW = (
-        "groq/llama3-groq-8b-8192-tool-use-preview"
-    )
+    GROQ_LLAMA3_GROQ_70B_8192_TOOL_USE_PREVIEW = "groq/llama3-groq-70b-8192-tool-use-preview"
+    GROQ_LLAMA3_GROQ_8B_8192_TOOL_USE_PREVIEW = "groq/llama3-groq-8b-8192-tool-use-preview"
 
     # Together
-    TOGETHER_SERVERLESS_META_LLAMA_3_1_8B_INSTRUCT_TURBO = (
-        "together/meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo"
-    )
+    TOGETHER_SERVERLESS_META_LLAMA_3_1_8B_INSTRUCT_TURBO = "together/meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo"
 
 
 class LanguageModel(ABC):
@@ -263,8 +257,6 @@ class LanguageModel(ABC):
             model_name = "/".join(model_parts)  # Join the remaining parts back together
             return provider, model_name
         except ValueError:
-            raise ValueError(
-                f"Invalid model type format: {model}. Expected format: 'provider/model'"
-            )
+            raise ValueError(f"Invalid model type format: {model}. Expected format: 'provider/model'")
         except KeyError:
             raise ValueError(f"Unsupported provider: {provider_name}")

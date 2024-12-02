@@ -81,9 +81,7 @@ class JSONDataExtractorTask(Task):
                 self.language_model = get_language_model(_language_model_config)
 
         else:
-            raise ValueError(
-                "Either language_model or language_model_config must be provided"
-            )
+            raise ValueError("Either language_model or language_model_config must be provided")
 
         if prompt_template is None:
             self.prompt_template = self.get_default_prompt()

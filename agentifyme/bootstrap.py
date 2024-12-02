@@ -52,15 +52,9 @@ def initialize_workflows():
         # save the tasks configuration
         tasks_config = []
         for task_name, task in TaskConfig.get_registry().items():
-            logger.info(
-                f"Generating task configuration for {task_name}", task_name=task_name
-            )
-            task_config = task.config.model_dump(
-                exclude={"func"}, exclude_unset=True, exclude_none=True
-            )
-            task_slug = (
-                task_config.get("name", "").replace(" ", "-").replace("_", "-").lower()
-            )
+            logger.info(f"Generating task configuration for {task_name}", task_name=task_name)
+            task_config = task.config.model_dump(exclude={"func"}, exclude_unset=True, exclude_none=True)
+            task_slug = task_config.get("name", "").replace(" ", "-").replace("_", "-").lower()
             task_config["slug"] = task_slug
             tasks_config.append(task_config)
         write_config_file(tasks_config, os.path.join(config_dir, "tasks.json"))
@@ -72,15 +66,8 @@ def initialize_workflows():
                 f"Generating workflow configuration for {workflow_name}",
                 workflow_name=workflow_name,
             )
-            workflow_config = workflow.config.model_dump(
-                exclude={"func"}, exclude_unset=True, exclude_none=True
-            )
-            workflow_slug = (
-                workflow_config.get("slug", "")
-                .replace(" ", "-")
-                .replace("_", "-")
-                .lower()
-            )
+            workflow_config = workflow.config.model_dump(exclude={"func"}, exclude_unset=True, exclude_none=True)
+            workflow_slug = workflow_config.get("slug", "").replace(" ", "-").replace("_", "-").lower()
             workflow_config["slug"] = workflow_slug
             workflows_config.append(workflow_config)
         write_config_file(workflows_config, os.path.join(config_dir, "workflows.json"))
@@ -132,9 +119,7 @@ def bootstrap():
 
     try:
         setup_telemetry(_env, agentifyme_worker_version)
-        logger.info(
-            "Initializing Agentifyme worker", env=_env, project_dir=_project_dir
-        )
+        logger.info("Initializing Agentifyme worker", env=_env, project_dir=_project_dir)
         OTELInstrumentor.instrument()
         initialize_workflows()
     except Exception as e:

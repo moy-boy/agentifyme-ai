@@ -51,9 +51,7 @@ def import_module(package_name: str, module_name: str) -> Any:
     try:
         return importlib.import_module(f"{package_name}.{module_name}")
     except ImportError as e:
-        print(
-            f"Error importing module '{module_name}' from package '{package_name}': {e}"
-        )
+        print(f"Error importing module '{module_name}' from package '{package_name}': {e}")
         return None
 
 
@@ -86,8 +84,6 @@ def load_modules_from_directory(root_dir: str) -> Dict[str, Dict[str, Any]]:
 
         return loaded_modules
     except ValueError as e:
-        logger.error(
-            "Error loading modules from directory", exc_info=True, error=str(e)
-        )
+        logger.error("Error loading modules from directory", exc_info=True, error=str(e))
 
     return {}

@@ -41,21 +41,15 @@ def test_multiple_args_simple_output():
 
     assert len(metadata.input_parameters) == 2
     assert metadata.input_parameters["profile"].data_type == "object"
-    assert (
-        metadata.input_parameters["profile"].nested_fields["name"].data_type == "string"
-    )
-    assert (
-        metadata.input_parameters["profile"].nested_fields["age"].data_type == "number"
-    )
+    assert metadata.input_parameters["profile"].nested_fields["name"].data_type == "string"
+    assert metadata.input_parameters["profile"].nested_fields["age"].data_type == "number"
     assert metadata.input_parameters["include_details"].data_type == "boolean"
     assert metadata.input_parameters["include_details"].default_value == False
     assert metadata.output_parameters[0].data_type == "string"
 
 
 def test_multiple_args_complex_input_output():
-    def advanced_process(
-        data: ComplexInput, multiply_age: int, flag: bool = True
-    ) -> ComplexOutput:
+    def advanced_process(data: ComplexInput, multiply_age: int, flag: bool = True) -> ComplexOutput:
         """
         Perform advanced processing on complex input data.
 
@@ -104,9 +98,7 @@ def test_multiple_args_complex_input_output():
 
 
 def test_list_and_dict_arguments():
-    def process_collection(
-        items: List[str], options: Dict[str, Any], limit: Optional[int] = None
-    ) -> List[Dict[str, Any]]:
+    def process_collection(items: List[str], options: Dict[str, Any], limit: Optional[int] = None) -> List[Dict[str, Any]]:
         """
         Process a collection of items based on given options.
 

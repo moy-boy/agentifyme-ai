@@ -83,20 +83,14 @@ def json_datatype_from_python_type(python_type: Any) -> str:
         args = get_args(python_type)
         if len(args) == 2 and type(None) in args:
             # This is an Optional type
-            return json_datatype_from_python_type(
-                [arg for arg in args if arg is not type(None)][0]
-            )
+            return json_datatype_from_python_type([arg for arg in args if arg is not type(None)][0])
 
     # Handle List types
-    if origin in (list, List) or (
-        isinstance(python_type, type) and issubclass(python_type, list)
-    ):
+    if origin in (list, List) or (isinstance(python_type, type) and issubclass(python_type, list)):
         return "array"
 
     # Handle Dict types
-    if origin in (dict, Dict) or (
-        isinstance(python_type, type) and issubclass(python_type, dict)
-    ):
+    if origin in (dict, Dict) or (isinstance(python_type, type) and issubclass(python_type, dict)):
         return "object"
 
     # Handle primitive types and BaseModel
@@ -157,19 +151,13 @@ def get_pydantic_fields(
     return fields
 
 
-def get_input_parameters(
-    func: Callable, parsed_docstring: Docstring
-) -> Dict[str, Param]:
+def get_input_parameters(func: Callable, parsed_docstring: Docstring) -> Dict[str, Param]:
     sig = inspect.signature(func)
     input_parameters = {}
 
     for param_name, param in sig.parameters.items():
-        param_type = (
-            param.annotation if param.annotation != inspect.Parameter.empty else Any
-        )
-        default_value = (
-            param.default if param.default != inspect.Parameter.empty else None
-        )
+        param_type = param.annotation if param.annotation != inspect.Parameter.empty else Any
+        default_value = param.default if param.default != inspect.Parameter.empty else None
         required = default_value is None and param.default == inspect.Parameter.empty
 
         if isinstance(param_type, type) and issubclass(param_type, BaseModel):
@@ -179,11 +167,7 @@ def get_input_parameters(
                 name=param_name,
                 description=(
                     next(
-                        (
-                            "" if p.description is None else p.description
-                            for p in parsed_docstring.params
-                            if p.arg_name == param_name
-                        ),
+                        ("" if p.description is None else p.description for p in parsed_docstring.params if p.arg_name == param_name),
                         "",
                     )
                     if parsed_docstring
@@ -199,11 +183,7 @@ def get_input_parameters(
                 name=param_name,
                 description=(
                     next(
-                        (
-                            "" if p.description is None else p.description
-                            for p in parsed_docstring.params
-                            if p.arg_name == param_name
-                        ),
+                        ("" if p.description is None else p.description for p in parsed_docstring.params if p.arg_name == param_name),
                         "",
                     )
                     if parsed_docstring
@@ -217,21 +197,13 @@ def get_input_parameters(
     return input_parameters
 
 
-def get_output_parameters(
-    func: Callable, parsed_docstring: Optional[Docstring]
-) -> List[Param]:
+def get_output_parameters(func: Callable, parsed_docstring: Optional[Docstring]) -> List[Param]:
     signature = inspect.signature(func)
     return_annotation = signature.return_annotation
-    return_description = (
-        parsed_docstring.returns.description
-        if parsed_docstring and parsed_docstring.returns
-        else ""
-    )
+    return_description = parsed_docstring.returns.description if parsed_docstring and parsed_docstring.returns else ""
 
     if isinstance(return_annotation, type) and issubclass(return_annotation, BaseModel):
-        nested_fields = get_pydantic_fields(
-            return_annotation, parsed_docstring, is_output=True
-        )
+        nested_fields = get_pydantic_fields(return_annotation, parsed_docstring, is_output=True)
         return [
             Param(
                 name="return_value",
@@ -324,9 +296,7 @@ def convert_json_to_args(func: Callable, json_data: Dict[str, Any]) -> Dict[str,
 
 
 @deprecated
-async def validate_and_call_workflow(
-    workflow_func: Callable, json_data: Dict[str, Any]
-) -> Any:
+async def validate_and_call_workflow(workflow_func: Callable, json_data: Dict[str, Any]) -> Any:
     """
     Validate the JSON data against the workflow function's metadata and call the function.
 
@@ -353,19 +323,10 @@ def validate_input_parameters(func: Callable, json_data: Dict[str, Any]):
 
         if param_name in json_data:
             # You might want to add more specific type checking here
-            if param.data_type == "object" and not (
-                isinstance(json_data[param_name], dict)
-                or isinstance(json_data[param_name], BaseModel)
-            ):
-                raise ValueError(
-                    f"Invalid type for parameter {param_name}. Expected object, got {type(json_data[param_name])}"
-                )
-            elif param.data_type == "array" and not isinstance(
-                json_data[param_name], list
-            ):
-                raise ValueError(
-                    f"Invalid type for parameter {param_name}. Expected array, got {type(json_data[param_name])}"
-                )
+            if param.data_type == "object" and not (isinstance(json_data[param_name], dict) or isinstance(json_data[param_name], BaseModel)):
+                raise ValueError(f"Invalid type for parameter {param_name}. Expected object, got {type(json_data[param_name])}")
+            elif param.data_type == "array" and not isinstance(json_data[param_name], list):
+                raise ValueError(f"Invalid type for parameter {param_name}. Expected array, got {type(json_data[param_name])}")
 
 
 def execute_function_sync(func: Callable, json_data: Dict[str, Any]) -> Any:

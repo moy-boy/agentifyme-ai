@@ -20,20 +20,14 @@ class Tool(Generic[ToolInputType, ToolOutputType]):
     def __init__(self) -> None:
         pass
 
-    def __call__(
-        self, *args, **kwargs
-    ) -> Union[ToolOutputType, Mapping[str, ToolOutputType]]:
+    def __call__(self, *args, **kwargs) -> Union[ToolOutputType, Mapping[str, ToolOutputType]]:
         return self.run(*args, **kwargs)
 
-    def run(
-        self, *args, **kwargs
-    ) -> Union[ToolOutputType, Mapping[str, ToolOutputType]]:
+    def run(self, *args, **kwargs) -> Union[ToolOutputType, Mapping[str, ToolOutputType]]:
         """Run the tool with the given input and return the output."""
         raise NotImplementedError
 
-    async def async_run(
-        self, *args, **kwargs
-    ) -> Union[ToolOutputType, Mapping[str, ToolOutputType]]:
+    async def async_run(self, *args, **kwargs) -> Union[ToolOutputType, Mapping[str, ToolOutputType]]:
         """Run the tool with the given input and return the output."""
         raise NotImplementedError
 

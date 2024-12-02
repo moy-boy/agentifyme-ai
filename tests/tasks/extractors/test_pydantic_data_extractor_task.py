@@ -113,9 +113,7 @@ async def test_pydantic_data_extractor_simple_async(
 
     text = "The weather in New York is 75 degrees Fahrenheit with 60% humidity."
 
-    output = await pydantic_extractor_task.arun(
-        input_data=text, output_type=WeatherData
-    )
+    output = await pydantic_extractor_task.arun(input_data=text, output_type=WeatherData)
 
     assert output is not None
 
@@ -211,9 +209,7 @@ async def test_pydantic_data_extractor_with_missing_data_async(
     the plot was intricate and engaging. I'd give it a solid 4.5 out of 5.
     """
 
-    output = await pydantic_extractor_task.arun(
-        input_data=text, output_type=MovieReview
-    )
+    output = await pydantic_extractor_task.arun(input_data=text, output_type=MovieReview)
 
     assert output is not None
 

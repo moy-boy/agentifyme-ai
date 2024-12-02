@@ -110,9 +110,7 @@ def test_groq_language_model_temperature(
     prompt = "Generate a random adjective:"
 
     # Low temperature (more deterministic)
-    response_low_temp = language_model.generate_from_prompt(
-        prompt=prompt, temperature=0.1
-    )
+    response_low_temp = language_model.generate_from_prompt(prompt=prompt, temperature=0.1)
 
     # High temperature (more random)
     response_high_temp = language_model.generate_from_prompt(prompt, temperature=0.9)
@@ -138,9 +136,7 @@ def test_groq_language_model_error_handling(
     groq_language_model_llama_3_1_8b_instant: LanguageModelConfig,
 ):
     # Intentionally use an invalid API key
-    invalid_config = LanguageModelConfig(
-        model=LanguageModelType.GROQ_LLAMA_3_1_8B_INSTANT, api_key="invalid_key"
-    )
+    invalid_config = LanguageModelConfig(model=LanguageModelType.GROQ_LLAMA_3_1_8B_INSTANT, api_key="invalid_key")
     language_model = get_language_model(invalid_config)
 
     prompt = "This should fail due to invalid API key."

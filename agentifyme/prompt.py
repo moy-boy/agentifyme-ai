@@ -51,11 +51,7 @@ class PromptTemplate:
                 if key in _template_content and isinstance(_template_content[key], str):
                     template = jinja2.Template(_template_content[key])
                     _rendered_content = template.render(**kwargs).strip()
-                    cleaned_content = "\n".join(
-                        line.strip()
-                        for line in _rendered_content.splitlines()
-                        if line.strip()
-                    )
+                    cleaned_content = "\n".join(line.strip() for line in _rendered_content.splitlines() if line.strip())
                     _template_content[key] = cleaned_content
 
         final_content = {**_template_content, **kwargs}

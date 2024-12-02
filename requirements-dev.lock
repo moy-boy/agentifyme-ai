@@ -222,7 +222,7 @@ requests==2.32.3
     # via together
 rich==13.7.1
     # via typer
-ruff==0.5.4
+ruff==0.8.1
 sentry-sdk==2.18.0
     # via agentifyme
 setuptools==75.5.0

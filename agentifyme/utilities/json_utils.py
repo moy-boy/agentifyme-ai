@@ -29,9 +29,7 @@ def extract_json(text: str) -> Dict[str, Any] | None:
             except json.JSONDecodeError:
                 # If it's not valid JSON, apply our transformations
                 # Replace single quotes with double quotes, but not within string values or escaped
-                json_str = re.sub(
-                    r"(?<![\\])(')((?:\\.|[^\\'])*?)(?<![\\])(')", r'"\2"', json_str
-                )
+                json_str = re.sub(r"(?<![\\])(')((?:\\.|[^\\'])*?)(?<![\\])(')", r'"\2"', json_str)
                 # Replace any remaining unescaped single quotes
                 json_str = re.sub(r"(?<![\\])'", '"', json_str)
                 # Replace 'true', 'false', and 'null' with their JSON equivalents

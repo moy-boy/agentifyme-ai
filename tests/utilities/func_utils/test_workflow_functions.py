@@ -107,9 +107,7 @@ def test_convert_json_to_args():
     assert args["email_message"].from_ == "sender@example.com"
     assert args["email_message"].to == ["recipient@example.com"]
     assert args["email_message"].subject == "Important Meeting"
-    assert args["email_message"].created_at == datetime(
-        2023, 8, 7, 10, 0, tzinfo=ZoneInfo("UTC")
-    )
+    assert args["email_message"].created_at == datetime(2023, 8, 7, 10, 0, tzinfo=ZoneInfo("UTC"))
 
 
 # Parameterized test example

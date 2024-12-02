@@ -85,16 +85,12 @@ def test_task_registry_pydantic_arguments():
 
     @task
     def get_quote(question: QuoteRequest) -> QuoteResponse:
-        return QuoteResponse(
-            quote="Hello, world!", author="AgentifyMe", icons=["🚀", "🤖"]
-        )
+        return QuoteResponse(quote="Hello, world!", author="AgentifyMe", icons=["🚀", "🤖"])
 
     question = QuoteRequest(question="What is the meaning of life?")
     response = get_quote(question=question)
 
-    assert get_quote(
-        QuoteRequest(question="What is the meaning of life?")
-    ) == QuoteResponse(quote="Hello, world!", author="AgentifyMe", icons=["🚀", "🤖"])
+    assert get_quote(QuoteRequest(question="What is the meaning of life?")) == QuoteResponse(quote="Hello, world!", author="AgentifyMe", icons=["🚀", "🤖"])
 
 
 @pytest.mark.asyncio
@@ -111,16 +107,12 @@ async def test_async_task_registry_pydantic_arguments():
 
     @task
     async def get_quote_async(question: QuoteRequest) -> QuoteResponse:
-        return QuoteResponse(
-            quote="Hello, world!", author="AgentifyMe", icons=["🚀", "🤖"]
-        )
+        return QuoteResponse(quote="Hello, world!", author="AgentifyMe", icons=["🚀", "🤖"])
 
     question = QuoteRequest(question="What is the meaning of life?")
     response = await get_quote_async(question=question)
 
-    assert await get_quote_async(
-        QuoteRequest(question="What is the meaning of life?")
-    ) == QuoteResponse(quote="Hello, world!", author="AgentifyMe", icons=["🚀", "🤖"])
+    assert await get_quote_async(QuoteRequest(question="What is the meaning of life?")) == QuoteResponse(quote="Hello, world!", author="AgentifyMe", icons=["🚀", "🤖"])
 
 
 def test_task_with_name_and_description():

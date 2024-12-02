@@ -11,9 +11,7 @@ class Document(BaseModel):
 
     id: str = Field()
     content: str = Field(description="The content of the document.")
-    metadata: Dict[str, Any] = Field(
-        description="The metadata associated with the document."
-    )
+    metadata: Dict[str, Any] = Field(description="The metadata associated with the document.")
 
 
 class VectorDocument(Document):

@@ -73,9 +73,7 @@ class LanguageModelBuilder:
                     project=self.config.project,
                 )
             else:
-                raise ImportError(
-                    "The 'openai' package is not installed. Please install it to use OpenAI models."
-                )
+                raise ImportError("The 'openai' package is not installed. Please install it to use OpenAI models.")
 
         elif self.config.provider == LanguageModelProvider.GROQ:
             if importlib.util.find_spec("groq") is not None:
@@ -87,9 +85,7 @@ class LanguageModelBuilder:
                     verbose=self.config.verbose,
                 )
             else:
-                raise ImportError(
-                    "The 'groq' package is not installed. Please install it to use Groq models."
-                )
+                raise ImportError("The 'groq' package is not installed. Please install it to use Groq models.")
 
         elif self.config.provider == LanguageModelProvider.ANTHROPIC:
             if importlib.util.find_spec("anthropic") is not None:
@@ -101,9 +97,7 @@ class LanguageModelBuilder:
                     verbose=self.config.verbose,
                 )
             else:
-                raise ImportError(
-                    "The 'anthropic' package is not installed. Please install it to use Anthropic models."
-                )
+                raise ImportError("The 'anthropic' package is not installed. Please install it to use Anthropic models.")
         else:
             raise ValueError(f"Unsupported provider: {self.config.provider}")
 

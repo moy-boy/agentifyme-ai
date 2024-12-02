@@ -52,14 +52,10 @@ def convert_param_to_pb(param: Param) -> ParamPb:
         name=param.name,
         description=param.description,
         data_type=param_type,
-        default_value=str(param.default_value)
-        if param.default_value is not None
-        else "",
+        default_value=str(param.default_value) if param.default_value is not None else "",
         required=param.required,
         class_name=param.class_name or "",
-        nested_fields={
-            k: convert_param_to_pb(v) for k, v in param.nested_fields.items()
-        },
+        nested_fields={k: convert_param_to_pb(v) for k, v in param.nested_fields.items()},
     )
 
 
@@ -74,15 +70,10 @@ def convert_workflow_to_pb(workflow: WorkflowConfig) -> common_pb.WorkflowConfig
         Corresponding protobuf WorkflowConfig message
     """
     # Convert input parameters
-    pb_input_parameters = {
-        key: convert_param_to_pb(param)
-        for key, param in workflow.input_parameters.items()
-    }
+    pb_input_parameters = {key: convert_param_to_pb(param) for key, param in workflow.input_parameters.items()}
 
     # Convert output parameters
-    pb_output_parameters = [
-        convert_param_to_pb(param) for param in workflow.output_parameters
-    ]
+    pb_output_parameters = [convert_param_to_pb(param) for param in workflow.output_parameters]
 
     # Convert schedule if it exists
     schedule: Optional[common_pb.Schedule] = None

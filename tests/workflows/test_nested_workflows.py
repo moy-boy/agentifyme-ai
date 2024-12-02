@@ -42,9 +42,7 @@ def get_customer_name(customer_id: str) -> str:
 
 @task
 async def get_customer_name_async(customer_id: str) -> str:
-    logger.info(
-        f"Retrieving customer name asynchronously for customer_id: {customer_id}"
-    )
+    logger.info(f"Retrieving customer name asynchronously for customer_id: {customer_id}")
     await asyncio.sleep(0.1)
     return "John Doe"
 
@@ -52,9 +50,7 @@ async def get_customer_name_async(customer_id: str) -> str:
 @workflow(name="get_customer_info", description="Retrieve customer information")
 def get_customer_info(customer_id: str) -> CustomerInfo:
     customer_name = get_customer_name(customer_id)
-    return CustomerInfo(
-        customer_id=customer_id, name=customer_name, email="john@example.com"
-    )
+    return CustomerInfo(customer_id=customer_id, name=customer_name, email="john@example.com")
 
 
 @workflow(
@@ -63,9 +59,7 @@ def get_customer_info(customer_id: str) -> CustomerInfo:
 )
 async def get_customer_info_async(customer_id: str) -> CustomerInfo:
     customer_name = await get_customer_name_async(customer_id)
-    return CustomerInfo(
-        customer_id=customer_id, name=customer_name, email="john@example.com"
-    )
+    return CustomerInfo(customer_id=customer_id, name=customer_name, email="john@example.com")
 
 
 @workflow(name="categorize_query", description="Categorize customer query")
@@ -179,9 +173,7 @@ def test_individual_workflows():
     assert isinstance(customer_info_result, CustomerInfo)
     assert customer_info_result.name == "John Doe"
 
-    categorize_query_result = categorize_query_workflow.run(
-        query="I have a billing question"
-    )
+    categorize_query_result = categorize_query_workflow.run(query="I have a billing question")
     assert isinstance(categorize_query_result, QueryCategory)
     assert categorize_query_result.category == "billing"
 
@@ -195,8 +187,6 @@ async def test_individual_workflows_async():
     assert isinstance(customer_info_result, CustomerInfo)
     assert customer_info_result.name == "John Doe"
 
-    categorize_query_result = await categorize_query_workflow.arun(
-        query="I have a billing question"
-    )
+    categorize_query_result = await categorize_query_workflow.arun(query="I have a billing question")
     assert isinstance(categorize_query_result, QueryCategory)
     assert categorize_query_result.category == "billing"

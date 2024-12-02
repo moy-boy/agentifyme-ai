@@ -34,9 +34,7 @@ class Task(BaseModule):
             try:
                 return execute_function(self.config.func, kwargs)
             except Exception as e:
-                raise TaskExecutionError(
-                    f"Error executing task {self.config.name}: {str(e)}"
-                ) from e
+                raise TaskExecutionError(f"Error executing task {self.config.name}: {str(e)}") from e
         else:
             raise NotImplementedError("Task function not implemented")
 
@@ -50,9 +48,7 @@ class Task(BaseModule):
                 else:
                     return await asyncio.to_thread(self.config.func, **kwargs)
             except Exception as e:
-                raise AsyncTaskExecutionError(
-                    f"Error executing async task {self.config.name}: {str(e)}"
-                ) from e
+                raise AsyncTaskExecutionError(f"Error executing async task {self.config.name}: {str(e)}") from e
         else:
             raise NotImplementedError("Task function not implemented")
 
@@ -104,12 +100,8 @@ def task(
             "description": task_config.description,
             "objective": task_config.objective,
             "instructions": task_config.instructions,
-            "input_parameters": {
-                name: param.name for name, param in task_config.input_parameters.items()
-            },
-            "output_parameters": [
-                param.name for param in task_config.output_parameters
-            ],
+            "input_parameters": {name: param.name for name, param in task_config.input_parameters.items()},
+            "output_parameters": [param.name for param in task_config.output_parameters],
         }
 
         # pylint: enable=protected-access

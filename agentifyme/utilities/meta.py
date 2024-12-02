@@ -72,13 +72,9 @@ def json_datatype_from_python_type(python_type: Any) -> str:
         return "number"
     if python_type in (bool, "<class 'bool'>"):
         return "boolean"
-    if python_type in (list, List, "<class 'list'>") or (
-        hasattr(python_type, "__origin__") and python_type.__origin__ is list
-    ):
+    if python_type in (list, List, "<class 'list'>") or (hasattr(python_type, "__origin__") and python_type.__origin__ is list):
         return "array"
-    if python_type in (dict, Dict, "<class 'dict'>", "object") or (
-        hasattr(python_type, "__origin__") and python_type.__origin__ is dict
-    ):
+    if python_type in (dict, Dict, "<class 'dict'>", "object") or (hasattr(python_type, "__origin__") and python_type.__origin__ is dict):
         return "object"
     if python_type is type(None) or python_type is None:
         return "null"
@@ -104,9 +100,7 @@ def json_datatype_from_python_type(python_type: Any) -> str:
     return "string"  # def
 
 
-def process_return_annotation(
-    return_annotation: Any, fn_return_description: str
-) -> List[Param]:
+def process_return_annotation(return_annotation: Any, fn_return_description: str) -> List[Param]:
     """
     Process the return annotation and generate appropriate Param objects.
     """
@@ -128,9 +122,7 @@ def process_return_annotation(
                     _param = Param(
                         name=field_name,
                         description="",
-                        data_type=json_datatype_from_python_type(
-                            model_field.annotation
-                        ),
+                        data_type=json_datatype_from_python_type(model_field.annotation),
                         default_value=model_field.default,
                         required=model_field.is_required(),
                     )
@@ -141,17 +133,11 @@ def process_return_annotation(
                     name="output",
                     description=fn_return_description,
                     data_type=json_datatype_from_python_type(union_type),
-                    default_value=(
-                        []
-                        if json_datatype_from_python_type(union_type) == "array"
-                        else None
-                    ),
+                    default_value=([] if json_datatype_from_python_type(union_type) == "array" else None),
                     required=True,
                 )
                 output_parameters.append(_param)
-    elif inspect.isclass(return_annotation) and issubclass(
-        return_annotation, BaseModel
-    ):
+    elif inspect.isclass(return_annotation) and issubclass(return_annotation, BaseModel):
         for field_name, model_field in return_annotation.model_fields.items():
             if model_field is None:
                 continue
@@ -184,9 +170,7 @@ def process_return_annotation(
     return output_parameters
 
 
-def process_input_type(
-    param_name: str, param_type: Any, default_value: Any, description: str
-) -> List[Param]:
+def process_input_type(param_name: str, param_type: Any, default_value: Any, description: str) -> List[Param]:
     """
     Process input type and generate appropriate Param objects.
     """
@@ -211,11 +195,7 @@ def process_input_type(
         for union_type in union_types:
             if union_type is type(None):
                 continue
-            params.extend(
-                process_input_type(
-                    param_name, union_type, default_value, description=description or ""
-                )
-            )
+            params.extend(process_input_type(param_name, union_type, default_value, description=description or ""))
     elif get_origin(param_type) in (list, List):
         item_type = get_args(param_type)[0]
         params.append(
@@ -223,26 +203,18 @@ def process_input_type(
                 name=param_name,
                 description=description or "",
                 data_type="array",
-                default_value=(
-                    default_value if default_value != inspect.Parameter.empty else None
-                ),
+                default_value=(default_value if default_value != inspect.Parameter.empty else None),
                 required=default_value == inspect.Parameter.empty,
             )
         )
-        params.extend(
-            process_input_type(
-                f"{param_name}[]", item_type, None, description=description or ""
-            )
-        )
+        params.extend(process_input_type(f"{param_name}[]", item_type, None, description=description or ""))
     else:
         params.append(
             Param(
                 name=param_name,
                 description=description or "",
                 data_type=json_datatype_from_python_type(param_type),
-                default_value=(
-                    default_value if default_value != inspect.Parameter.empty else None
-                ),
+                default_value=(default_value if default_value != inspect.Parameter.empty else None),
                 required=default_value == inspect.Parameter.empty,
             )
         )
@@ -271,9 +243,7 @@ def get_function_metadata_with_ast(func: Callable) -> Tuple[List[str], List[str]
     tree = ast.parse(source)
 
     # Find the function definition node
-    function_def = next(
-        node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)
-    )
+    function_def = next(node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef))
 
     # Extract argument names and type annotations
     args = []
@@ -341,13 +311,9 @@ def function_metadata(func: Callable) -> FunctionMetadata:
 
         param_description = param_doc.description if param_doc else ""
 
-        input_parameters.extend(
-            process_input_type(param.name, param_type, param.default, param_description)
-        )
+        input_parameters.extend(process_input_type(param.name, param_type, param.default, param_description))
 
-    output_parameters = process_return_annotation(
-        sig.return_annotation, fn_return_description
-    )
+    output_parameters = process_return_annotation(sig.return_annotation, fn_return_description)
 
     metadata = FunctionMetadata(
         name=func.__name__,

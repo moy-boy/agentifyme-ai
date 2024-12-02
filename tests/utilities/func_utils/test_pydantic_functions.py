@@ -56,9 +56,7 @@ def test_pydantic_simple_input():
 
     name_param = user_param.nested_fields["name"]
     assert name_param.data_type == "string"
-    assert (
-        name_param.description == ""
-    )  # Explicitly check that the description is empty
+    assert name_param.description == ""  # Explicitly check that the description is empty
     assert name_param.required == True
 
     age_param = user_param.nested_fields["age"]
@@ -96,10 +94,7 @@ def test_pydantic_simple_output():
     assert len(metadata.output_parameters) == 1
     output_param = metadata.output_parameters[0]
     assert output_param.data_type == "object"
-    assert (
-        output_param.description
-        == "A simple output object containing user information."
-    )
+    assert output_param.description == "A simple output object containing user information."
 
     # Check nested fields of the output
     assert len(output_param.nested_fields) == 2
@@ -108,15 +103,11 @@ def test_pydantic_simple_output():
 
     message_param = output_param.nested_fields["message"]
     assert message_param.data_type == "string"
-    assert (
-        message_param.description == ""
-    )  # Empty as we don't extract nested field descriptions
+    assert message_param.description == ""  # Empty as we don't extract nested field descriptions
 
     success_param = output_param.nested_fields["success"]
     assert success_param.data_type == "boolean"
-    assert (
-        success_param.description == ""
-    )  # Empty as we don't extract nested field descriptions
+    assert success_param.description == ""  # Empty as we don't extract nested field descriptions
 
 
 def test_pydantic_nested_input():
@@ -183,15 +174,9 @@ def test_pydantic_nested_output():
 
     assert len(metadata.input_parameters) == 2
     assert metadata.input_parameters["name"].data_type == "string"
-    assert (
-        metadata.input_parameters["name"].description
-        == "The name to include in the response."
-    )
+    assert metadata.input_parameters["name"].description == "The name to include in the response."
     assert metadata.input_parameters["tags"].data_type == "array"
-    assert (
-        metadata.input_parameters["tags"].description
-        == "The tags to include in the response."
-    )
+    assert metadata.input_parameters["tags"].description == "The tags to include in the response."
 
     assert len(metadata.output_parameters) == 1
     output_param = metadata.output_parameters[0]

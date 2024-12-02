@@ -16,6 +16,8 @@ from opentelemetry.semconv.trace import SpanAttributes
 from opentelemetry.trace import get_current_span
 from opentelemetry.util.types import Attributes
 
+from agentifyme.worker.telemetry.semconv import SemanticAttributes
+
 _STD_TO_OTEL = {
     10: SeverityNumber.DEBUG,
     11: SeverityNumber.DEBUG2,
@@ -88,22 +90,16 @@ class LoguruHandler:
 
         # Set up the OTLP exporter
         exporter = OTLPLogExporter(endpoint=otel_endpoint, insecure=True)
-        logger_provider.add_log_record_processor(
-            BatchLogRecordProcessor(exporter, max_export_batch_size=1)
-        )
+        logger_provider.add_log_record_processor(BatchLogRecordProcessor(exporter, max_export_batch_size=1))
 
         self._logger_provider = logger_provider
         self._logger = logger_provider.get_logger(__name__)
 
     def _get_attributes(self, record) -> Attributes:
-        attributes = {
-            key: value for key, value in record.items() if key not in EXCLUDE_ATTR
-        }
+        attributes = {key: value for key, value in record.items() if key not in EXCLUDE_ATTR}
 
         # Add standard code attributes for logs.
-        attributes[SpanAttributes.CODE_FILEPATH] = record[
-            "file"
-        ].path  # This includes file and path -> (file, path)
+        attributes[SpanAttributes.CODE_FILEPATH] = record["file"].path  # This includes file and path -> (file, path)
         attributes[SpanAttributes.CODE_FUNCTION] = record["function"]
         attributes[SpanAttributes.CODE_LINENO] = record["line"]
 
@@ -117,25 +113,23 @@ class LoguruHandler:
             attributes["endpoint"] = os.getenv("AGENTIFYME_WORKER_ENDPOINT")
 
         if os.getenv("AGENTIFYME_ORGANIZATION_ID") is not None:
-            attributes["organization"] = os.getenv("AGENTIFYME_ORGANIZATION_ID")
+            attributes[SemanticAttributes.ORGANIZATION_ID] = os.getenv("AGENTIFYME_ORGANIZATION_ID")
 
         if os.getenv("AGENTIFYME_PROJECT_ID") is not None:
-            attributes["project"] = os.getenv("AGENTIFYME_PROJECT_ID")
+            attributes[SemanticAttributes.PROJECT_ID] = os.getenv("AGENTIFYME_PROJECT_ID")
 
         if os.getenv("AGENTIFYME_DEPLOYMENT_ID") is not None:
-            attributes["deployment"] = os.getenv("AGENTIFYME_DEPLOYMENT_ID")
+            attributes[SemanticAttributes.DEPLOYMENT_ID] = os.getenv("AGENTIFYME_DEPLOYMENT_ID")
 
-        if os.getenv("AGENTIFYME_REPLICA_ID") is not None:
-            attributes["replica"] = os.getenv("AGENTIFYME_REPLICA_ID")
+        if os.getenv("AGENTIFYME_WORKER_ID") is not None:
+            attributes[SemanticAttributes.WORKER_ID] = os.getenv("AGENTIFYME_WORKER_ID")
 
         if record["exception"] is not None:
             attributes[SpanAttributes.EXCEPTION_TYPE] = record["exception"].type
 
             attributes[SpanAttributes.EXCEPTION_MESSAGE] = record["exception"].value
 
-            attributes[SpanAttributes.EXCEPTION_STACKTRACE] = record[
-                "exception"
-            ].traceback
+            attributes[SpanAttributes.EXCEPTION_STACKTRACE] = record["exception"].traceback
 
         return attributes
 

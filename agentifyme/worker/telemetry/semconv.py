@@ -46,6 +46,11 @@ class SemanticAttributes:
     API_RESPONSE_BODY: Final[str] = "api.response.body"
     API_RESPONSE_STATUS_CODE: Final[str] = "api.response.status_code"
 
+    # Organization
+    ORGANIZATION_ID: Final[str] = "organization.id"
+    ORGANIZATION_NAME: Final[str] = "organization.name"
+    ORGANIZATION_REF: Final[str] = "organization.ref"
+
     # Project
     PROJECT_ID: Final[str] = "project.id"
     PROJECT_NAME: Final[str] = "project.name"
@@ -55,9 +60,9 @@ class SemanticAttributes:
     DEPLOYMENT_ID: Final[str] = "deployment.id"
     DEPLOYMENT_NAME: Final[str] = "deployment.name"
 
-    # Worker Replica
-    WORKER_REPLICA_ID: Final[str] = "worker.replica_id"
-    WORKER_REPLICA_INSTANCE_ID: Final[str] = "worker.replica_instance_id"
+    # Worker
+    WORKER_ID: Final[str] = "worker.id"
+    WORKER_ENDPOINT: Final[str] = "worker.endpoint"
 
     # Host
     HOST_ID: Final[str] = "host.id"

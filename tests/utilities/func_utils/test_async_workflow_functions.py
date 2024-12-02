@@ -125,8 +125,6 @@ def async_sample_email():
 
 
 def test_async_with_fixture(async_sample_email):
-    result = execute_function(
-        async_mock_classify_email, {"email_message": async_sample_email.dict()}
-    )
+    result = execute_function(async_mock_classify_email, {"email_message": async_sample_email.dict()})
     assert isinstance(result, EmailCategories)
     assert result.category == "Informative"

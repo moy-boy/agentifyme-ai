@@ -1,6 +1,6 @@
 [project]
 name = "agentifyme"
-version = "0.1.4"
+version = "0.1.9"
 description = "Framework for building agentic workflows"
 authors = [
     { name = "Arun Reddy", email = "arun@agentifyme.ai" }
@@ -35,7 +35,7 @@ readme = "README.md"
 requires-python = ">= 3.11"
 
 [project.scripts]
-agnt5 = "agentifyme.worker.entrypoint:run"
+agnt5 = "agentifyme.worker.entrypoint:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -44,7 +44,7 @@ build-backend = "hatchling.build"
 [tool.rye]
 managed = true
 dev-dependencies = [
-    "ruff>=0.5.4",
+    "ruff>=0.8.1",
     "pytest>=8.3.1",
     "coverage>=7.6.0",
     "pytest-cov>=5.0.0",
@@ -61,7 +61,7 @@ packages = ["agentifyme"]
 
 
 [tool.ruff]
-line-length = 120
+line-length = 180
 target-version = "py311"
 ignore = ["D100", "D101", "D102", "D103", "D104", "D105", "D106", "D107"]
 

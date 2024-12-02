@@ -5,7 +5,6 @@ from agentifyme.document_stores.types import VectorDocument
 
 
 class VectorDocumentStore(ABC):
-
     @abstractmethod
     def list_collections(self) -> List[str]:
         """

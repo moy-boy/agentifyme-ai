@@ -47,13 +47,9 @@ class GroqLanguageModel(LanguageModel):
         **kwargs: Any,
     ) -> None:
         if not GROQ_AVAILABLE:
-            raise ImportError(
-                "Groq library is not installed. Please install it to use GroqLanguageModel."
-            )
+            raise ImportError("Groq library is not installed. Please install it to use GroqLanguageModel.")
 
-        super().__init__(
-            llm_model, llm_cache_type, system_prompt=system_prompt, **kwargs
-        )
+        super().__init__(llm_model, llm_cache_type, system_prompt=system_prompt, **kwargs)
 
         _api_key = os.getenv("GROQ_API_KEY") if api_key is None else api_key
         if not _api_key:
@@ -174,27 +170,19 @@ class GroqLanguageModel(LanguageModel):
                 continue
 
             if message.role == Role.SYSTEM:
-                system_message = ChatCompletionSystemMessageParam(
-                    content=message.content, role="system"
-                )
+                system_message = ChatCompletionSystemMessageParam(content=message.content, role="system")
                 llm_messages.append(system_message)
             elif message.role == Role.USER:
-                user_message = ChatCompletionUserMessageParam(
-                    content=message.content, role="user"
-                )
+                user_message = ChatCompletionUserMessageParam(content=message.content, role="user")
                 llm_messages.append(user_message)
             elif message.role == Role.ASSISTANT:
-                assistant_message = ChatCompletionAssistantMessageParam(
-                    content=message.content, role="assistant"
-                )
+                assistant_message = ChatCompletionAssistantMessageParam(content=message.content, role="assistant")
                 llm_messages.append(assistant_message)
             else:
                 raise ValueError(f"Invalid role: {message.role}")
         return llm_messages
 
-    def calculate_cost(
-        self, model: str, prompt_tokens: int, completion_tokens: int
-    ) -> float:
+    def calculate_cost(self, model: str, prompt_tokens: int, completion_tokens: int) -> float:
         # Implement pricing logic based on Groq's pricing structure
         # This is a placeholder and should be updated with accurate pricing
         return 0.0  # Placeholder

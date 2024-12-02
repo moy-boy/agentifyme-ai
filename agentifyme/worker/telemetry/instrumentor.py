@@ -17,6 +17,8 @@ from agentifyme.utilities.modules import load_modules_from_directory
 from agentifyme.worker.telemetry.semconv import SemanticAttributes
 from agentifyme.workflows.workflow import WorkflowConfig
 
+from .base import get_resource_attributes
+
 
 # Custom processor to add trace info
 def add_trace_info(logger, method_name, event_dict):
@@ -30,41 +32,8 @@ def add_trace_info(logger, method_name, event_dict):
     return event_dict
 
 
-def get_attributes():
-    service_name = "agentifyme"
-
-    attributes = {
-        ResourceAttributes.SERVICE_NAME: service_name,
-        ResourceAttributes.SERVICE_INSTANCE_ID: socket.gethostname(),
-        ResourceAttributes.SERVICE_VERSION: "0.0.35",
-        ResourceAttributes.PROCESS_PID: os.getpid(),
-    }
-
-    if os.getenv("AGENTIFYME_ORGANIZATION_ID"):
-        attributes["agentifyme.project.id"] = os.getenv("AGENTIFYME_ORGANIZATION_ID")
-
-    if os.getenv("AGENTIFYME_PROJECT_ID"):
-        attributes["agentifyme.project.id"] = os.getenv("AGENTIFYME_PROJECT_ID")
-
-    if os.getenv("AGENTIFYME_REPLICA_ID"):
-        attributes["agentifyme.replica.id"] = os.getenv("AGENTIFYME_REPLICA_ID")
-
-    if os.getenv("AGENTIFYME_DEPLOYMENT_ID"):
-        attributes["agentifyme.deployment.id"] = os.getenv("AGENTIFYME_DEPLOYMENT_ID")
-
-    if os.getenv("AGENTIFYME_WORKER_ENDPOINT"):
-        attributes["agentifyme.deployment.endpoint"] = os.getenv(
-            "AGENTIFYME_WORKER_ENDPOINT"
-        )
-
-    if os.getenv("AGENTIFYME_ENV"):
-        attributes["agentifyme.env"] = os.getenv("AGENTIFYME_ENV")
-
-    return attributes
-
-
 def add_context_attributes(logger, method_name, event_dict):
-    attributes = get_attributes()
+    attributes = get_resource_attributes()
     for key, value in attributes.items():
         event_dict[key] = value
     return event_dict
@@ -79,41 +48,6 @@ def rename_event_to_message(logger, method_name, event_dict):
 class InstrumentationWrapper(wrapt.ObjectProxy):
     tracer = trace.get_tracer("agentifyme-worker")
 
-    # # Create a meter
-    # meter = metrics.get_meter("agentifyme")
-
-    # # Create some metrics
-    # workflow_duration = meter.create_histogram(
-    #     name="workflow_duration",
-    #     description="Duration of workflow execution",
-    #     unit="s",
-    # )
-
-    # task_duration = meter.create_histogram(
-    #     name="task_duration",
-    #     description="Duration of task execution",
-    #     unit="s",
-    # )
-
-    # workflow_counter = meter.create_counter(
-    #     name="workflows_executed",
-    #     description="Number of workflows executed",
-    # )
-
-    # task_counter = meter.create_counter(
-    #     name="tasks_executed",
-    #     description="Number of tasks executed",
-    # )
-
-    # fn_call_counter = meter.create_counter(
-    #     name="fn.total.count", description="Number of function calls"
-    # )
-
-    # fn_error_counter = meter.create_counter(
-    #     name="fn.errors.count",
-    #     description="Number of function call errors",
-    # )
-
     def get_attributes(self):
         project_id = os.getenv("AGENTIFYME_PROJECT_ID", default="UNKNOWN")
         deployment_id = os.getenv("AGENTIFYME_DEPLOYMENT_ID", default="UNKNOWN")
@@ -122,7 +56,7 @@ class InstrumentationWrapper(wrapt.ObjectProxy):
         return {
             SemanticAttributes.PROJECT_ID: project_id,
             SemanticAttributes.DEPLOYMENT_ID: deployment_id,
-            SemanticAttributes.WORKER_REPLICA_ID: replica_id,
+            SemanticAttributes.WORKER_ID: replica_id,
             SemanticAttributes.DEPLOYMENT_NAME: endpoint,
         }
 
@@ -145,7 +79,7 @@ class InstrumentationWrapper(wrapt.ObjectProxy):
                 logger.info("Starting operation", operation=span_name)
                 output = self.__wrapped__(*args, **kwargs)
                 _log_output = self._prepare_log_output(output)
-                logger.info("Operation completed successfully", result=_log_output)
+                logger.info("Operation completed successfully")
                 span.set_status(Status(StatusCode.OK))
             except Exception as e:
                 traceback.print_exc()
@@ -154,7 +88,8 @@ class InstrumentationWrapper(wrapt.ObjectProxy):
                 span.set_status(Status(StatusCode.ERROR, str(e)))
                 raise e
             finally:
-                span.set_attribute("output", output)
+                _output = self._prepare_log_output(output)
+                # span.set_attribute("output", _output)
                 end_time = time.perf_counter()
                 ts_diff = end_time - start_time
                 span.set_attribute("duration", ts_diff)
@@ -203,25 +138,15 @@ class InstrumentationWrapper(wrapt.ObjectProxy):
 
 class OTELInstrumentor:
     @staticmethod
-    def instrument():
+    def instrument(project_dir: str):
         WorkflowConfig.reset_registry()
         TaskConfig.reset_registry()
-        project_dir = os.getenv("AGENTIFYME_PROJECT_DIR", "/home/agnt5/app")
-        working_directory = os.getcwd()
-
-        if not os.path.exists(project_dir):
-            logger.warning(
-                f"Project directory not found. Defaulting to working directory: {working_directory}"
-            )
-            project_dir = working_directory
 
         # # if ./src exists, load modules from there
         if os.path.exists(os.path.join(project_dir, "src")):
             project_dir = os.path.join(project_dir, "src")
 
-        logger.info(
-            f"Loading workflows and tasks from project directory - {project_dir}"
-        )
+        logger.info(f"Loading workflows and tasks from project directory - {project_dir}")
         error = True
         try:
             load_modules_from_directory(project_dir)
@@ -254,3 +179,7 @@ class OTELInstrumentor:
         logger.info("Found workflows", workflows=WorkflowConfig.get_all())
 
         # auto_instrument()
+
+
+def auto_instrument():
+    pass

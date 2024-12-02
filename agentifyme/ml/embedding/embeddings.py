@@ -15,7 +15,6 @@ class Embedding(BaseModel):
 
 
 class EmbeddingModel(ABC):
-
     def __init__(
         self,
         embedding_model_type: EmbeddingModelType,
@@ -30,10 +29,7 @@ class EmbeddingModel(ABC):
             return self.embedding_model_type.split("/")[-1]
         return self.embedding_model_type
 
-    def __call__(
-        self, text: Union[str, List[str]]
-    ) -> Union[Embedding, List[Embedding]]:
-
+    def __call__(self, text: Union[str, List[str]]) -> Union[Embedding, List[Embedding]]:
         if isinstance(text, list):
             return self.run_batch(text)
 
@@ -49,7 +45,6 @@ class EmbeddingModel(ABC):
 
 
 class OpenAIEmbeddingModel(EmbeddingModel):
-
     def __init__(
         self,
         embedding_model_type: EmbeddingModelType,
@@ -59,11 +54,9 @@ class OpenAIEmbeddingModel(EmbeddingModel):
         organization: Optional[str] = None,
         timeout: Optional[float] = None,
         max_retries: int = 5,
-        **kwargs
+        **kwargs,
     ) -> None:
-        super().__init__(
-            embedding_model_type=embedding_model_type, dimensions=dimensions
-        )
+        super().__init__(embedding_model_type=embedding_model_type, dimensions=dimensions)
 
         _api_key = os.getenv("OPENAI_API_KEY") if api_key is None else api_key
         if not _api_key:
@@ -88,7 +81,6 @@ class OpenAIEmbeddingModel(EmbeddingModel):
 
     # @cache(CacheType.DISK)
     def run_batch(self, texts: List[str]) -> List[Embedding]:
-
         # Reference: https://platform.openai.com/docs/guides/embeddings/use-cases
         _texts = []
         for text in texts:
@@ -99,9 +91,7 @@ class OpenAIEmbeddingModel(EmbeddingModel):
         if self.dimensions is not None and self.dimensions > 0:
             dimensions = self.dimensions
 
-        embedding_response = self.client.embeddings.create(
-            input=_texts, model=self.embedding_model_name, dimensions=dimensions
-        )
+        embedding_response = self.client.embeddings.create(input=_texts, model=self.embedding_model_name, dimensions=dimensions)
 
         embeddings = []
         for i, embedding in enumerate(embedding_response.data):

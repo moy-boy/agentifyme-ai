@@ -23,10 +23,7 @@ def test_simple_function_without_type_hints():
     metadata = function_metadata(simple_func)
     assert isinstance(metadata, FunctionMetadata)
     assert metadata.name == "simple_func"
-    assert (
-        metadata.description
-        == "A simple function that takes a SimpleModel and returns a string."
-    )
+    assert metadata.description == "A simple function that takes a SimpleModel and returns a string."
 
     print(metadata.input_params)
     # assert len(metadata.input_params) == 1
@@ -44,10 +41,7 @@ def test_simple_function():
     metadata = function_metadata(simple_func)
     assert isinstance(metadata, FunctionMetadata)
     assert metadata.name == "simple_func"
-    assert (
-        metadata.description
-        == "A simple function that takes a SimpleModel and returns a string."
-    )
+    assert metadata.description == "A simple function that takes a SimpleModel and returns a string."
     assert len(metadata.input_params) == 1
     assert metadata.input_params[0].name == "x.value"
     assert metadata.input_params[0].data_type == "number"
@@ -63,10 +57,7 @@ def test_complex_function():
     metadata = function_metadata(complex_func)
     assert isinstance(metadata, FunctionMetadata)
     assert metadata.name == "complex_func"
-    assert (
-        metadata.description
-        == "A complex function with multiple parameters and return types."
-    )
+    assert metadata.description == "A complex function with multiple parameters and return types."
 
     assert len(metadata.input_params) == 4
     assert {p.name for p in metadata.input_params} == {
@@ -94,10 +85,7 @@ def test_list_function():
     metadata = function_metadata(list_func)
     assert isinstance(metadata, FunctionMetadata)
     assert metadata.name == "list_func"
-    assert (
-        metadata.description
-        == "A function that takes a list of SimpleModels and returns a list of integers."
-    )
+    assert metadata.description == "A function that takes a list of SimpleModels and returns a list of integers."
 
     assert len(metadata.input_params) == 2
     assert metadata.input_params[0].name == "items"
@@ -119,10 +107,7 @@ def test_union_function():
     metadata = function_metadata(union_func)
     assert isinstance(metadata, FunctionMetadata)
     assert metadata.name == "union_func"
-    assert (
-        metadata.description
-        == "A function that takes a union of types and returns a string."
-    )
+    assert metadata.description == "A function that takes a union of types and returns a string."
 
     assert len(metadata.input_params) == 3
     assert {p.name for p in metadata.input_params} == {"data", "data", "data.value"}
@@ -149,10 +134,7 @@ def test_pydantic_input_function():
     metadata = function_metadata(simple_func)
     assert isinstance(metadata, FunctionMetadata)
     assert metadata.name == "simple_func"
-    assert (
-        metadata.description
-        == "A simple function that takes an int and returns a string."
-    )
+    assert metadata.description == "A simple function that takes an int and returns a string."
     assert len(metadata.input_params) == 1
     assert metadata.input_params[0].name == "x"
     assert metadata.input_params[0].data_type == "number"
@@ -203,9 +185,7 @@ def test_pydantic_input_output():
 
     def pydantic_func(input_data: InputModel) -> OutputModel:
         """A function that takes a Pydantic model as input and returns another as output."""
-        return OutputModel(
-            greeting=f"Hello, {input_data.name}", is_adult=input_data.age >= 18
-        )
+        return OutputModel(greeting=f"Hello, {input_data.name}", is_adult=input_data.age >= 18)
 
     metadata = function_metadata(pydantic_func)
     assert len(metadata.input_params) == 3
@@ -225,9 +205,7 @@ def test_pydantic_input_output():
 
 # Function with complex type hints
 def test_complex_type_hints():
-    def complex_func(
-        a: List[int], b: Optional[Dict[str, Any]] = None
-    ) -> Tuple[str, int]:
+    def complex_func(a: List[int], b: Optional[Dict[str, Any]] = None) -> Tuple[str, int]:
         """A function with complex type hints."""
         return ("result", 42)
 
