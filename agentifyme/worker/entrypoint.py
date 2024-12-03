@@ -54,12 +54,7 @@ async def run():
         # Add instrumentation to workflows and tasks
         auto_instrument(agentifyme_project_dir)
 
-        logger.info(
-            "Starting Agentifyme service",
-            env=agentifyme_env,
-            project_dir=agentifyme_project_dir,
-            deployment_id=deployment_id,
-        )
+        logger.info(f"Starting Agentifyme service with worker {worker_id} and deployment {deployment_id}")
 
         await init_worker_service(api_gateway_url, api_key, project_id, deployment_id, worker_id)
 

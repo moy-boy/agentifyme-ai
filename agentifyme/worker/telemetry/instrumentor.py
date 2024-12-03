@@ -176,9 +176,7 @@ class OTELInstrumentor:
             workflow_registry[workflow_name] = _workflow
         WorkflowConfig._registry = workflow_registry
 
-        logger.info("Found workflows", workflows=WorkflowConfig.get_all())
-
-        # auto_instrument()
+        logger.info(f"Found workflows - {WorkflowConfig.get_all()}")
 
 
 def auto_instrument():
