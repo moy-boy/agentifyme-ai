@@ -78,7 +78,7 @@ class InstrumentationWrapper(wrapt.ObjectProxy):
             try:
                 logger.info("Starting operation", operation=span_name)
                 output = self.__wrapped__(*args, **kwargs)
-                _log_output = self._prepare_log_output(output)
+                # _log_output = self._prepare_log_output(output)
                 logger.info("Operation completed successfully")
                 span.set_status(Status(StatusCode.OK))
             except Exception as e:
@@ -88,7 +88,7 @@ class InstrumentationWrapper(wrapt.ObjectProxy):
                 span.set_status(Status(StatusCode.ERROR, str(e)))
                 raise e
             finally:
-                _output = self._prepare_log_output(output)
+                # _output = self._prepare_log_output(output)
                 # span.set_attribute("output", _output)
                 end_time = time.perf_counter()
                 ts_diff = end_time - start_time
@@ -109,8 +109,8 @@ class InstrumentationWrapper(wrapt.ObjectProxy):
             try:
                 logger.info("Starting operation", operation=span_name)
                 output = await self.__wrapped__(*args, **kwargs)
-                _log_output = self._prepare_log_output(output)
-                logger.info("Operation completed successfully", result=_log_output)
+                # _log_output = self._prepare_log_output(output)
+                # logger.info("Operation completed successfully", result=_log_output)
                 span.set_status(Status(StatusCode.OK))
             except Exception as e:
                 logger.error("Operation failed", exc_info=True, error=str(e))

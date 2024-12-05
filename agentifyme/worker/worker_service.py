@@ -17,7 +17,7 @@ import agentifyme.worker.pb.api.v1.common_pb2 as common_pb
 import agentifyme.worker.pb.api.v1.gateway_pb2 as pb
 import agentifyme.worker.pb.api.v1.gateway_pb2_grpc as pb_grpc
 from agentifyme.config import TaskConfig, WorkflowConfig
-from agentifyme.worker.helpers import convert_workflow_to_pb
+from agentifyme.worker.helpers import convert_workflow_to_pb, struct_to_dict
 from agentifyme.worker.workflows import (
     WorkflowCommandHandler,
     WorkflowHandler,
@@ -220,24 +220,27 @@ class WorkerService:
                     break
 
                 if isinstance(stream_msg, pb.OutboundWorkerMessage):
-                    # carrier: dict[str, str] = getattr(stream_msg, "metadata", {})
-                    # context = self._propagator.extract(carrier)
-
-                    # with tracer.start_as_current_span(
-                    #     name="workflow.execute",
-                    #     context=context,
-                    # ) as span:
                     if stream_msg.HasField("workflow_command"):
                         workflow_command = stream_msg.workflow_command
                         match workflow_command.type:
                             case pb.WORKFLOW_COMMAND_TYPE_RUN:
-                                _workflow_command = WorkflowJob(
-                                    run_id=stream_msg.request_id,
-                                    workflow_name=workflow_command.run_workflow.workflow_name,
-                                    input_parameters=dict(workflow_command.run_workflow.parameters),
-                                )
+                                carrier: dict[str, str] = getattr(stream_msg, "metadata", {})
+                                context = self._propagator.extract(carrier)
+                                with tracer.start_as_current_span(name="workflow.execute", context=context) as span:
+                                    _workflow_command = WorkflowJob(
+                                        run_id=stream_msg.request_id,
+                                        workflow_name=workflow_command.run_workflow.workflow_name,
+                                        input_parameters=struct_to_dict(workflow_command.run_workflow.parameters),
+                                        metadata=carrier,
+                                    )
+                                    span.add_event(
+                                        "job_queued",
+                                        attributes={"request_id": stream_msg.request_id, "input_parameters": _workflow_command.input_parameters},
+                                    )
 
-                                await self.jobs_queue.put(_workflow_command)
+                                    result = await self.jobs_queue.put(_workflow_command)
+                                    logger.debug(f"Workflow command result: {result}")
+
                             case pb.WORKFLOW_COMMAND_TYPE_LIST:
                                 response = await self._workflow_command_handler.list_workflows()
                                 msg = pb.InboundWorkerMessage(
@@ -268,7 +271,6 @@ class WorkerService:
                                 workflows=_workflows,
                             )
 
-                            print(f"Sending sync workflows message: {msg}")
                             response = await self._stub.SyncWorkflows(msg)
                             logger.info(f"Synchronized workflows: {response}")
 
@@ -301,8 +303,7 @@ class WorkerService:
         while not self.shutdown_event.is_set():
             try:
                 job = await self.events_queue.get()
-                logger.info(f"Sending event: {job.run_id}, job.success: {job.success}, Job: {job}")
-
+                logger.debug(f"Sending event: {job.run_id}, job.success: {job.success}, Job: {job}")
                 if isinstance(job, WorkflowJob):
                     msg = pb.InboundWorkerMessage(
                         request_id=job.run_id,
@@ -312,7 +313,6 @@ class WorkerService:
                         workflow_result=common_pb.WorkflowResult(request_id=job.run_id, data=job.output, error=job.error),
                     )
 
-                    logger.info(f"Sending workflow result: {msg}")
                     await self._stream.write(msg)
                 else:
                     logger.error(f"Received unexpected job type: {type(job)}")
@@ -333,23 +333,25 @@ class WorkerService:
         """Handle a single job"""
         async with self._workflow_context(job.run_id):
             try:
-                workflow_task = asyncio.current_task()
-                self.active_jobs[job.run_id] = workflow_task
+                context = self._propagator.extract(job.metadata)
+                with tracer.start_as_current_span(name="handle.job", context=context) as span:
+                    workflow_task = asyncio.current_task()
+                    self.active_jobs[job.run_id] = workflow_task
 
-                while not self.shutdown_event.is_set():
-                    # Execute workflow step
-                    _workflow_handler = self._workflow_handlers.get(job.workflow_name)
-                    job = await _workflow_handler(job)
+                    while not self.shutdown_event.is_set():
+                        # Execute workflow step
+                        _workflow_handler = self._workflow_handlers.get(job.workflow_name)
+                        job = await _workflow_handler(job)
 
-                    logger.info(f"Workflow {job.run_id} result: {job.output}, job.success: {job.success}")
+                        logger.info(f"Workflow {job.run_id} result: {job.output}, job.success: {job.success}")
 
-                    # Send event
-                    await self.events_queue.put(job)
+                        # Send event
+                        await self.events_queue.put(job)
 
-                    # If the job is completed, break out of the loop.
-                    # TODO: Handle errors and retry scenario.
-                    if job.completed:
-                        break
+                        # If the job is completed, break out of the loop.
+                        # TODO: Handle errors and retry scenario.
+                        if job.completed:
+                            break
 
             except asyncio.CancelledError:
                 self.logger.info(f"Workflow {job.run_id} cancelled")

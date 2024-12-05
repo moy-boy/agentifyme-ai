@@ -1,8 +1,10 @@
 import asyncio
 import os
+import traceback
 import uuid
 from datetime import datetime
-from typing import TypeVar
+from inspect import signature
+from typing import Any, Callable, Type, TypeVar, get_type_hints
 
 import orjson
 from grpc.aio import Channel, StreamStreamCall
@@ -34,11 +36,13 @@ class WorkflowJob:
     success: bool
     error: str | None
     output: dict | None
+    metadata: dict[str, str]  # Metadata for the workflow execution trace.
 
-    def __init__(self, run_id: str, workflow_name: str, input_parameters: dict):
+    def __init__(self, run_id: str, workflow_name: str, input_parameters: dict, metadata: dict[str, str]):
         self.run_id = run_id
         self.workflow_name = workflow_name
         self.input_parameters = input_parameters
+        self.metadata = metadata
         self.success = False
         self.error = None
         self.output = None
@@ -49,58 +53,96 @@ class WorkflowHandler:
         self.workflow = workflow
         self._propagator = TraceContextTextMapPropagator()
 
+    def _build_args_from_signature(self, func: Callable, input_dict: dict[str, Any]) -> dict[str, Any]:
+        """
+        Builds function arguments using signature and type hints
+        """
+        sig = signature(func)
+        type_hints = get_type_hints(func)
+        type_hints.pop("return", None)
+
+        args = {}
+        for param_name, param_type in type_hints.items():
+            if param_name in input_dict:
+                if hasattr(param_type, "model_validate"):
+                    args[param_name] = param_type.model_validate(input_dict[param_name])
+                else:
+                    args[param_name] = param_type(input_dict[param_name])
+        return args
+
+    def _process_output(self, result: Any, return_type: Type) -> dict[str, Any]:
+        """
+        Process workflow output to ensure it's a valid JSON-serializable dictionary
+        """
+        if isinstance(result, BaseModel):
+            return result.model_dump()
+
+        if isinstance(result, dict):
+            if hasattr(return_type, "model_validate"):
+                validated = return_type.model_validate(result)
+                return validated.model_dump()
+            return result
+
+        if hasattr(return_type, "model_validate"):
+            validated = return_type.model_validate(result)
+            return validated.model_dump()
+
+        raise ValueError(f"Unsupported output type: {type(result)}")
+
     async def __call__(self, job: WorkflowJob) -> WorkflowJob:
         """Handle workflow execution with serialization/deserialization"""
 
-        carrier: dict[str, str] = getattr(job, "metadata", {})
-        context = self._propagator.extract(carrier)
-
-        with tracer.start_as_current_span("workflow_execution", context=context) as span:
+        with tracer.start_as_current_span("workflow_execution") as span:
             try:
-                # Deserialize input based on input type
-                # if issubclass(self.input_type, BaseModel):
-                #     parsed_input = self.input_type.model_validate(input_data)
-                # elif issubclass(self.input_type, dict):
-                #     parsed_input = input_data
-                # else:
-                #     raise ValueError(f"Unsupported input type: {type(self.input_type)}")
+                # Get workflow configuration
+                _workflow = WorkflowConfig.get(job.workflow_name)
+                _workflow_config = _workflow.config
 
+                # Build input arguments
+                func_args = self._build_args_from_signature(_workflow_config.func, job.input_parameters)
+
+                # Log input
                 span.add_event(
                     name="workflow.input",
                     attributes={"input": orjson.dumps(job.input_parameters).decode()},
                 )
 
-                parsed_input = job.input_parameters
-
                 # Execute workflow
-                result = await self.workflow.arun(**parsed_input)
+                result = await self.workflow.arun(**func_args)
 
-                # Serialize output
-                output_data = result
-                if isinstance(result, BaseModel):
-                    output_data = result.model_dump()
-                # elif issubclass(self.output_type, dict):
-                #     output_data = self.output_type(**result)
-                # else:
-                #     raise ValueError(f"Unsupported output type: {type(self.output_type)}")
+                # Get return type and process output
+                return_type = get_type_hints(_workflow_config.func).get("return")
+                output_data = self._process_output(result, return_type)
+
+                # Verify JSON serializable
+                orjson.dumps(output_data)  # Will raise TypeError if not serializable
 
                 job.output = output_data
                 job.success = True
 
-                # Record the successful completion
+                # Record success
                 span.set_status(Status(StatusCode.OK))
                 span.add_event(name="workflow.complete", attributes={"output_size": len(str(output_data))})
 
             except ValidationError as e:
-                logger.error(f"Workflow {job.run_id} validation error: {e}")
+                logger.exception(f"Workflow {job.run_id} validation error: {e}")
                 job.output = None
                 job.error = str(e)
                 span.set_status(Status(StatusCode.ERROR, "Validation Error"))
                 span.record_exception(e)
                 span.add_event(name="workflow.validation_error", attributes={"error": str(e)})
 
+            except TypeError as e:
+                logger.exception(f"Workflow {job.run_id} serialization error: {e}")
+                job.output = None
+                job.error = f"Output serialization failed: {str(e)}"
+                span.set_status(Status(StatusCode.ERROR, "Serialization Error"))
+                span.record_exception(e)
+                span.add_event(name="workflow.serialization_error", attributes={"error": str(e)})
+
             except Exception as e:
-                logger.error(f"Workflow {job.run_id} execution error: {e}")
+                traceback.print_exc()
+                logger.exception(f"Workflow {job.run_id} execution error: {e}")
                 job.output = None
                 job.error = str(e)
                 span.set_status(Status(StatusCode.ERROR, "Execution Error"))
@@ -108,12 +150,8 @@ class WorkflowHandler:
                 span.add_event(name="workflow.execution_error", attributes={"error": str(e)})
 
             finally:
-                if hasattr(job, "metadata"):
-                    self._propagator.inject(carrier=carrier)
-                    job.metadata = carrier
-
-            job.completed = True
-            return job
+                job.completed = True
+                return job
 
 
 class WorkflowCommandHandler:

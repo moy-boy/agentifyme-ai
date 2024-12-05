@@ -88,7 +88,18 @@ def convert_param_to_pb(param: Param) -> common_pb.Param:
     if param.default_value is not None:
         # Pack the default value into Any based on the data type
         any_value = any_pb2.Any()
-        any_value.Pack(param.default_value)
+        if param.data_type.lower() == "array":
+            # Convert list to ListValue
+            list_value = struct_pb2.ListValue()
+            for item in param.default_value:
+                list_value.values.append(struct_pb2.Value(string_value=str(item)))
+            value = struct_pb2.Value(list_value=list_value)
+            any_value.Pack(value)
+        else:
+            # Handle other types as before
+            value = struct_pb2.Value(string_value=str(param.default_value))
+            any_value.Pack(value)
+
         pb_param.default_value.CopyFrom(any_value)
 
     pb_param.required = param.required
