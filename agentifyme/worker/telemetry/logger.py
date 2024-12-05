@@ -1,6 +1,7 @@
 # All credits to https://github.com/carolinecgilbert/opentelemetry-python-contrib/blob/1c92c51815aa3acfe31850ea055712bfbfc1f92c/handlers/opentelemetry_loguru/src/exporter.py
 
 import os
+import traceback
 from time import time_ns
 
 from loguru import logger
@@ -125,11 +126,19 @@ class LoguruHandler:
             attributes[SemanticAttributes.WORKER_ID] = os.getenv("AGENTIFYME_WORKER_ID")
 
         if record["exception"] is not None:
-            attributes[SpanAttributes.EXCEPTION_TYPE] = record["exception"].type
+            exception_info = record["exception"]
 
-            attributes[SpanAttributes.EXCEPTION_MESSAGE] = record["exception"].value
+            # Format exception type
+            attributes[SpanAttributes.EXCEPTION_TYPE] = str(exception_info.type.__name__ if hasattr(exception_info.type, "__name__") else exception_info.type)
 
-            attributes[SpanAttributes.EXCEPTION_STACKTRACE] = record["exception"].traceback
+            # Format exception message
+            attributes[SpanAttributes.EXCEPTION_MESSAGE] = str(exception_info.value)
+
+            # Format traceback as a proper stack trace string
+            if exception_info.traceback:
+                tb_list = traceback.extract_tb(exception_info.traceback)
+                formatted_tb = "\n".join(traceback.format_list(tb_list))
+                attributes[SpanAttributes.EXCEPTION_STACKTRACE] = formatted_tb
 
         return attributes
 

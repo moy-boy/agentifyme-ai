@@ -312,17 +312,17 @@ class RuntimeExecutionEventResponse(_message.Message):
     status: str
     def __init__(self, status: _Optional[str] = ...) -> None: ...
 
-class RegisterWorkerRequest(_message.Message):
+class SyncWorkflowsRequest(_message.Message):
     __slots__ = ("worker_id", "deployment_id", "workflows")
     WORKER_ID_FIELD_NUMBER: _ClassVar[int]
     DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     WORKFLOWS_FIELD_NUMBER: _ClassVar[int]
     worker_id: str
     deployment_id: str
-    workflows: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, worker_id: _Optional[str] = ..., deployment_id: _Optional[str] = ..., workflows: _Optional[_Iterable[str]] = ...) -> None: ...
+    workflows: _containers.RepeatedCompositeFieldContainer[_common_pb2.WorkflowConfig]
+    def __init__(self, worker_id: _Optional[str] = ..., deployment_id: _Optional[str] = ..., workflows: _Optional[_Iterable[_Union[_common_pb2.WorkflowConfig, _Mapping]]] = ...) -> None: ...
 
-class RegisterWorkerResponse(_message.Message):
+class SyncWorkflowsResponse(_message.Message):
     __slots__ = ("status",)
     STATUS_FIELD_NUMBER: _ClassVar[int]
     status: str

@@ -85,6 +85,13 @@ class Schedule(_message.Message):
 
 class WorkflowConfig(_message.Message):
     __slots__ = ("id", "name", "slug", "description", "input_parameters", "output_parameters", "schedule", "version", "metadata")
+    class InputParametersEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: Param
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[Param, _Mapping]] = ...) -> None: ...
     class MetadataEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -105,12 +112,12 @@ class WorkflowConfig(_message.Message):
     name: str
     slug: str
     description: str
-    input_parameters: _struct_pb2.Struct
-    output_parameters: _struct_pb2.Struct
+    input_parameters: _containers.MessageMap[str, Param]
+    output_parameters: _containers.RepeatedCompositeFieldContainer[Param]
     schedule: Schedule
     version: str
     metadata: _containers.ScalarMap[str, str]
-    def __init__(self, id: _Optional[str] = ..., name: _Optional[str] = ..., slug: _Optional[str] = ..., description: _Optional[str] = ..., input_parameters: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., output_parameters: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., schedule: _Optional[_Union[Schedule, _Mapping]] = ..., version: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ...) -> None: ...
+    def __init__(self, id: _Optional[str] = ..., name: _Optional[str] = ..., slug: _Optional[str] = ..., description: _Optional[str] = ..., input_parameters: _Optional[_Mapping[str, Param]] = ..., output_parameters: _Optional[_Iterable[_Union[Param, _Mapping]]] = ..., schedule: _Optional[_Union[Schedule, _Mapping]] = ..., version: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ...) -> None: ...
 
 class ListWorkflowsRequest(_message.Message):
     __slots__ = ("deployment_id",)

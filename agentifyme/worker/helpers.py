@@ -1,7 +1,7 @@
 from datetime import timedelta
-from typing import Optional
+from typing import Any, Optional
 
-from google.protobuf import struct_pb2
+from google.protobuf import any_pb2, struct_pb2
 from google.protobuf.json_format import MessageToDict, ParseDict
 
 from agentifyme.config import Param, WorkflowConfig
@@ -48,57 +48,90 @@ def convert_param_to_pb(param: Param) -> ParamPb:
     """
     param_type = get_param_type_enum(param.data_type)
 
-    return ParamPb(
-        name=param.name,
-        description=param.description,
-        data_type=param_type,
-        default_value=str(param.default_value) if param.default_value is not None else "",
-        required=param.required,
-        class_name=param.class_name or "",
-        nested_fields={k: convert_param_to_pb(v) for k, v in param.nested_fields.items()},
+    # Create Any message for default_value
+    default_value = any_pb2.Any()
+    if param.default_value is not None:
+        value = struct_pb2.Value(string_value=str(param.default_value))
+        default_value.Pack(value)
+
+    pb_param = ParamPb(
+        name=param.name, description=param.description, data_type=param_type, default_value=default_value, required=param.required, class_name=param.class_name or ""
     )
+
+    # Handle nested fields
+    for k, v in param.nested_fields.items():
+        pb_param.nested_fields[k].CopyFrom(convert_param_to_pb(v))
+
+    return pb_param
+
+
+def convert_param_to_pb(param: Param) -> common_pb.Param:
+    """Convert a Python Param object to protobuf Param message."""
+    pb_param = common_pb.Param()
+    pb_param.name = param.name
+    pb_param.description = param.description
+
+    # Convert data_type string to enum
+    data_type_map = {
+        "string": common_pb.Param.DATA_TYPE_STRING,
+        "integer": common_pb.Param.DATA_TYPE_INTEGER,
+        "float": common_pb.Param.DATA_TYPE_FLOAT,
+        "boolean": common_pb.Param.DATA_TYPE_BOOLEAN,
+        "array": common_pb.Param.DATA_TYPE_ARRAY,
+        "object": common_pb.Param.DATA_TYPE_OBJECT,
+        "datetime": common_pb.Param.DATA_TYPE_DATETIME,
+        "duration": common_pb.Param.DATA_TYPE_DURATION,
+    }
+    pb_param.data_type = data_type_map.get(param.data_type.lower(), common_pb.Param.DATA_TYPE_UNSPECIFIED)
+
+    # Set default value if exists
+    if param.default_value is not None:
+        # Pack the default value into Any based on the data type
+        any_value = any_pb2.Any()
+        any_value.Pack(param.default_value)
+        pb_param.default_value.CopyFrom(any_value)
+
+    pb_param.required = param.required
+    if param.class_name:
+        pb_param.class_name = param.class_name
+
+    # Convert nested fields recursively
+    for field_name, nested_param in param.nested_fields.items():
+        pb_param.nested_fields[field_name].CopyFrom(convert_param_to_pb(nested_param))
+
+    return pb_param
 
 
 def convert_workflow_to_pb(workflow: WorkflowConfig) -> common_pb.WorkflowConfig:
-    """
-    Convert a Python WorkflowConfig object to protobuf WorkflowConfig message.
+    """Convert a Python WorkflowConfig object to protobuf WorkflowConfig message."""
+    pb_workflow = common_pb.WorkflowConfig()
 
-    Args:
-        workflow: Python WorkflowConfig object to convert
+    # Set basic fields
+    pb_workflow.name = workflow.name
+    pb_workflow.slug = workflow.slug
+    pb_workflow.description = workflow.description or ""
+    pb_workflow.version = getattr(workflow, "version", "")
 
-    Returns:
-        Corresponding protobuf WorkflowConfig message
-    """
     # Convert input parameters
-    pb_input_parameters = {key: convert_param_to_pb(param) for key, param in workflow.input_parameters.items()}
+    for name, param in workflow.input_parameters.items():
+        pb_workflow.input_parameters[name].CopyFrom(convert_param_to_pb(param))
 
     # Convert output parameters
-    pb_output_parameters = [convert_param_to_pb(param) for param in workflow.output_parameters]
-
-    # Convert schedule if it exists
-    schedule: Optional[common_pb.Schedule] = None
-    if workflow.schedule:
-        if isinstance(workflow.schedule, str):
-            schedule = common_pb.Schedule(cron=workflow.schedule)
-        elif isinstance(workflow.schedule, timedelta):
-            cron_expression = workflow.normalize_schedule(workflow.schedule)
-            if cron_expression:
-                schedule = common_pb.Schedule(cron=cron_expression)
-
-    # Create the protobuf WorkflowConfig
-    pb_workflow = common_pb.WorkflowConfig(
-        name=workflow.name,
-        slug=workflow.slug,
-        description=workflow.description or "",
-        input_parameters=pb_input_parameters,
-        output_parameters=pb_output_parameters,
-        version=getattr(workflow, "version", ""),
-        metadata=getattr(workflow, "metadata", {}),
-    )
+    for param in workflow.output_parameters:
+        pb_param = pb_workflow.output_parameters.add()
+        pb_param.CopyFrom(convert_param_to_pb(param))
 
     # Set schedule if it exists
-    if schedule:
-        pb_workflow.schedule.CopyFrom(schedule)
+    if workflow.schedule:
+        if isinstance(workflow.schedule, str):
+            pb_workflow.schedule.cron = workflow.schedule
+        else:
+            pb_workflow.schedule.cron = workflow.normalize_schedule(workflow.schedule)
+
+    # Set metadata if exists
+    metadata_dict = getattr(workflow, "metadata", {})
+    if metadata_dict:
+        pb_workflow.metadata.update(metadata_dict)
 
     return pb_workflow
 

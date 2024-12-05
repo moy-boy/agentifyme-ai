@@ -45,10 +45,10 @@ class GatewayServiceStub(object):
                 request_serializer=api_dot_v1_dot_gateway__pb2.InboundWorkerMessage.SerializeToString,
                 response_deserializer=api_dot_v1_dot_gateway__pb2.OutboundWorkerMessage.FromString,
                 _registered_method=True)
-        self.RegisterWorker = channel.unary_unary(
-                '/api.v1.GatewayService/RegisterWorker',
-                request_serializer=api_dot_v1_dot_gateway__pb2.RegisterWorkerRequest.SerializeToString,
-                response_deserializer=api_dot_v1_dot_gateway__pb2.RegisterWorkerResponse.FromString,
+        self.SyncWorkflows = channel.unary_unary(
+                '/api.v1.GatewayService/SyncWorkflows',
+                request_serializer=api_dot_v1_dot_gateway__pb2.SyncWorkflowsRequest.SerializeToString,
+                response_deserializer=api_dot_v1_dot_gateway__pb2.SyncWorkflowsResponse.FromString,
                 _registered_method=True)
         self.RuntimeExecutionEvent = channel.unary_unary(
                 '/api.v1.GatewayService/RuntimeExecutionEvent',
@@ -72,7 +72,7 @@ class GatewayServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def RegisterWorker(self, request, context):
+    def SyncWorkflows(self, request, context):
         """Unary RPCs
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -98,10 +98,10 @@ def add_GatewayServiceServicer_to_server(servicer, server):
                     request_deserializer=api_dot_v1_dot_gateway__pb2.InboundWorkerMessage.FromString,
                     response_serializer=api_dot_v1_dot_gateway__pb2.OutboundWorkerMessage.SerializeToString,
             ),
-            'RegisterWorker': grpc.unary_unary_rpc_method_handler(
-                    servicer.RegisterWorker,
-                    request_deserializer=api_dot_v1_dot_gateway__pb2.RegisterWorkerRequest.FromString,
-                    response_serializer=api_dot_v1_dot_gateway__pb2.RegisterWorkerResponse.SerializeToString,
+            'SyncWorkflows': grpc.unary_unary_rpc_method_handler(
+                    servicer.SyncWorkflows,
+                    request_deserializer=api_dot_v1_dot_gateway__pb2.SyncWorkflowsRequest.FromString,
+                    response_serializer=api_dot_v1_dot_gateway__pb2.SyncWorkflowsResponse.SerializeToString,
             ),
             'RuntimeExecutionEvent': grpc.unary_unary_rpc_method_handler(
                     servicer.RuntimeExecutionEvent,
@@ -174,7 +174,7 @@ class GatewayService(object):
             _registered_method=True)
 
     @staticmethod
-    def RegisterWorker(request,
+    def SyncWorkflows(request,
             target,
             options=(),
             channel_credentials=None,
@@ -187,9 +187,9 @@ class GatewayService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/api.v1.GatewayService/RegisterWorker',
-            api_dot_v1_dot_gateway__pb2.RegisterWorkerRequest.SerializeToString,
-            api_dot_v1_dot_gateway__pb2.RegisterWorkerResponse.FromString,
+            '/api.v1.GatewayService/SyncWorkflows',
+            api_dot_v1_dot_gateway__pb2.SyncWorkflowsRequest.SerializeToString,
+            api_dot_v1_dot_gateway__pb2.SyncWorkflowsResponse.FromString,
             options,
             channel_credentials,
             insecure,

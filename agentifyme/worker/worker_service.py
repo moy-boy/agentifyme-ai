@@ -17,6 +17,7 @@ import agentifyme.worker.pb.api.v1.common_pb2 as common_pb
 import agentifyme.worker.pb.api.v1.gateway_pb2 as pb
 import agentifyme.worker.pb.api.v1.gateway_pb2_grpc as pb_grpc
 from agentifyme.config import TaskConfig, WorkflowConfig
+from agentifyme.worker.helpers import convert_workflow_to_pb
 from agentifyme.worker.workflows import (
     WorkflowCommandHandler,
     WorkflowHandler,
@@ -78,9 +79,7 @@ class WorkerService:
 
         self.running = True
         self._stream: StreamStreamCall | None = None
-        self._workflow_command_handler = WorkflowCommandHandler(
-            self._stream, max_workers
-        )
+        self._workflow_command_handler = WorkflowCommandHandler(self._stream, max_workers)
         self._active_tasks: dict[str, asyncio.Task] = {}
         self._heartbeat_task: asyncio.Task | None = None
         self._heartbeat_interval = heartbeat_interval
@@ -154,9 +153,7 @@ class WorkerService:
         while not self.shutdown_event.is_set():
             try:
                 if self.retry_attempt >= self.MAX_RECONNECT_ATTEMPTS:
-                    logger.error(
-                        f"Failed to reconnect after {self.retry_attempt} attempts"
-                    )
+                    logger.error(f"Failed to reconnect after {self.retry_attempt} attempts")
                     self.shutdown_event.set()
                     break
 
@@ -164,25 +161,19 @@ class WorkerService:
                     connected = await self.start_service()
                     if not connected:
                         logger.error(f"Failed to connect worker {self.worker_id}")
-                        await exponential_backoff(
-                            self.retry_attempt, self.MAX_BACKOFF_DELAY
-                        )
+                        await exponential_backoff(self.retry_attempt, self.MAX_BACKOFF_DELAY)
                         self.retry_attempt += 1
                         continue
 
                 # Create tasks for ongoing operations
                 tasks = [
-                    asyncio.create_task(
-                        self._heartbeat_loop(self._stream), name="heartbeat"
-                    ),
+                    asyncio.create_task(self._heartbeat_loop(self._stream), name="heartbeat"),
                     asyncio.create_task(self._send_events(), name="send_events"),
                     asyncio.create_task(self._process_jobs(), name="process_jobs"),
                 ]
 
                 # Wait for any task to complete (which usually means an error occurred)
-                done, pending = await asyncio.wait(
-                    tasks, return_when=asyncio.FIRST_COMPLETED
-                )
+                done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
 
                 # Cancel all pending tasks
                 for task in pending:
@@ -204,15 +195,11 @@ class WorkerService:
                         raise
 
             except grpc.RpcError as e:
-                logger.error(
-                    f"Stream error on attempt {self.retry_attempt+1}/{self.MAX_RECONNECT_ATTEMPTS}: {e}"
-                )
+                logger.error(f"Stream error on attempt {self.retry_attempt+1}/{self.MAX_RECONNECT_ATTEMPTS}: {e}")
                 if not self.shutdown_event.is_set():
                     self._stream = None
                     await self.cleanup_on_disconnect()
-                    await exponential_backoff(
-                        self.retry_attempt, self.MAX_BACKOFF_DELAY
-                    )
+                    await exponential_backoff(self.retry_attempt, self.MAX_BACKOFF_DELAY)
                     self.retry_attempt += 1
                     continue
 
@@ -221,9 +208,7 @@ class WorkerService:
                 if not self.shutdown_event.is_set():
                     self._stream = None
                     await self.cleanup_on_disconnect()
-                    await exponential_backoff(
-                        self.retry_attempt, self.MAX_BACKOFF_DELAY
-                    )
+                    await exponential_backoff(self.retry_attempt, self.MAX_BACKOFF_DELAY)
                     self.retry_attempt += 1
                     continue
 
@@ -249,17 +234,12 @@ class WorkerService:
                                 _workflow_command = WorkflowJob(
                                     run_id=stream_msg.request_id,
                                     workflow_name=workflow_command.run_workflow.workflow_name,
-                                    input_parameters=dict(
-                                        workflow_command.run_workflow.parameters
-                                    ),
+                                    input_parameters=dict(workflow_command.run_workflow.parameters),
                                 )
 
                                 await self.jobs_queue.put(_workflow_command)
                             case pb.WORKFLOW_COMMAND_TYPE_LIST:
-                                response = (
-                                    await self._workflow_command_handler.list_workflows()
-                                )
-                                logger.info(f"Listing workflows: {response}")
+                                response = await self._workflow_command_handler.list_workflows()
                                 msg = pb.InboundWorkerMessage(
                                     request_id=stream_msg.request_id,
                                     worker_id=self.worker_id,
@@ -273,9 +253,25 @@ class WorkerService:
                         if stream_msg.ack.status == "registered":
                             self.connected = True
                             self.connection_event.set()
-                            logger.info(
-                                "Worker connected to API gateway. Listening for jobs..."
+                            logger.info("Worker connected to API gateway. Listening for jobs...")
+
+                            _workflows: list[pb.WorkflowConfig] = []
+                            for workflow_name in WorkflowConfig.get_all():
+                                _workflow = WorkflowConfig.get(workflow_name)
+                                _workflow_pb = convert_workflow_to_pb(_workflow.config)
+                                _workflows.append(_workflow_pb)
+
+                            # Send the latest workflows
+                            msg = pb.SyncWorkflowsRequest(
+                                worker_id=self.worker_id,
+                                deployment_id=self.deployment_id,
+                                workflows=_workflows,
                             )
+
+                            print(f"Sending sync workflows message: {msg}")
+                            response = await self._stub.SyncWorkflows(msg)
+                            logger.info(f"Synchronized workflows: {response}")
+
                             continue
                         else:
                             logger.error("Failed to register worker")
@@ -284,9 +280,7 @@ class WorkerService:
                         pass
 
         except grpc.aio.AioRpcError as e:
-            if e.code() == grpc.StatusCode.INTERNAL and "RST_STREAM" in str(
-                e.details()
-            ):
+            if e.code() == grpc.StatusCode.INTERNAL and "RST_STREAM" in str(e.details()):
                 logger.warning(
                     "Received RST_STREAM error, initiating graceful reconnect",
                     extra={"error_details": e.details()},
@@ -299,16 +293,15 @@ class WorkerService:
                 logger.error(f"gRPC stream error in receive_commands: {e}")
                 raise  # Propagate other gRPC errors to trigger reconnection
         except Exception as e:
-            logger.error(f"Unexpected error in receive_commands: {e}")
+            traceback.print_exc()
+            logger.exception(f"Unexpected error in receive_commands: {e}")
             raise
 
     async def _send_events(self) -> None:
         while not self.shutdown_event.is_set():
             try:
                 job = await self.events_queue.get()
-                logger.info(
-                    f"Sending event: {job.run_id}, job.success: {job.success}, Job: {job}"
-                )
+                logger.info(f"Sending event: {job.run_id}, job.success: {job.success}, Job: {job}")
 
                 if isinstance(job, WorkflowJob):
                     msg = pb.InboundWorkerMessage(
@@ -316,9 +309,7 @@ class WorkerService:
                         worker_id=self.worker_id,
                         deployment_id=self.deployment_id,
                         type=pb.INBOUND_WORKER_MESSAGE_TYPE_WORKFLOW_RESULT,
-                        workflow_result=common_pb.WorkflowResult(
-                            request_id=job.run_id, data=job.output, error=job.error
-                        ),
+                        workflow_result=common_pb.WorkflowResult(request_id=job.run_id, data=job.output, error=job.error),
                     )
 
                     logger.info(f"Sending workflow result: {msg}")
@@ -350,9 +341,7 @@ class WorkerService:
                     _workflow_handler = self._workflow_handlers.get(job.workflow_name)
                     job = await _workflow_handler(job)
 
-                    logger.info(
-                        f"Workflow {job.run_id} result: {job.output}, job.success: {job.success}"
-                    )
+                    logger.info(f"Workflow {job.run_id} result: {job.output}, job.success: {job.success}")
 
                     # Send event
                     await self.events_queue.put(job)
@@ -367,9 +356,7 @@ class WorkerService:
                 raise
             except Exception as e:
                 self.logger.error(f"Workflow execution error: {e}")
-                await self.event_queue.put(
-                    {"workflow_id": job.run_id, "status": "error", "error": str(e)}
-                )
+                await self.event_queue.put({"workflow_id": job.run_id, "status": "error", "error": str(e)})
 
     @asynccontextmanager
     async def _workflow_context(self, run_id: str):
@@ -382,9 +369,7 @@ class WorkerService:
 
     async def _heartbeat_loop(self, stream: StreamStreamCall) -> None:
         """Continuously send heartbeats at the specified interval."""
-        logger.info(
-            f"Sending heartbeats for worker {self.worker_id} every {self._heartbeat_interval} seconds"
-        )
+        logger.info(f"Sending heartbeats for worker {self.worker_id} every {self._heartbeat_interval} seconds")
 
         try:
             while not self.shutdown_event.is_set() and self.connected:
@@ -462,9 +447,7 @@ class WorkerService:
         await asyncio.sleep(1)
         logger.info("Cleaned up disconnected resources")
 
-    async def process_workflow_command(
-        self, command: pb.WorkflowCommand, stream: StreamStreamCall
-    ) -> None:
+    async def process_workflow_command(self, command: pb.WorkflowCommand, stream: StreamStreamCall) -> None:
         try:
             async with self._job_semaphore:
                 self._current_jobs += 1
