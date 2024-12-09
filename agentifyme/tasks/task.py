@@ -92,9 +92,17 @@ def task(
             result = _task_instance(**kwargs)
             return result
 
+        async def async_wrapper(*args, **kwargs) -> Any:
+            kwargs.update(zip(func.__code__.co_varnames, args))
+            result = await _task_instance.arun(**kwargs)
+            return result
+
+        # Choose the appropriate wrapper based on whether the function is async or not
+        final_wrapper = async_wrapper if asyncio.iscoroutinefunction(func) else wrapper
+
         # Add visualization metadata
-        wrapper.__agentifyme = _task_instance  # type: ignore
-        wrapper.__agentifyme_metadata = {  # type: ignore
+        final_wrapper.__agentifyme = _task_instance  # type: ignore
+        final_wrapper.__agentifyme_metadata = {  # type: ignore
             "type": "task",
             "name": task_config.name,
             "description": task_config.description,
@@ -102,19 +110,16 @@ def task(
             "instructions": task_config.instructions,
             "input_parameters": {name: param.name for name, param in task_config.input_parameters.items()},
             "output_parameters": [param.name for param in task_config.output_parameters],
+            "is_async": asyncio.iscoroutinefunction(func),
         }
 
         # pylint: enable=protected-access
 
-        return wrapper
+        return final_wrapper
 
     if callable(func):
         return decorator(func)
     elif name is not None:
-
-        def wrapper(func: Callable[..., Any]) -> Callable[..., Any]:
-            return decorator(func)
-
         return decorator
     else:
         raise TaskError("Invalid arguments for workflow decorator")
