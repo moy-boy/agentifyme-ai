@@ -4,7 +4,6 @@ import sys
 import traceback
 
 import grpc
-from grpc.aio import StreamStreamCall
 from loguru import logger
 
 import agentifyme.worker.pb.api.v1.gateway_pb2_grpc as pb_grpc

@@ -50,6 +50,11 @@ class GatewayServiceStub(object):
                 request_serializer=api_dot_v1_dot_gateway__pb2.SyncWorkflowsRequest.SerializeToString,
                 response_deserializer=api_dot_v1_dot_gateway__pb2.SyncWorkflowsResponse.FromString,
                 _registered_method=True)
+        self.WorkerHeartbeat = channel.unary_unary(
+                '/api.v1.GatewayService/WorkerHeartbeat',
+                request_serializer=api_dot_v1_dot_gateway__pb2.WorkerHeartbeatRequest.SerializeToString,
+                response_deserializer=api_dot_v1_dot_gateway__pb2.WorkerHeartbeatResponse.FromString,
+                _registered_method=True)
         self.RuntimeExecutionEvent = channel.unary_unary(
                 '/api.v1.GatewayService/RuntimeExecutionEvent',
                 request_serializer=api_dot_v1_dot_gateway__pb2.RuntimeExecutionEventRequest.SerializeToString,
@@ -79,6 +84,12 @@ class GatewayServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def WorkerHeartbeat(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def RuntimeExecutionEvent(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -102,6 +113,11 @@ def add_GatewayServiceServicer_to_server(servicer, server):
                     servicer.SyncWorkflows,
                     request_deserializer=api_dot_v1_dot_gateway__pb2.SyncWorkflowsRequest.FromString,
                     response_serializer=api_dot_v1_dot_gateway__pb2.SyncWorkflowsResponse.SerializeToString,
+            ),
+            'WorkerHeartbeat': grpc.unary_unary_rpc_method_handler(
+                    servicer.WorkerHeartbeat,
+                    request_deserializer=api_dot_v1_dot_gateway__pb2.WorkerHeartbeatRequest.FromString,
+                    response_serializer=api_dot_v1_dot_gateway__pb2.WorkerHeartbeatResponse.SerializeToString,
             ),
             'RuntimeExecutionEvent': grpc.unary_unary_rpc_method_handler(
                     servicer.RuntimeExecutionEvent,
@@ -190,6 +206,33 @@ class GatewayService(object):
             '/api.v1.GatewayService/SyncWorkflows',
             api_dot_v1_dot_gateway__pb2.SyncWorkflowsRequest.SerializeToString,
             api_dot_v1_dot_gateway__pb2.SyncWorkflowsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def WorkerHeartbeat(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/api.v1.GatewayService/WorkerHeartbeat',
+            api_dot_v1_dot_gateway__pb2.WorkerHeartbeatRequest.SerializeToString,
+            api_dot_v1_dot_gateway__pb2.WorkerHeartbeatResponse.FromString,
             options,
             channel_credentials,
             insecure,

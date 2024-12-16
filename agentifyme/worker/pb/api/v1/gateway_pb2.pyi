@@ -327,3 +327,19 @@ class SyncWorkflowsResponse(_message.Message):
     STATUS_FIELD_NUMBER: _ClassVar[int]
     status: str
     def __init__(self, status: _Optional[str] = ...) -> None: ...
+
+class WorkerHeartbeatRequest(_message.Message):
+    __slots__ = ("worker_id", "deployment_id", "status")
+    WORKER_ID_FIELD_NUMBER: _ClassVar[int]
+    DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    worker_id: str
+    deployment_id: str
+    status: str
+    def __init__(self, worker_id: _Optional[str] = ..., deployment_id: _Optional[str] = ..., status: _Optional[str] = ...) -> None: ...
+
+class WorkerHeartbeatResponse(_message.Message):
+    __slots__ = ("status",)
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    status: str
+    def __init__(self, status: _Optional[str] = ...) -> None: ...

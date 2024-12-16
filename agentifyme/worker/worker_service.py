@@ -1,6 +1,7 @@
 import asyncio
 import queue
 import random
+import time
 import traceback
 import uuid
 from contextlib import asynccontextmanager
@@ -53,7 +54,7 @@ class WorkerService:
         deployment_id: str,
         worker_id: str,
         max_workers: int = 50,
-        heartbeat_interval: int = 60,
+        heartbeat_interval: int = 30,
     ):
         # configuration
         self.api_gateway_url = api_gateway_url
@@ -70,6 +71,9 @@ class WorkerService:
         # workflow handlers.
         self._workflow_handlers: dict[str, WorkflowHandler] = {}
         self.workflow_semaphore = asyncio.Semaphore(max_workers)
+
+        # Tasks
+        self.process_jobs_task: asyncio.Task | None = None
 
         # state
         self._stub: pb_grpc.GatewayServiceStub | None = None
@@ -90,44 +94,50 @@ class WorkerService:
         self._propagator = TraceContextTextMapPropagator()
 
     async def start_service(self) -> bool:
-        """Start the worker service."""  # initialize workflow handlers
+        """Start the worker service."""
+
+        # initialize workflow handlers
         workflow_handlers = self.initialize_workflow_handlers()
         workflow_names = list(workflow_handlers.keys())
+        self._workflow_names = workflow_names
         self._workflow_handlers = workflow_handlers
 
         try:
-            self._stream = self._stub.WorkerStream()
+            self.process_jobs_task = asyncio.create_task(self.process_jobs())
+            self._start_heartbeat(self._stream)
+            return True
+        #     self._stream = self._stub.WorkerStream()
 
-            receive_task = asyncio.create_task(self._receive_commands())
+        #     receive_task = asyncio.create_task(self._receive_commands())
 
-            # register worker
-            msg = pb.InboundWorkerMessage(
-                worker_id=self.worker_id,
-                deployment_id=self.deployment_id,
-                type=pb.INBOUND_WORKER_MESSAGE_TYPE_REGISTER,
-                registration=pb.WorkerRegistration(workflows=workflow_names),
-            )
+        #     # register worker
+        #     msg = pb.InboundWorkerMessage(
+        #         worker_id=self.worker_id,
+        #         deployment_id=self.deployment_id,
+        #         type=pb.INBOUND_WORKER_MESSAGE_TYPE_REGISTER,
+        #         registration=pb.WorkerRegistration(workflows=workflow_names),
+        #     )
 
-            await self._stream.write(msg)
+        #     await self._stream.write(msg)
 
-            # Wait for connection event with timeout
-            try:
-                await asyncio.wait_for(self.connection_event.wait(), timeout=5.0)
-                self.retry_attempt = 0
-                return True
-            except asyncio.TimeoutError:
-                logger.error("Timeout waiting for connection")
-                receive_task.cancel()
-                try:
-                    await receive_task
-                except asyncio.CancelledError:
-                    pass
-                return False
+        #     # Wait for connection event with timeout
+        #     try:
+        #         await asyncio.wait_for(self.connection_event.wait(), timeout=5.0)
+        #         self.retry_attempt = 0
+        #         return True
+        #     except asyncio.TimeoutError:
+        #         logger.error("Timeout waiting for connection")
+        #         receive_task.cancel()
+        #         try:
+        #             await receive_task
+        #         except asyncio.CancelledError:
+        #             pass
+        #         return False
 
-        except grpc.RpcError as e:
-            # Handle gRPC specific errors
-            logger.error(f"Failed to register worker: {e.details()}")
-            return False
+        # except grpc.RpcError as e:
+        #     # Handle gRPC specific errors
+        #     logger.error(f"Failed to register worker: {e.details()}")
+        #     return False
 
         except Exception as e:
             # Handle any other unexpected errors
@@ -145,6 +155,11 @@ class WorkerService:
         if self.active_jobs:
             await asyncio.gather(*self.active_jobs.values(), return_exceptions=True)
 
+        await self.process_jobs_task.cancel()
+        self.process_jobs_task = None
+
+        await self._stop_heartbeat()
+
     async def start_worker_stream(self) -> None:
         """Start the worker stream. This should be called after registering the worker. It handles the bidirectional stream with the API gateway.
         We listen to commands from the server, execute the commands and respond through events.
@@ -158,7 +173,7 @@ class WorkerService:
                     break
 
                 if not self.connected or self._stream is None:
-                    connected = await self.start_service()
+                    connected = await self._establish_connection()
                     if not connected:
                         logger.error(f"Failed to connect worker {self.worker_id}")
                         await exponential_backoff(self.retry_attempt, self.MAX_BACKOFF_DELAY)
@@ -167,16 +182,17 @@ class WorkerService:
 
                 # Create tasks for ongoing operations
                 tasks = [
-                    asyncio.create_task(self._heartbeat_loop(self._stream), name="heartbeat"),
+                    asyncio.create_task(self._receive_commands(), name="receive_commands"),
                     asyncio.create_task(self._send_events(), name="send_events"),
-                    asyncio.create_task(self._process_jobs(), name="process_jobs"),
                 ]
 
                 # Wait for any task to complete (which usually means an error occurred)
                 done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+                logger.info(f"Done: {done}, Pending: {pending}")
 
                 # Cancel all pending tasks
                 for task in pending:
+                    logger.info(f"Cancelling task: {task.get_name()}")
                     task.cancel()
                     try:
                         await task
@@ -185,10 +201,14 @@ class WorkerService:
 
                 # Check if any task failed with an error
                 for task in done:
+                    logger.info(f"Task {task.get_name()} completed with result: {task.result()}")
                     try:
                         await task
                     except grpc.RpcError as e:
-                        logger.error(f"gRPC error in {task.get_name()}: {e}")
+                        if isinstance(e, grpc.aio.AioRpcError) and e.code() == grpc.StatusCode.INTERNAL and "RST_STREAM" in str(e.details()):
+                            logger.warning("Received RST_STREAM error, initiating stream reconnect", extra={"error_details": e.details()})
+                        else:
+                            logger.error(f"gRPC error in {task.get_name()}: {e}")
                         raise  # Re-raise to trigger reconnection
                     except Exception as e:
                         logger.error(f"Unexpected error in {task.get_name()}: {e}")
@@ -212,92 +232,146 @@ class WorkerService:
                     self.retry_attempt += 1
                     continue
 
-    async def _receive_commands(self) -> None:
-        """Receive commands from gRPC stream"""
+    async def register_worker(self) -> None:
+        """Register the worker with the API gateway"""
+        msg = pb.InboundWorkerMessage(
+            worker_id=self.worker_id,
+            deployment_id=self.deployment_id,
+            type=pb.INBOUND_WORKER_MESSAGE_TYPE_REGISTER,
+            registration=pb.WorkerRegistration(workflows=self._workflow_names),
+        )
+        await self._stream.write(msg)
+
+    async def sync_workflows(self) -> None:
+        """Wait for registration ack and sync workflows"""
+        logger.info("Waiting for registration ack")
+        async for msg in self._stream:
+            if not (msg.HasField("ack") and msg.ack.status == "registered"):
+                logger.error("Failed to get registration ack")
+                break
+
+            self.connected = True
+            logger.info("Worker connected to API gateway. Listening for jobs...")
+
+            # Prepare workflow configs
+            _workflows = [convert_workflow_to_pb(WorkflowConfig.get(name).config) for name in WorkflowConfig.get_all()]
+
+            # Sync workflows
+            sync_msg = pb.SyncWorkflowsRequest(
+                worker_id=self.worker_id,
+                deployment_id=self.deployment_id,
+                workflows=_workflows,
+            )
+
+            response = await self._stub.SyncWorkflows(sync_msg)
+            logger.info(f"Synchronized workflows: {response}")
+
+            self.connection_event.set()
+            self.retry_attempt = 0
+            break
+
+    async def _establish_connection(self) -> bool:
+        """Establish connection and register the worker with timeout"""
         try:
-            async for stream_msg in self._stream:
+            # Create new stream
+            self._stream = self._stub.WorkerStream()
+
+            # Start sync_workflows first (it will wait for ack)
+            sync_task = asyncio.create_task(self.sync_workflows())
+            register_task = asyncio.create_task(self.register_worker())
+
+            await asyncio.gather(sync_task, register_task)
+            # Wait for connection event with timeout
+            try:
+                await asyncio.wait_for(self.connection_event.wait(), timeout=5.0)
+                self.retry_attempt = 0
+                logger.info("Worker connected to API gateway. Listening for jobs...")
+                return True
+            except asyncio.TimeoutError:
+                logger.error("Timeout waiting for connection")
+                sync_task.cancel()
+                try:
+                    await sync_task
+                except asyncio.CancelledError:
+                    pass
+                return False
+
+        except Exception as e:
+            logger.error(f"Error establishing connection: {e}")
+            return False
+
+        return False
+
+    async def _receive_commands(self) -> None:
+        """Receive and process commands from gRPC stream"""
+        try:
+            async for msg in self._stream:
                 if self.shutdown_event.is_set():
                     break
 
-                if isinstance(stream_msg, pb.OutboundWorkerMessage):
-                    if stream_msg.HasField("workflow_command"):
-                        workflow_command = stream_msg.workflow_command
-                        match workflow_command.type:
-                            case pb.WORKFLOW_COMMAND_TYPE_RUN:
-                                carrier: dict[str, str] = getattr(stream_msg, "metadata", {})
-                                context = self._propagator.extract(carrier)
-                                with tracer.start_as_current_span(name="workflow.execute", context=context) as span:
-                                    _workflow_command = WorkflowJob(
-                                        run_id=stream_msg.request_id,
-                                        workflow_name=workflow_command.run_workflow.workflow_name,
-                                        input_parameters=struct_to_dict(workflow_command.run_workflow.parameters),
-                                        metadata=carrier,
-                                    )
-                                    span.add_event(
-                                        "job_queued",
-                                        attributes={"request_id": stream_msg.request_id, "input_parameters": _workflow_command.input_parameters},
-                                    )
-
-                                    result = await self.jobs_queue.put(_workflow_command)
-                                    logger.debug(f"Workflow command result: {result}")
-
-                            case pb.WORKFLOW_COMMAND_TYPE_LIST:
-                                response = await self._workflow_command_handler.list_workflows()
-                                msg = pb.InboundWorkerMessage(
-                                    request_id=stream_msg.request_id,
-                                    worker_id=self.worker_id,
-                                    deployment_id=self.deployment_id,
-                                    type=pb.INBOUND_WORKER_MESSAGE_TYPE_LIST_WORKFLOWS,
-                                    list_workflows=response,
-                                )
-                                await self._stream.write(msg)
-
-                    elif stream_msg.HasField("ack"):
-                        if stream_msg.ack.status == "registered":
-                            self.connected = True
-                            self.connection_event.set()
-                            logger.info("Worker connected to API gateway. Listening for jobs...")
-
-                            _workflows: list[pb.WorkflowConfig] = []
-                            for workflow_name in WorkflowConfig.get_all():
-                                _workflow = WorkflowConfig.get(workflow_name)
-                                _workflow_pb = convert_workflow_to_pb(_workflow.config)
-                                _workflows.append(_workflow_pb)
-
-                            # Send the latest workflows
-                            msg = pb.SyncWorkflowsRequest(
-                                worker_id=self.worker_id,
-                                deployment_id=self.deployment_id,
-                                workflows=_workflows,
-                            )
-
-                            response = await self._stub.SyncWorkflows(msg)
-                            logger.info(f"Synchronized workflows: {response}")
-
-                            continue
-                        else:
-                            logger.error("Failed to register worker")
-                            self.connected = False
-                    elif stream_msg.HasField("workflow_status"):
-                        pass
+                if isinstance(msg, pb.OutboundWorkerMessage):
+                    await self._handle_worker_message(msg)
 
         except grpc.aio.AioRpcError as e:
-            if e.code() == grpc.StatusCode.INTERNAL and "RST_STREAM" in str(e.details()):
-                logger.warning(
-                    "Received RST_STREAM error, initiating graceful reconnect",
-                    extra={"error_details": e.details()},
-                )
-                # Signal reconnection needed but don't raise
-                self.connected = False
-                self.connection_event.clear()
-                return
-            else:
-                logger.error(f"gRPC stream error in receive_commands: {e}")
-                raise  # Propagate other gRPC errors to trigger reconnection
+            await self._handle_stream_error(e)
         except Exception as e:
-            traceback.print_exc()
             logger.exception(f"Unexpected error in receive_commands: {e}")
             raise
+
+    async def _handle_worker_message(self, msg: pb.OutboundWorkerMessage) -> None:
+        """Handle incoming worker messages"""
+        if msg.HasField("workflow_command"):
+            await self._handle_workflow_command(msg, msg.workflow_command)
+
+    async def _handle_workflow_command(self, msg: pb.OutboundWorkerMessage, command: pb.WorkflowCommand) -> None:
+        """Handle workflow commands"""
+        try:
+            if command.type == pb.WORKFLOW_COMMAND_TYPE_RUN:
+                await self._handle_run_command(msg, command)
+            elif command.type == pb.WORKFLOW_COMMAND_TYPE_LIST:
+                await self._handle_list_command(msg)
+        except Exception as e:
+            logger.error(f"Error handling workflow command: {e}")
+
+    async def _handle_run_command(self, msg: pb.OutboundWorkerMessage, command: pb.WorkflowCommand) -> None:
+        """Handle run workflow commands"""
+        carrier: dict[str, str] = getattr(msg, "metadata", {})
+        context = self._propagator.extract(carrier)
+
+        with tracer.start_as_current_span(name="workflow.execute", context=context) as span:
+            workflow_job = WorkflowJob(
+                run_id=msg.request_id,
+                workflow_name=command.run_workflow.workflow_name,
+                input_parameters=struct_to_dict(command.run_workflow.parameters),
+                metadata=carrier,
+            )
+
+            span.add_event("job_queued", attributes={"request_id": msg.request_id, "input_parameters": workflow_job.input_parameters})
+
+            await self.jobs_queue.put(workflow_job)
+            logger.debug(f"Queued workflow job: {msg.request_id}")
+
+    async def _handle_list_command(self, msg: pb.OutboundWorkerMessage) -> None:
+        """Handle list workflows command"""
+        response = await self._workflow_command_handler.list_workflows()
+        reply = pb.InboundWorkerMessage(
+            request_id=msg.request_id,
+            worker_id=self.worker_id,
+            deployment_id=self.deployment_id,
+            type=pb.INBOUND_WORKER_MESSAGE_TYPE_LIST_WORKFLOWS,
+            list_workflows=response,
+        )
+        await self._stream.write(reply)
+
+    async def _handle_stream_error(self, e: grpc.aio.AioRpcError) -> None:
+        """Handle stream errors"""
+        if e.code() == grpc.StatusCode.INTERNAL and "RST_STREAM" in str(e.details()):
+            logger.warning("Received RST_STREAM error, initiating graceful reconnect", extra={"error_details": e.details()})
+            self.connected = False
+            return
+
+        logger.error(f"gRPC stream error in receive_commands: {e}")
+        raise
 
     async def _send_events(self) -> None:
         while not self.shutdown_event.is_set():
@@ -319,9 +393,10 @@ class WorkerService:
             except queue.Empty:
                 pass
 
-    async def _process_jobs(self) -> None:
+    async def process_jobs(self) -> None:
         """Process jobs from the queue"""
         while not self.shutdown_event.is_set():
+            logger.info("Processing jobs from queue")
             try:
                 job = await self.jobs_queue.get()
                 asyncio.create_task(self._handle_job(job))
@@ -369,23 +444,27 @@ class WorkerService:
             finally:
                 self.active_jobs.pop(run_id, None)
 
-    async def _heartbeat_loop(self, stream: StreamStreamCall) -> None:
+    async def _heartbeat_loop(self) -> None:
         """Continuously send heartbeats at the specified interval."""
         logger.info(f"Sending heartbeats for worker {self.worker_id} every {self._heartbeat_interval} seconds")
 
         try:
-            while not self.shutdown_event.is_set() and self.connected:
-                logger.debug(f"Sending heartbeat for worker {self.worker_id}")
-                heartbeat_msg = pb.InboundWorkerMessage(
-                    request_id=str(uuid.uuid4()),
-                    worker_id=self.worker_id,
-                    type=pb.INBOUND_WORKER_MESSAGE_TYPE_HEARTBEAT,
-                    heartbeat=pb.WorkerHeartbeat(status="active"),
-                )
+            while not self.shutdown_event.is_set():
+                await asyncio.sleep(self._heartbeat_interval)
+
+                if not self.connected:
+                    continue
 
                 try:
-                    await stream.write(heartbeat_msg)
-                    logger.debug(f"Sent heartbeat for worker {self.worker_id}")
+                    heartbeat_msg = pb.WorkerHeartbeatRequest(
+                        worker_id=self.worker_id,
+                        deployment_id=self.deployment_id,
+                        status="active",
+                    )
+                    logger.debug(f"Sending heartbeat for worker {self.worker_id}")
+                    response = await self._stub.WorkerHeartbeat(heartbeat_msg)
+                    logger.info(f"Heartbeat response: {response}")
+
                 except grpc.RpcError as e:
                     logger.error(f"Failed to send heartbeat: {e}")
                     # Instead of continuing in a loop, raise the error to trigger reconnection
@@ -393,8 +472,6 @@ class WorkerService:
                 except Exception as e:
                     logger.error(f"Unexpected error in heartbeat: {e}")
                     raise
-
-                await asyncio.sleep(self._heartbeat_interval)
 
         except asyncio.CancelledError:
             logger.debug("Heartbeat loop cancelled")
@@ -407,7 +484,7 @@ class WorkerService:
         """Start the heartbeat task."""
         if self._heartbeat_task is not None:
             self._heartbeat_task.cancel()
-        self._heartbeat_task = asyncio.create_task(self._heartbeat_loop(stream))
+        self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
 
     def _stop_heartbeat(self) -> None:
         """Stop the heartbeat task."""
