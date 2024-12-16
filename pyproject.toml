@@ -1,6 +1,6 @@
 [project]
 name = "agentifyme"
-version = "0.1.17"
+dynamic = ["version"]
 description = "Framework for building agentic workflows"
 authors = [
     { name = "Arun Reddy", email = "arun@agentifyme.ai" }
@@ -53,23 +53,11 @@ dev-dependencies = [
     "pytest-asyncio>=0.23.8",
 ]
 
+
+[tool.hatch.version]
+path = "agentifyme/__init__.py"
+
 [tool.hatch.metadata]
+description = "Framework for building agentic workflows"
 allow-direct-references = true
-
-[tool.hatch.build.targets.wheel]
-packages = ["agentifyme"]
-
-
-[tool.ruff]
-line-length = 180
-target-version = "py311"
-ignore = ["D100", "D101", "D102", "D103", "D104", "D105", "D106", "D107"]
-
-[tool.pylint.messages_control]
-disable = "missing-docstring"
-
-[tool.hatch.build]
-exclude = ["*.env", ".*", ".*/*", "*.log", "__pycache__/", "*.pyc", ".gitignore", "tests/*", "requirements-dev.lock"]
-
-
-
+metadata-version = "2.1"
