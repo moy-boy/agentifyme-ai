@@ -24,7 +24,14 @@ from agentifyme.workflows import WorkflowConfig
 
 
 def main():
-    asyncio.run(run())
+    try:
+        asyncio.run(run())
+    except KeyboardInterrupt:
+        logger.info("Worker service stopped by user")
+        return 0
+    except Exception as e:
+        logger.error("Worker service error", exc_info=True, error=str(e))
+        return 1
 
 
 async def run():
@@ -60,13 +67,9 @@ async def run():
 
     except ValueError as e:
         logger.error(f"Worker service error: {e}")
-        traceback.print_exc()
         return 1
-    except KeyboardInterrupt:
-        logger.info("Worker service stopped by user", exc_info=True)
     except Exception as e:
         logger.error("Worker service error", exc_info=True, error=str(e))
-        traceback.print_exc()
         return 1
     return 0
 
@@ -86,13 +89,10 @@ async def init_worker_service(api_gateway_url: str, api_key: str, project_id: st
             stub = pb_grpc.GatewayServiceStub(channel)
             worker_service = WorkerService(stub, api_gateway_url, project_id, deployment_id, worker_id)
             await worker_service.start_service()
-            # start worker stream
-            await worker_service.start_worker_stream()
     except KeyboardInterrupt:
         logger.info("Worker service stopped by user", exc_info=True)
     except Exception as e:
         logger.error("Worker service error", exc_info=True, error=str(e))
-        traceback.print_exc()
         raise e
     finally:
         await worker_service.stop_service()

@@ -329,14 +329,32 @@ class SyncWorkflowsResponse(_message.Message):
     def __init__(self, status: _Optional[str] = ...) -> None: ...
 
 class WorkerHeartbeatRequest(_message.Message):
-    __slots__ = ("worker_id", "deployment_id", "status")
+    __slots__ = ("worker_id", "deployment_id", "status", "metadata", "metrics")
+    class MetadataEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+    class MetricsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: int
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[int] = ...) -> None: ...
     WORKER_ID_FIELD_NUMBER: _ClassVar[int]
     DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
+    METADATA_FIELD_NUMBER: _ClassVar[int]
+    METRICS_FIELD_NUMBER: _ClassVar[int]
     worker_id: str
     deployment_id: str
     status: str
-    def __init__(self, worker_id: _Optional[str] = ..., deployment_id: _Optional[str] = ..., status: _Optional[str] = ...) -> None: ...
+    metadata: _containers.ScalarMap[str, str]
+    metrics: _containers.ScalarMap[str, int]
+    def __init__(self, worker_id: _Optional[str] = ..., deployment_id: _Optional[str] = ..., status: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ..., metrics: _Optional[_Mapping[str, int]] = ...) -> None: ...
 
 class WorkerHeartbeatResponse(_message.Message):
     __slots__ = ("status",)
