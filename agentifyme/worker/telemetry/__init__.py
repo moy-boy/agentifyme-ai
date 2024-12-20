@@ -2,6 +2,7 @@ from loguru import logger as llogger
 
 from .base import configure_sentry, get_resource_attributes
 from .instrumentor import OTELInstrumentor
+from .language_model import auto_instrument_language_models
 from .logger import configure_logger
 from .tracer import configure_tracer
 
@@ -19,6 +20,7 @@ def setup_telemetry(otel_endpoint: str, agentifyme_env: str, agentifyme_worker_v
 
 def auto_instrument(project_dir: str):
     OTELInstrumentor().instrument(project_dir)
+    auto_instrument_language_models()
 
 
 __all__ = ["setup_telemetry", "auto_instrument"]

@@ -93,6 +93,7 @@ async def init_worker_service(api_gateway_url: str, api_key: str, project_id: st
         logger.info("Worker service stopped by user", exc_info=True)
     except Exception as e:
         logger.error("Worker service error", exc_info=True, error=str(e))
+        traceback.print_exc()
         raise e
     finally:
         await worker_service.stop_service()

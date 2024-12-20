@@ -1,15 +1,17 @@
 import asyncio
+import json
 import queue
 import random
-import time
 import traceback
 import uuid
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import grpc
 from grpc.aio import StreamStreamCall
 from loguru import logger
 from opentelemetry import trace
+from opentelemetry.trace import Status
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
 import agentifyme.worker.pb.api.v1.common_pb2 as common_pb
@@ -28,7 +30,7 @@ from agentifyme.worker.workflows import (
 
 async def exponential_backoff(attempt: int, max_delay: int = 32) -> None:
     """Exponential backoff with jitter"""
-    delay = min(2**attempt, max_delay)
+    delay = min(3**attempt, max_delay)
     jitter = random.uniform(0, 0.1) * delay
     total_delay = delay + jitter
     logger.info(f"Reconnection attempt {attempt+1}, waiting {total_delay:.1f} seconds")
@@ -72,8 +74,11 @@ class WorkerService:
         self._workflow_handlers: dict[str, WorkflowHandler] = {}
         self.workflow_semaphore = asyncio.Semaphore(max_workers)
 
-        # Tasks
+        # tasks
         self.process_jobs_task: asyncio.Task | None = None
+        self._active_tasks: dict[str, asyncio.Task] = {}
+        self._heartbeat_task: asyncio.Task | None = None
+        self.health_status_task: asyncio.Task | None = None
 
         # state
         self._stub: pb_grpc.GatewayServiceStub | None = None
@@ -84,14 +89,17 @@ class WorkerService:
         self.running = True
         self._stream: StreamStreamCall | None = None
         self._workflow_command_handler = WorkflowCommandHandler(self._stream, max_workers)
-        self._active_tasks: dict[str, asyncio.Task] = {}
-        self._heartbeat_task: asyncio.Task | None = None
+
         self._heartbeat_interval = heartbeat_interval
         self._stub = stub
         self.retry_attempt = 0
 
         # trace
         self._propagator = TraceContextTextMapPropagator()
+
+        # health
+        self.health_file = Path(f"/tmp/health/worker_{self.worker_id}.txt")
+        self._last_health_state = None
 
     async def start_service(self) -> bool:
         """Start the worker service."""
@@ -104,12 +112,18 @@ class WorkerService:
         tasks = []
 
         try:
+            # clean up health state at start
+            self.health_file.unlink(missing_ok=True)
+            self._last_health_state = False
+
+            # start tasks
+            self.health_status_task = asyncio.create_task(self._update_health_status())
             self.process_jobs_task = asyncio.create_task(self.process_jobs())
             self.subscribe_to_event_stream_task = asyncio.create_task(self.subscribe_to_event_stream())
             self.send_events_task = asyncio.create_task(self._send_events())
             self.heartbeat_task = asyncio.create_task(self._heartbeat_loop())
 
-            tasks = [self.process_jobs_task, self.subscribe_to_event_stream_task, self.send_events_task, self.heartbeat_task]
+            tasks = [self.process_jobs_task, self.subscribe_to_event_stream_task, self.send_events_task, self.heartbeat_task, self.health_status_task]
             await asyncio.gather(*tasks)
 
             logger.info("Worker service started successfully")
@@ -132,13 +146,11 @@ class WorkerService:
                     self.shutdown_event.set()
                     break
 
-                # async for msg in self._stream:
-                #     logger.info(f"Received worker message: {msg.request_id}")
-
                 logger.info(f"Subscribing to event stream with worker:{self.worker_id}")
                 self._stream = self._stub.WorkerStream()
 
                 msg = pb.InboundWorkerMessage(
+                    request_id=str(uuid.uuid4()),
                     worker_id=self.worker_id,
                     deployment_id=self.deployment_id,
                     type=pb.INBOUND_WORKER_MESSAGE_TYPE_REGISTER,
@@ -161,10 +173,13 @@ class WorkerService:
                         await self._handle_workflow_command(msg, msg.workflow_command)
 
             except grpc.RpcError as e:
+                self.connected = False
                 logger.error(f"Stream error on attempt {self.retry_attempt+1}/{self.MAX_RECONNECT_ATTEMPTS}: {e}")
 
             except Exception as e:
+                self.connected = False
                 logger.error(f"Unexpected error: {e}")
+
             finally:
                 if not self.connected or self._stream is None:
                     await exponential_backoff(self.retry_attempt, self.MAX_BACKOFF_DELAY)
@@ -182,6 +197,15 @@ class WorkerService:
 
         if self.active_jobs:
             await asyncio.gather(*self.active_jobs.values(), return_exceptions=True)
+
+        if self.health_status_task:
+            self.health_status_task.cancel()
+            try:
+                await self.health_status_task
+            except asyncio.CancelledError:
+                pass
+            self.health_status_task = None
+            self.health_file.unlink(missing_ok=True)
 
         await self._stop_heartbeat()
 
@@ -249,7 +273,7 @@ class WorkerService:
                 metadata=carrier,
             )
 
-            span.add_event("job_queued", attributes={"request_id": msg.request_id, "input_parameters": workflow_job.input_parameters})
+            span.add_event("job_queued", attributes={"request_id": msg.request_id, "input_parameters": json.dumps(workflow_job.input_parameters)})
 
             await self.jobs_queue.put(workflow_job)
             logger.debug(f"Queued workflow job: {msg.request_id}")
@@ -320,12 +344,21 @@ class WorkerService:
                     workflow_task = asyncio.current_task()
                     self.active_jobs[job.run_id] = workflow_task
 
+                    span.add_event("job_started", attributes={"request_id": job.run_id, "input_parameters": json.dumps(job.input_parameters)})
+
                     while not self.shutdown_event.is_set():
                         # Execute workflow step
                         _workflow_handler = self._workflow_handlers.get(job.workflow_name)
                         job = await _workflow_handler(job)
 
                         logger.info(f"Workflow {job.run_id} result: {job.output}, job.success: {job.success}")
+
+                        span.add_event("job_completed", attributes={"request_id": job.run_id, "output": json.dumps(job.output), "success": job.success})
+
+                        if job.success:
+                            span.set_status(Status.OK)
+                        else:
+                            span.set_status(Status.ERROR, job.error)
 
                         # Send event
                         await self.events_queue.put(job)
@@ -403,6 +436,10 @@ class WorkerService:
 
     async def cleanup_on_disconnect(self):
         """Cleanup resources on disconnect"""
+
+        self.health_file.unlink(missing_ok=True)
+        self._last_health_state = False
+
         self._stop_heartbeat()
         self.connected = False
         self.connection_event.clear()
@@ -444,3 +481,24 @@ class WorkerService:
             _workflow_handlers[workflow_name] = _workflow_handler
 
         return _workflow_handlers
+
+    async def _update_health_status(self):
+        """Update health status file only when state changes"""
+        while not self.shutdown_event.is_set():
+            try:
+                current_state = self.connected and not self.shutdown_event.is_set()
+
+                # Only write/remove file if state has changed
+                if current_state != self._last_health_state:
+                    if current_state:
+                        self.health_file.parent.mkdir(exist_ok=True)
+                        self.health_file.touch()
+                    else:
+                        self.health_file.unlink(missing_ok=True)
+                    self._last_health_state = current_state
+
+                await asyncio.sleep(1)  # Check state every second
+
+            except Exception as e:
+                logger.error(f"Error updating health status: {e}")
+                await asyncio.sleep(1)

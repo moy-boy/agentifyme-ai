@@ -3,6 +3,8 @@ from .base import (
     LanguageModelProvider,
     LanguageModelResponse,
     LanguageModelType,
+    Message,
+    Role,
     ToolCall,
 )
 from .builder import LanguageModelBuilder, LanguageModelConfig, get_language_model
@@ -16,4 +18,6 @@ __all__ = [
     "get_language_model",
     "LanguageModelBuilder",
     "ToolCall",
+    "Message",
+    "Role",
 ]

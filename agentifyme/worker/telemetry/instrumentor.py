@@ -177,7 +177,3 @@ class OTELInstrumentor:
         WorkflowConfig._registry = workflow_registry
 
         logger.info(f"Found workflows - {WorkflowConfig.get_all()}")
-
-
-def auto_instrument():
-    pass
