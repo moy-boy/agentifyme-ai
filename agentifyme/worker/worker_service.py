@@ -11,7 +11,7 @@ import grpc
 from grpc.aio import StreamStreamCall
 from loguru import logger
 from opentelemetry import trace
-from opentelemetry.trace import Status
+from opentelemetry.trace import StatusCode
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
 import agentifyme.worker.pb.api.v1.common_pb2 as common_pb
@@ -332,7 +332,7 @@ class WorkerService:
                 job = await self.jobs_queue.get()
                 asyncio.create_task(self._handle_job(job))
             except Exception as e:
-                self.logger.error(f"Error processing task: {e}")
+                logger.error(f"Error processing task: {e}")
                 await asyncio.sleep(1)
 
     async def _handle_job(self, job: WorkflowJob):
@@ -356,9 +356,9 @@ class WorkerService:
                         span.add_event("job_completed", attributes={"request_id": job.run_id, "output": json.dumps(job.output), "success": job.success})
 
                         if job.success:
-                            span.set_status(Status.OK)
+                            span.set_status(StatusCode.OK)
                         else:
-                            span.set_status(Status.ERROR, job.error)
+                            span.set_status(StatusCode.ERROR, job.error)
 
                         # Send event
                         await self.events_queue.put(job)
@@ -369,10 +369,10 @@ class WorkerService:
                             break
 
             except asyncio.CancelledError:
-                self.logger.info(f"Workflow {job.run_id} cancelled")
+                logger.info(f"Workflow {job.run_id} cancelled")
                 raise
             except Exception as e:
-                self.logger.error(f"Workflow execution error: {e}")
+                logger.error(f"Workflow execution error: {e}")
                 await self.event_queue.put({"workflow_id": job.run_id, "status": "error", "error": str(e)})
 
     @asynccontextmanager
