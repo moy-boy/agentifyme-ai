@@ -83,6 +83,8 @@ class WorkflowHandler:
                 validated = return_type.model_validate(result)
                 return validated.model_dump()
             return result
+        elif isinstance(result, str):
+            return {"output": result}
 
         if hasattr(return_type, "model_validate"):
             validated = return_type.model_validate(result)
@@ -109,7 +111,10 @@ class WorkflowHandler:
                 )
 
                 # Execute workflow
-                result = await self.workflow.arun(**func_args)
+                if asyncio.iscoroutinefunction(_workflow_config.func):
+                    result = await self.workflow.arun(**func_args)
+                else:
+                    result = self.workflow.run(**func_args)
 
                 # Get return type and process output
                 return_type = get_type_hints(_workflow_config.func).get("return")
