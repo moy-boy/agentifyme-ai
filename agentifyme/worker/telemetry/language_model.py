@@ -9,6 +9,7 @@ from opentelemetry import metrics, trace
 from opentelemetry.trace import SpanKind, Status, StatusCode
 
 from agentifyme.ml.llm import LanguageModel, LanguageModelProvider, LanguageModelResponse, Message, Role
+from agentifyme.worker.callback import CallbackHandler
 from agentifyme.worker.telemetry.semconv import SemanticAttributes, SpanType
 
 from .semconv import SemanticAttributes
@@ -152,10 +153,10 @@ def record_provider_metrics(provider: LanguageModelProvider, response: LanguageM
         function_calls.add(len(response.tool_calls))
 
 
-def llm_telemetry(method_name: str) -> Callable:
+def llm_telemetry(method_name: str, callback_handler: CallbackHandler) -> Callable:
     """Decorator for adding telemetry to LLM methods"""
 
-    def decorator(func: Callable[..., ResponseType]) -> Callable[..., ResponseType]:
+    def method_decorator(func: Callable[..., ResponseType]) -> Callable[..., ResponseType]:
         @wraps(func)
         def wrapper(instance: LanguageModel, *args, **kwargs) -> ResponseType:
             # Get provider from instance
@@ -163,8 +164,11 @@ def llm_telemetry(method_name: str) -> Callable:
 
             with LLMTelemetryContext(method_name, provider)() as span:
                 try:
+                    span_id = format(span.get_span_context().span_id, "016x")
                     # Set basic attributes
                     span.set_attributes(extract_telemetry_attributes(instance, method_name, args, kwargs))
+
+                    callback_handler.on_llm_start(instance.llm_model.value, span_id)
 
                     # Execute method
                     result = func(instance, *args, **kwargs)
@@ -180,6 +184,8 @@ def llm_telemetry(method_name: str) -> Callable:
                             span.set_status(Status(StatusCode.OK))
                             if result.message:
                                 span.set_attribute(SemanticAttributes.LLM_OUTPUT_MESSAGE, result.message)
+
+                    callback_handler.on_llm_end(instance.llm_model.value, span_id, result)
                     return result
 
                 except Exception as e:
@@ -190,13 +196,13 @@ def llm_telemetry(method_name: str) -> Callable:
 
         return wrapper
 
-    return decorator
+    return method_decorator
 
 
-def llm_stream_telemetry(method_name: str) -> Callable:
+def llm_stream_telemetry(method_name: str, callback_handler: CallbackHandler) -> Callable:
     """Decorator for adding telemetry to streaming LLM methods"""
 
-    def decorator(func: Callable) -> Callable:
+    def method_decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(instance: LanguageModel, *args, **kwargs):
             provider, _ = instance.get_model_name(instance.llm_model)
@@ -223,10 +229,10 @@ def llm_stream_telemetry(method_name: str) -> Callable:
 
         return wrapper
 
-    return decorator
+    return method_decorator
 
 
-def instrument_llm_class(cls: Any) -> None:
+def instrument_llm_class(cls: Any, callback_handler: CallbackHandler) -> None:
     """Instrument a Language Model class with telemetry"""
     methods = {
         "generate": llm_telemetry,
@@ -234,12 +240,14 @@ def instrument_llm_class(cls: Any) -> None:
         "generate_stream": llm_stream_telemetry,
     }
 
-    for method_name, wrapper in methods.items():
+    for method_name, decorator_factory in methods.items():
         if hasattr(cls, method_name):
-            setattr(cls, method_name, wrapper(method_name)(getattr(cls, method_name)))
+            original_method = getattr(cls, method_name)
+            decorated_method = decorator_factory(method_name, callback_handler)(original_method)
+            setattr(cls, method_name, decorated_method)
 
 
-def auto_instrument_language_models() -> None:
+def auto_instrument_language_models(callback_handler: CallbackHandler) -> None:
     """Automatically instrument all Language Model classes"""
     import agentifyme.ml.llm
 
@@ -248,4 +256,4 @@ def auto_instrument_language_models() -> None:
         if provider_module:
             for name, obj in inspect.getmembers(provider_module):
                 if isinstance(obj, type) and issubclass(obj, LanguageModel) and obj != LanguageModel:
-                    instrument_llm_class(obj)
+                    instrument_llm_class(obj, callback_handler)

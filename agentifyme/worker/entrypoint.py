@@ -15,6 +15,7 @@ from agentifyme.utilities.modules import (
     load_modules_from_directory,
 )
 from agentifyme.worker.auth_interceptor import APIKeyInterceptor
+from agentifyme.worker.callback import CallbackHandler
 from agentifyme.worker.telemetry import (
     auto_instrument,
     setup_telemetry,
@@ -47,9 +48,11 @@ async def run():
         project_id = get_env("AGENTIFYME_PROJECT_ID")
         deployment_id = get_env("AGENTIFYME_DEPLOYMENT_ID")
         worker_id = get_env("AGENTIFYME_WORKER_ID")
+        otel_endpoint = get_env("AGENTIFYME_OTEL_ENDPOINT")
         agentifyme_project_dir = get_env("AGENTIFYME_PROJECT_DIR", Path.cwd().as_posix())
         agentifyme_version = get_package_version("agentifyme")
-        otel_endpoint = get_env("AGENTIFYME_OTEL_ENDPOINT")
+
+        callback_handler = CallbackHandler()
 
         # Setup telemetry
         setup_telemetry(
@@ -59,22 +62,23 @@ async def run():
         )
 
         # Add instrumentation to workflows and tasks
-        auto_instrument(agentifyme_project_dir)
+        auto_instrument(agentifyme_project_dir, callback_handler)
 
         logger.info(f"Starting Agentifyme service with worker {worker_id} and deployment {deployment_id}")
 
-        await init_worker_service(api_gateway_url, api_key, project_id, deployment_id, worker_id)
+        await init_worker_service(api_gateway_url, api_key, project_id, deployment_id, worker_id, callback_handler)
 
     except ValueError as e:
         logger.error(f"Worker service error: {e}")
         return 1
     except Exception as e:
+        traceback.print_exc()
         logger.error("Worker service error", exc_info=True, error=str(e))
         return 1
     return 0
 
 
-async def init_worker_service(api_gateway_url: str, api_key: str, project_id: str, deployment_id: str, worker_id: str):
+async def init_worker_service(api_gateway_url: str, api_key: str, project_id: str, deployment_id: str, worker_id: str, callback_handler: CallbackHandler):
     grpc_options = [
         ("grpc.keepalive_time_ms", 60000),
         ("grpc.keepalive_timeout_ms", 20000),
@@ -87,7 +91,7 @@ async def init_worker_service(api_gateway_url: str, api_key: str, project_id: st
         # , interceptors=[api_key_interceptor]
         async with grpc.aio.insecure_channel(target=api_gateway_url, options=grpc_options, interceptors=[api_key_interceptor]) as channel:
             stub = pb_grpc.GatewayServiceStub(channel)
-            worker_service = WorkerService(stub, api_gateway_url, project_id, deployment_id, worker_id)
+            worker_service = WorkerService(stub, callback_handler, api_gateway_url, project_id, deployment_id, worker_id)
             await worker_service.start_service()
     except KeyboardInterrupt:
         logger.info("Worker service stopped by user", exc_info=True)

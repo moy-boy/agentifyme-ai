@@ -86,6 +86,8 @@ importlib-metadata==8.5.0
     # via opentelemetry-api
 jinja2==3.1.4
     # via agentifyme
+jiter==0.8.2
+    # via openai
 joblib==1.4.2
     # via agentifyme
 loguru==0.7.2
@@ -105,16 +107,19 @@ numpy==2.0.1
     # via pyarrow
     # via qdrant-client
     # via together
-openai==1.37.0
+openai==1.59.3
     # via agentifyme
 opentelemetry-api==1.28.1
     # via agentifyme
     # via opentelemetry-exporter-otlp-proto-grpc
+    # via opentelemetry-processor-baggage
     # via opentelemetry-sdk
     # via opentelemetry-semantic-conventions
 opentelemetry-exporter-otlp-proto-common==1.28.1
     # via opentelemetry-exporter-otlp-proto-grpc
 opentelemetry-exporter-otlp-proto-grpc==1.28.1
+    # via agentifyme
+opentelemetry-processor-baggage==0.50b0
     # via agentifyme
 opentelemetry-proto==1.28.1
     # via opentelemetry-exporter-otlp-proto-common
@@ -122,6 +127,7 @@ opentelemetry-proto==1.28.1
 opentelemetry-sdk==1.28.1
     # via agentifyme
     # via opentelemetry-exporter-otlp-proto-grpc
+    # via opentelemetry-processor-baggage
 opentelemetry-semantic-conventions==0.49b1
     # via opentelemetry-sdk
 orjson==3.10.11
@@ -196,6 +202,7 @@ urllib3==2.2.2
 wrapt==1.16.0
     # via agentifyme
     # via deprecated
+    # via opentelemetry-processor-baggage
 yarl==1.9.4
     # via aiohttp
 zipp==3.21.0

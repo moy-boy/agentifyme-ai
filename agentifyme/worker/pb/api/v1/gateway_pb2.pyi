@@ -240,7 +240,7 @@ class ListWorkflowsCommand(_message.Message):
     def __init__(self) -> None: ...
 
 class ExecutionEventData(_message.Message):
-    __slots__ = ("execution_id", "status", "metadata")
+    __slots__ = ("execution_id", "status", "metadata", "payload")
     class MetadataEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -251,13 +251,15 @@ class ExecutionEventData(_message.Message):
     EXECUTION_ID_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
     METADATA_FIELD_NUMBER: _ClassVar[int]
+    PAYLOAD_FIELD_NUMBER: _ClassVar[int]
     execution_id: str
     status: str
     metadata: _containers.ScalarMap[str, str]
-    def __init__(self, execution_id: _Optional[str] = ..., status: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ...) -> None: ...
+    payload: str
+    def __init__(self, execution_id: _Optional[str] = ..., status: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ..., payload: _Optional[str] = ...) -> None: ...
 
 class WorkflowEventData(_message.Message):
-    __slots__ = ("workflow_id", "status", "metadata")
+    __slots__ = ("workflow_id", "status", "metadata", "payload")
     class MetadataEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -268,13 +270,15 @@ class WorkflowEventData(_message.Message):
     WORKFLOW_ID_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
     METADATA_FIELD_NUMBER: _ClassVar[int]
+    PAYLOAD_FIELD_NUMBER: _ClassVar[int]
     workflow_id: str
     status: str
     metadata: _containers.ScalarMap[str, str]
-    def __init__(self, workflow_id: _Optional[str] = ..., status: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ...) -> None: ...
+    payload: str
+    def __init__(self, workflow_id: _Optional[str] = ..., status: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ..., payload: _Optional[str] = ...) -> None: ...
 
 class TaskEventData(_message.Message):
-    __slots__ = ("task_id", "workflow_id", "status", "metadata")
+    __slots__ = ("task_id", "workflow_id", "status", "metadata", "payload")
     class MetadataEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -286,25 +290,29 @@ class TaskEventData(_message.Message):
     WORKFLOW_ID_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
     METADATA_FIELD_NUMBER: _ClassVar[int]
+    PAYLOAD_FIELD_NUMBER: _ClassVar[int]
     task_id: str
     workflow_id: str
     status: str
     metadata: _containers.ScalarMap[str, str]
-    def __init__(self, task_id: _Optional[str] = ..., workflow_id: _Optional[str] = ..., status: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ...) -> None: ...
+    payload: str
+    def __init__(self, task_id: _Optional[str] = ..., workflow_id: _Optional[str] = ..., status: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ..., payload: _Optional[str] = ...) -> None: ...
 
 class RuntimeExecutionEventRequest(_message.Message):
-    __slots__ = ("event_id", "event_type", "timestamp", "workflow_event", "task_event")
+    __slots__ = ("event_id", "event_type", "timestamp", "workflow_event", "task_event", "execution_event")
     EVENT_ID_FIELD_NUMBER: _ClassVar[int]
     EVENT_TYPE_FIELD_NUMBER: _ClassVar[int]
     TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
     WORKFLOW_EVENT_FIELD_NUMBER: _ClassVar[int]
     TASK_EVENT_FIELD_NUMBER: _ClassVar[int]
+    EXECUTION_EVENT_FIELD_NUMBER: _ClassVar[int]
     event_id: str
     event_type: EventType
     timestamp: int
     workflow_event: WorkflowEventData
     task_event: TaskEventData
-    def __init__(self, event_id: _Optional[str] = ..., event_type: _Optional[_Union[EventType, str]] = ..., timestamp: _Optional[int] = ..., workflow_event: _Optional[_Union[WorkflowEventData, _Mapping]] = ..., task_event: _Optional[_Union[TaskEventData, _Mapping]] = ...) -> None: ...
+    execution_event: ExecutionEventData
+    def __init__(self, event_id: _Optional[str] = ..., event_type: _Optional[_Union[EventType, str]] = ..., timestamp: _Optional[int] = ..., workflow_event: _Optional[_Union[WorkflowEventData, _Mapping]] = ..., task_event: _Optional[_Union[TaskEventData, _Mapping]] = ..., execution_event: _Optional[_Union[ExecutionEventData, _Mapping]] = ...) -> None: ...
 
 class RuntimeExecutionEventResponse(_message.Message):
     __slots__ = ("status",)

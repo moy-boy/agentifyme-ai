@@ -1,5 +1,7 @@
 from loguru import logger as llogger
 
+from agentifyme.worker.callback import CallbackHandler
+
 from .base import configure_sentry, get_resource_attributes
 from .instrumentor import OTELInstrumentor
 from .language_model import auto_instrument_language_models
@@ -18,9 +20,9 @@ def setup_telemetry(otel_endpoint: str, agentifyme_env: str, agentifyme_worker_v
         llogger.error(f"Error setting up OTEL: {e}")
 
 
-def auto_instrument(project_dir: str):
-    OTELInstrumentor().instrument(project_dir)
-    auto_instrument_language_models()
+def auto_instrument(project_dir: str, callback_handler: CallbackHandler):
+    OTELInstrumentor().instrument(project_dir, callback_handler)
+    auto_instrument_language_models(callback_handler)
 
 
 __all__ = ["setup_telemetry", "auto_instrument"]

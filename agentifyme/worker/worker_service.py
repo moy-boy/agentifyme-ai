@@ -5,12 +5,17 @@ import random
 import traceback
 import uuid
 from contextlib import asynccontextmanager
+from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import grpc
+import orjson
 from grpc.aio import StreamStreamCall
 from loguru import logger
-from opentelemetry import trace
+from opentelemetry import baggage, trace
+from opentelemetry.context import attach, detach
+from opentelemetry.propagate import inject
 from opentelemetry.trace import StatusCode
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
@@ -20,6 +25,7 @@ import agentifyme.worker.pb.api.v1.common_pb2 as common_pb
 import agentifyme.worker.pb.api.v1.gateway_pb2 as pb
 import agentifyme.worker.pb.api.v1.gateway_pb2_grpc as pb_grpc
 from agentifyme.config import TaskConfig, WorkflowConfig
+from agentifyme.worker.callback import CallbackHandler
 from agentifyme.worker.helpers import convert_workflow_to_pb, struct_to_dict
 from agentifyme.worker.workflows import (
     WorkflowCommandHandler,
@@ -51,6 +57,7 @@ class WorkerService:
     def __init__(
         self,
         stub: pb_grpc.GatewayServiceStub,
+        callback_handler: CallbackHandler,
         api_gateway_url: str,
         project_id: str,
         deployment_id: str,
@@ -100,6 +107,25 @@ class WorkerService:
         # health
         self.health_file = Path(f"/tmp/health/worker_{self.worker_id}.txt")
         self._last_health_state = None
+
+        # callback handler
+        self.callback_handler = callback_handler
+        callback_events = [
+            "task_start",
+            "task_end",
+            "workflow_start",
+            "workflow_end",
+            "trigger_start",
+            "trigger_end",
+            "llm_start",
+            "llm_end",
+            "tool_start",
+            "tool_end",
+            "exec_start",
+            "exec_end",
+        ]
+        for event in callback_events:
+            self.callback_handler.register(event, self.notify_callback)
 
     async def start_service(self) -> bool:
         """Start the worker service."""
@@ -168,6 +194,7 @@ class WorkerService:
                         self.connection_event.set()
                         await self.sync_workflows()
                         logger.info("Worker connected to API gateway. Listening for jobs...")
+                        self.retry_attempt = 0
 
                     if msg.HasField("workflow_command"):
                         await self._handle_workflow_command(msg, msg.workflow_command)
@@ -263,8 +290,10 @@ class WorkerService:
     async def _handle_run_command(self, msg: pb.OutboundWorkerMessage, command: pb.WorkflowCommand) -> None:
         """Handle run workflow commands"""
         carrier: dict[str, str] = getattr(msg, "metadata", {})
+        carrier["request_id"] = msg.request_id
         context = self._propagator.extract(carrier)
 
+        token = attach(baggage.set_baggage("request.id", msg.request_id))
         with tracer.start_as_current_span(name="workflow.execute", context=context) as span:
             workflow_job = WorkflowJob(
                 run_id=msg.request_id,
@@ -277,6 +306,8 @@ class WorkerService:
 
             await self.jobs_queue.put(workflow_job)
             logger.debug(f"Queued workflow job: {msg.request_id}")
+
+        detach(token)
 
     async def _handle_list_command(self, msg: pb.OutboundWorkerMessage) -> None:
         """Handle list workflows command"""
@@ -339,34 +370,68 @@ class WorkerService:
         """Handle a single job"""
         async with self._workflow_context(job.run_id):
             try:
-                context = self._propagator.extract(job.metadata)
-                with tracer.start_as_current_span(name="handle.job", context=context) as span:
+                carrier = job.metadata
+                inject(carrier)
+                context = self._propagator.extract(carrier)
+                attributes = {"request.id": job.run_id}
+
+                context = baggage.set_baggage("request.id", job.run_id, context=context)
+                context = baggage.set_baggage("workflow.name", job.workflow_name, context=context)
+                context = baggage.set_baggage("parent.id", "", context=context)
+                token = attach(context=context)
+
+                with tracer.start_as_current_span(name="handle.job", context=context, attributes=attributes) as span:
+                    span_context = span.get_span_context()
+                    trace_id = format(span_context.trace_id, "032x")
+                    span_id = format(span.get_span_context().span_id, "016x")
+
+                    attributes = {
+                        "name": job.workflow_name,
+                        "request.id": job.run_id,
+                        "trace.id": trace_id,
+                        "parent_id": "",
+                        "step_id": span_id,
+                        "timestamp": int(datetime.now().timestamp() * 1_000_000),
+                    }
+
+                    _token = attach(baggage.set_baggage("parent_id", span_id))
+
                     workflow_task = asyncio.current_task()
                     self.active_jobs[job.run_id] = workflow_task
-
-                    span.add_event("job_started", attributes={"request_id": job.run_id, "input_parameters": json.dumps(job.input_parameters)})
+                    span.add_event("job_started", attributes={"request.id": job.run_id, "input_parameters": json.dumps(job.input_parameters)})
 
                     while not self.shutdown_event.is_set():
-                        # Execute workflow step
-                        _workflow_handler = self._workflow_handlers.get(job.workflow_name)
-                        job = await _workflow_handler(job)
+                        try:
+                            self.callback_handler.on_exec_start(data={**attributes, "input_parameters": job.input_parameters})
+                            # Execute workflow step
+                            _workflow_handler = self._workflow_handlers.get(job.workflow_name)
+                            job = await _workflow_handler(job)
 
-                        logger.info(f"Workflow {job.run_id} result: {job.output}, job.success: {job.success}")
+                            logger.info(f"Workflow {job.run_id} result: {job.output}, job.success: {job.success}")
 
-                        span.add_event("job_completed", attributes={"request_id": job.run_id, "output": json.dumps(job.output), "success": job.success})
+                            span.add_event("job_completed", attributes={"request.id": job.run_id, "output": json.dumps(job.output), "success": job.success})
 
-                        if job.success:
-                            span.set_status(StatusCode.OK)
-                        else:
-                            span.set_status(StatusCode.ERROR, job.error)
+                            if job.success:
+                                span.set_status(StatusCode.OK)
+                            else:
+                                span.set_status(StatusCode.ERROR, job.error)
 
-                        # Send event
-                        await self.events_queue.put(job)
+                            # Send event
+                            await self.events_queue.put(job)
 
-                        # If the job is completed, break out of the loop.
-                        # TODO: Handle errors and retry scenario.
-                        if job.completed:
-                            break
+                            # If the job is completed, break out of the loop.
+                            # TODO: Handle errors and retry scenario.
+                            if job.completed:
+                                break
+                        except Exception as e:
+                            logger.error(f"Error executing workflow: {e}")
+                            traceback.print_exc()
+                            self.callback_handler.on_exec_end(data={**attributes, "output": job.output, "success": job.success})
+                            raise
+                        finally:
+                            self.callback_handler.on_exec_end(data={**attributes, "output": job.output, "success": job.success})
+                            detach(_token)
+                detach(token)
 
             except asyncio.CancelledError:
                 logger.info(f"Workflow {job.run_id} cancelled")
@@ -502,3 +567,90 @@ class WorkerService:
             except Exception as e:
                 logger.error(f"Error updating health status: {e}")
                 await asyncio.sleep(1)
+
+    async def notify_callback(self, data: Any):
+        event_type = data["event_type"]
+        event_id = str(uuid.uuid4())
+        timestamp = int(datetime.now().timestamp() * 1_000_000)
+        data["timestamp"] = timestamp
+        json_data = orjson.dumps(data)
+
+        if event_type == "task_start":
+            execution_event_type = pb.EVENT_TYPE_TASK_STARTED
+            await self._stub.RuntimeExecutionEvent(
+                pb.RuntimeExecutionEventRequest(
+                    event_id=event_id,
+                    timestamp=timestamp,
+                    event_type=execution_event_type,
+                    task_event=pb.TaskEventData(
+                        payload=json_data,
+                    ),
+                )
+            )
+        elif event_type == "task_end":
+            execution_event_type = pb.EVENT_TYPE_TASK_COMPLETED
+            await self._stub.RuntimeExecutionEvent(
+                pb.RuntimeExecutionEventRequest(
+                    event_id=event_id,
+                    timestamp=timestamp,
+                    event_type=execution_event_type,
+                    task_event=pb.TaskEventData(
+                        payload=json_data,
+                    ),
+                )
+            )
+        elif event_type == "workflow_start":
+            execution_event_type = pb.EVENT_TYPE_WORKFLOW_STARTED
+            await self._stub.RuntimeExecutionEvent(
+                pb.RuntimeExecutionEventRequest(
+                    event_id=event_id,
+                    timestamp=timestamp,
+                    event_type=execution_event_type,
+                    workflow_event=pb.WorkflowEventData(
+                        payload=json_data,
+                    ),
+                )
+            )
+        elif event_type == "workflow_end":
+            execution_event_type = pb.EVENT_TYPE_WORKFLOW_COMPLETED
+            await self._stub.RuntimeExecutionEvent(
+                pb.RuntimeExecutionEventRequest(
+                    event_id=event_id,
+                    timestamp=timestamp,
+                    event_type=execution_event_type,
+                    workflow_event=pb.WorkflowEventData(
+                        payload=json_data,
+                    ),
+                )
+            )
+
+        elif event_type == "exec_start":
+            execution_event_type = pb.EVENT_TYPE_EXECUTION_STARTED
+            await self._stub.RuntimeExecutionEvent(
+                pb.RuntimeExecutionEventRequest(
+                    event_id=event_id,
+                    timestamp=timestamp,
+                    event_type=execution_event_type,
+                    execution_event=pb.ExecutionEventData(
+                        execution_id=str(uuid.uuid4()),
+                        payload=json_data,
+                    ),
+                )
+            )
+        elif event_type == "exec_end":
+            execution_event_type = pb.EVENT_TYPE_EXECUTION_COMPLETED
+            await self._stub.RuntimeExecutionEvent(
+                pb.RuntimeExecutionEventRequest(
+                    event_id=event_id,
+                    timestamp=timestamp,
+                    event_type=execution_event_type,
+                    execution_event=pb.ExecutionEventData(
+                        execution_id=str(uuid.uuid4()),
+                        payload=json_data,
+                    ),
+                )
+            )
+
+        else:
+            logger.error(f"Unknown event type: {event_type}")
+            return

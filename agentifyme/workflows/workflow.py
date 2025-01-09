@@ -38,6 +38,7 @@ class Workflow(BaseModule):
     def __init__(self, config: WorkflowConfig, *args, **kwargs) -> None:
         super().__init__(config, **kwargs)
         self.config = config
+        self.run_id = None
 
     def run(self, *args, **kwargs: Any) -> Any:
         logger.info(f"Running workflow: {self.config.name}")

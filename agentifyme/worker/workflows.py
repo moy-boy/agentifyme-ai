@@ -10,7 +10,8 @@ import orjson
 from grpc.aio import Channel, StreamStreamCall
 from loguru import logger
 from opentelemetry import trace
-from opentelemetry.trace import SpanContext, Status, StatusCode
+from opentelemetry.baggage import set_baggage
+from opentelemetry.trace import Status, StatusCode
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 from pydantic import BaseModel, ValidationError
 

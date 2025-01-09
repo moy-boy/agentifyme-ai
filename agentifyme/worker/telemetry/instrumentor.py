@@ -1,19 +1,20 @@
 import asyncio
 import json
 import os
-import socket
 import time
 import traceback
+from datetime import datetime
 
 import wrapt
 from loguru import logger
-from opentelemetry import context, trace
-from opentelemetry.semconv.resource import ResourceAttributes
+from opentelemetry import baggage, context, trace
+from opentelemetry.context import attach, detach
 from opentelemetry.trace import SpanKind, Status, StatusCode
 from pydantic import BaseModel
 
 from agentifyme.tasks.task import TaskConfig
 from agentifyme.utilities.modules import load_modules_from_directory
+from agentifyme.worker.callback import CallbackHandler
 from agentifyme.worker.telemetry.semconv import SemanticAttributes
 from agentifyme.workflows.workflow import WorkflowConfig
 
@@ -48,6 +49,11 @@ def rename_event_to_message(logger, method_name, event_dict):
 class InstrumentationWrapper(wrapt.ObjectProxy):
     tracer = trace.get_tracer("agentifyme-worker")
 
+    def __init__(self, wrapped, callback_handler: CallbackHandler, event_source: str):
+        super().__init__(wrapped)
+        self.callback_handler = callback_handler
+        self.event_source = event_source
+
     def get_attributes(self):
         project_id = os.getenv("AGENTIFYME_PROJECT_ID", default="UNKNOWN")
         deployment_id = os.getenv("AGENTIFYME_DEPLOYMENT_ID", default="UNKNOWN")
@@ -74,8 +80,30 @@ class InstrumentationWrapper(wrapt.ObjectProxy):
             kind=SpanKind.INTERNAL,
             attributes=self.get_attributes(),
         ) as span:
+            trace_id = format(span.get_span_context().trace_id, "032x")
+            span_id = format(span.get_span_context().span_id, "016x")
+            request_id = baggage.get_baggage("request.id")
+
+            span.set_attribute("request.id", request_id)
+            attributes = {
+                "name": span_name,
+                "request.id": request_id,
+                "trace.id": trace_id,
+                "step_id": span_id,
+                "parent_id": baggage.get_baggage("parent_id"),
+                "timestamp": int(datetime.now().timestamp() * 1_000_000),
+                **self.get_attributes(),
+            }
+
+            _token = attach(baggage.set_baggage("parent_id", span_id))
+
             output = None
             try:
+                if self.event_source == "task":
+                    self.callback_handler.on_task_start({**attributes, "input_parameters": json.dumps(args)})
+                elif self.event_source == "workflow":
+                    self.callback_handler.on_workflow_start({**attributes, "input_parameters": json.dumps(args)})
+
                 logger.info("Starting operation", operation=span_name)
                 output = self.__wrapped__(*args, **kwargs)
                 # _log_output = self._prepare_log_output(output)
@@ -88,11 +116,16 @@ class InstrumentationWrapper(wrapt.ObjectProxy):
                 span.set_status(Status(StatusCode.ERROR, str(e)))
                 raise e
             finally:
-                # _output = self._prepare_log_output(output)
-                # span.set_attribute("output", _output)
+                _output = self._prepare_log_output(output)
+                span.set_attribute("output", _output)
                 end_time = time.perf_counter()
                 ts_diff = end_time - start_time
                 span.set_attribute("duration", ts_diff)
+                detach(_token)
+                if self.event_source == "task":
+                    self.callback_handler.on_task_end({**attributes, "output": json.dumps(_output)})
+                elif self.event_source == "workflow":
+                    self.callback_handler.on_workflow_end({**attributes, "output": json.dumps(_output)})
             return output
 
     async def _async_call(self, *args, **kwargs):
@@ -105,24 +138,48 @@ class InstrumentationWrapper(wrapt.ObjectProxy):
             attributes=self.get_attributes(),
         ) as span:
             output = None
+            request_id = baggage.get_baggage("request.id")
+            span_id = format(span.get_span_context().span_id, "016x")
+            trace_id = format(span.get_span_context().trace_id, "032x")
+            span.set_attribute("request_id", request_id)
+
+            attributes = {
+                "name": span_name,
+                "request.id": request_id,
+                "trace.id": trace_id,
+                "step_id": span_id,
+                "parent_id": baggage.get_baggage("parent_id"),
+                "timestamp": int(datetime.now().timestamp() * 1_000_000),
+                **self.get_attributes(),
+            }
+
+            _token = attach(baggage.set_baggage("parent_id", span_id))
 
             try:
-                logger.info("Starting operation", operation=span_name)
+                if self.event_source == "task":
+                    self.callback_handler.on_task_start({**attributes, "input_parameters": json.dumps(args)})
+                elif self.event_source == "workflow":
+                    self.callback_handler.on_workflow_start({**attributes, "input_parameters": json.dumps(args)})
+                logger.info(f"Starting operation - {span_name}")
                 output = await self.__wrapped__(*args, **kwargs)
-                # _log_output = self._prepare_log_output(output)
-                # logger.info("Operation completed successfully", result=_log_output)
+                logger.info(f"Operation completed successfully - {span_name}")
+                if self.event_source == "task":
+                    self.callback_handler.on_task_end({**attributes, "output": json.dumps(output)})
+                elif self.event_source == "workflow":
+                    self.callback_handler.on_workflow_end({**attributes, "output": json.dumps(output)})
                 span.set_status(Status(StatusCode.OK))
             except Exception as e:
-                logger.error("Operation failed", exc_info=True, error=str(e))
+                logger.error(f"Operation failed - {span_name}", exc_info=True, error=str(e))
                 span.record_exception(e)
                 span.set_status(Status(StatusCode.ERROR, str(e)))
                 raise e
             finally:
-                span.set_attribute("output", output)
+                _output = self._prepare_log_output(output)
+                span.set_attribute("output", _output)
                 end_time = time.perf_counter()
                 ts_diff = end_time - start_time
                 span.set_attribute("duration", ts_diff)
-
+                detach(_token)
             return output
 
     def _prepare_log_output(self, output):
@@ -138,7 +195,7 @@ class InstrumentationWrapper(wrapt.ObjectProxy):
 
 class OTELInstrumentor:
     @staticmethod
-    def instrument(project_dir: str):
+    def instrument(project_dir: str, callback_handler: CallbackHandler):
         WorkflowConfig.reset_registry()
         TaskConfig.reset_registry()
 
@@ -165,14 +222,14 @@ class OTELInstrumentor:
         task_registry = TaskConfig.get_registry().copy()
         for task_name in TaskConfig.get_registry().keys():
             _task = TaskConfig.get_registry()[task_name]
-            _task.config.func = InstrumentationWrapper(_task.config.func)
+            _task.config.func = InstrumentationWrapper(_task.config.func, callback_handler, "task")
             task_registry[task_name] = _task
         TaskConfig._registry = task_registry
 
         workflow_registry = WorkflowConfig._registry.copy()
         for workflow_name in WorkflowConfig._registry.keys():
             _workflow = WorkflowConfig._registry[workflow_name]
-            _workflow.config.func = InstrumentationWrapper(_workflow.config.func)
+            _workflow.config.func = InstrumentationWrapper(_workflow.config.func, callback_handler, "workflow")
             workflow_registry[workflow_name] = _workflow
         WorkflowConfig._registry = workflow_registry
 
