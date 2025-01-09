@@ -100,10 +100,11 @@ class InstrumentationWrapper(wrapt.ObjectProxy):
             output = None
             error = None
             try:
+                _input_parameters = orjson.dumps(args).decode("utf-8")
                 if self.event_source == "task":
-                    self.callback_handler.on_task_start({**attributes, "input_parameters": orjson.dumps(args)})
+                    self.callback_handler.on_task_start({**attributes, "input_parameters": _input_parameters})
                 elif self.event_source == "workflow":
-                    self.callback_handler.on_workflow_start({**attributes, "input_parameters": orjson.dumps(args)})
+                    self.callback_handler.on_workflow_start({**attributes, "input_parameters": _input_parameters})
 
                 logger.info("Starting operation", operation=span_name)
                 output = self.__wrapped__(*args, **kwargs)
@@ -140,6 +141,7 @@ class InstrumentationWrapper(wrapt.ObjectProxy):
                 else:
                     _output = self._prepare_log_output(output)
                     span.set_attribute("output", _output)
+
                     if self.event_source == "task":
                         self.callback_handler.on_task_end({**attributes, "output": orjson.dumps(_output)})
                     elif self.event_source == "workflow":
@@ -156,6 +158,7 @@ class InstrumentationWrapper(wrapt.ObjectProxy):
             attributes=self.get_attributes(),
         ) as span:
             output = None
+            error = None
             request_id = baggage.get_baggage("request.id")
             span_id = format(span.get_span_context().span_id, "016x")
             trace_id = format(span.get_span_context().trace_id, "032x")
@@ -172,21 +175,18 @@ class InstrumentationWrapper(wrapt.ObjectProxy):
             }
 
             _token = attach(baggage.set_baggage("parent_id", span_id))
-
             try:
+                _input_parameters = orjson.dumps(args).decode("utf-8")
                 if self.event_source == "task":
-                    self.callback_handler.on_task_start({**attributes, "input_parameters": orjson.dumps(args)})
+                    self.callback_handler.on_task_start({**attributes, "input_parameters": _input_parameters})
                 elif self.event_source == "workflow":
-                    self.callback_handler.on_workflow_start({**attributes, "input_parameters": orjson.dumps(args)})
+                    self.callback_handler.on_workflow_start({**attributes, "input_parameters": _input_parameters})
                 logger.info(f"Starting operation - {span_name}")
                 output = await self.__wrapped__(*args, **kwargs)
                 logger.info(f"Operation completed successfully - {span_name}")
-                if self.event_source == "task":
-                    self.callback_handler.on_task_end({**attributes, "output": orjson.dumps(output)})
-                elif self.event_source == "workflow":
-                    self.callback_handler.on_workflow_end({**attributes, "output": orjson.dumps(output)})
                 span.set_status(Status(StatusCode.OK))
             except Exception as e:
+                error = e
                 logger.error(f"Operation failed - {span_name}", exc_info=True, error=str(e))
                 span.record_exception(e)
                 span.set_status(Status(StatusCode.ERROR, str(e)))
@@ -197,6 +197,23 @@ class InstrumentationWrapper(wrapt.ObjectProxy):
                 end_time = time.perf_counter()
                 ts_diff = end_time - start_time
                 span.set_attribute("duration", ts_diff)
+
+                if error:
+                    error_output = str(error)
+                    span.set_attribute("error", error_output)
+                    if self.event_source == "task":
+                        self.callback_handler.on_task_end({**attributes, "error": error_output})
+                    elif self.event_source == "workflow":
+                        self.callback_handler.on_workflow_end({**attributes, "error": error_output})
+                else:
+                    _output = self._prepare_log_output(output)
+                    span.set_attribute("output", _output)
+
+                    if self.event_source == "task":
+                        self.callback_handler.on_task_end({**attributes, "output": orjson.dumps(_output)})
+                    elif self.event_source == "workflow":
+                        self.callback_handler.on_workflow_end({**attributes, "output": orjson.dumps(_output)})
+
                 detach(_token)
             return output
 

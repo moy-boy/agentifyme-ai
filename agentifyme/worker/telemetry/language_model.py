@@ -1,3 +1,4 @@
+import asyncio
 import inspect
 import time
 from contextlib import contextmanager
@@ -126,9 +127,9 @@ def extract_telemetry_attributes(instance: LanguageModel, method_name: str, args
     if method_name == "generate":
         if len(args) > 0 and isinstance(args[0], list):
             messages = args[0]
-            attributes[SemanticAttributes.LLM_INPUT_MESSAGES] = orjson.dumps([message.model_dump() for message in messages])
+            attributes[SemanticAttributes.LLM_INPUT_MESSAGES] = orjson.dumps([message.model_dump() for message in messages]).decode("utf-8")
 
-    attributes[SemanticAttributes.LLM_INVOCATION_PARAMETERS] = orjson.dumps(kwargs)
+    attributes[SemanticAttributes.LLM_INVOCATION_PARAMETERS] = orjson.dumps(kwargs).decode("utf-8")
 
     return attributes
 
@@ -168,7 +169,7 @@ def llm_telemetry(method_name: str, callback_handler: CallbackHandler) -> Callab
 
     def method_decorator(func: Callable[..., ResponseType]) -> Callable[..., ResponseType]:
         @wraps(func)
-        def wrapper(instance: LanguageModel, *args, **kwargs) -> ResponseType:
+        async def wrapper(instance: LanguageModel, *args, **kwargs) -> ResponseType:
             # Get provider from instance
             provider, _ = instance.get_model_name(instance.llm_model)
 
@@ -193,8 +194,10 @@ def llm_telemetry(method_name: str, callback_handler: CallbackHandler) -> Callab
 
                     callback_handler.on_llm_start(attributes)
 
-                    # Execute method
-                    result = func(instance, *args, **kwargs)
+                    if asyncio.iscoroutine(func(instance, *args, **kwargs)):
+                        result = await func(instance, *args, **kwargs)
+                    else:
+                        result = func(instance, *args, **kwargs)
 
                     # Handle response
                     if isinstance(result, LanguageModelResponse):

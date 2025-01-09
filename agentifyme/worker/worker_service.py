@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import queue
 import random
 import traceback
@@ -579,7 +580,15 @@ class WorkerService:
         event_id = str(uuid.uuid4())
         timestamp = int(datetime.now().timestamp() * 1_000_000)
         data["timestamp"] = timestamp
-        json_data = orjson.dumps(data)
+
+        # go through the data and drop any keys that are not json serializable
+        _data = copy.deepcopy(data)
+        for key in data.keys():
+            if not isinstance(data[key], (str, int, float, bool, list, dict, tuple, set)):
+                logger.error(f"Key {key} is not json serializable")
+                _data.pop(key)
+
+        json_data = orjson.dumps(_data).decode("utf-8")
 
         if event_type == "task_start":
             execution_event_type = pb.EVENT_TYPE_TASK_STARTED
