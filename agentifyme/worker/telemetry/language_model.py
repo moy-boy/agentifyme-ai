@@ -1,11 +1,11 @@
 import inspect
-import json
 import time
 from contextlib import contextmanager
 from datetime import datetime
 from functools import wraps
 from typing import Any, Callable, Dict, TypeVar
 
+import orjson
 from opentelemetry import metrics, trace
 from opentelemetry.baggage import get_baggage
 from opentelemetry.trace import SpanKind, Status, StatusCode
@@ -126,9 +126,9 @@ def extract_telemetry_attributes(instance: LanguageModel, method_name: str, args
     if method_name == "generate":
         if len(args) > 0 and isinstance(args[0], list):
             messages = args[0]
-            attributes[SemanticAttributes.LLM_INPUT_MESSAGES] = json.dumps([message.model_dump() for message in messages])
+            attributes[SemanticAttributes.LLM_INPUT_MESSAGES] = orjson.dumps([message.model_dump() for message in messages])
 
-    attributes[SemanticAttributes.LLM_INVOCATION_PARAMETERS] = json.dumps(kwargs)
+    attributes[SemanticAttributes.LLM_INVOCATION_PARAMETERS] = orjson.dumps(kwargs)
 
     return attributes
 

@@ -1,10 +1,10 @@
 import asyncio
-import json
 import os
 import time
 import traceback
 from datetime import datetime
 
+import orjson
 import wrapt
 from loguru import logger
 from opentelemetry import baggage, context, trace
@@ -101,9 +101,9 @@ class InstrumentationWrapper(wrapt.ObjectProxy):
             error = None
             try:
                 if self.event_source == "task":
-                    self.callback_handler.on_task_start({**attributes, "input_parameters": json.dumps(args)})
+                    self.callback_handler.on_task_start({**attributes, "input_parameters": orjson.dumps(args)})
                 elif self.event_source == "workflow":
-                    self.callback_handler.on_workflow_start({**attributes, "input_parameters": json.dumps(args)})
+                    self.callback_handler.on_workflow_start({**attributes, "input_parameters": orjson.dumps(args)})
 
                 logger.info("Starting operation", operation=span_name)
                 output = self.__wrapped__(*args, **kwargs)
@@ -141,9 +141,9 @@ class InstrumentationWrapper(wrapt.ObjectProxy):
                     _output = self._prepare_log_output(output)
                     span.set_attribute("output", _output)
                     if self.event_source == "task":
-                        self.callback_handler.on_task_end({**attributes, "output": json.dumps(_output)})
+                        self.callback_handler.on_task_end({**attributes, "output": orjson.dumps(_output)})
                     elif self.event_source == "workflow":
-                        self.callback_handler.on_workflow_end({**attributes, "output": json.dumps(_output)})
+                        self.callback_handler.on_workflow_end({**attributes, "output": orjson.dumps(_output)})
             return output
 
     async def _async_call(self, *args, **kwargs):
@@ -175,16 +175,16 @@ class InstrumentationWrapper(wrapt.ObjectProxy):
 
             try:
                 if self.event_source == "task":
-                    self.callback_handler.on_task_start({**attributes, "input_parameters": json.dumps(args)})
+                    self.callback_handler.on_task_start({**attributes, "input_parameters": orjson.dumps(args)})
                 elif self.event_source == "workflow":
-                    self.callback_handler.on_workflow_start({**attributes, "input_parameters": json.dumps(args)})
+                    self.callback_handler.on_workflow_start({**attributes, "input_parameters": orjson.dumps(args)})
                 logger.info(f"Starting operation - {span_name}")
                 output = await self.__wrapped__(*args, **kwargs)
                 logger.info(f"Operation completed successfully - {span_name}")
                 if self.event_source == "task":
-                    self.callback_handler.on_task_end({**attributes, "output": json.dumps(output)})
+                    self.callback_handler.on_task_end({**attributes, "output": orjson.dumps(output)})
                 elif self.event_source == "workflow":
-                    self.callback_handler.on_workflow_end({**attributes, "output": json.dumps(output)})
+                    self.callback_handler.on_workflow_end({**attributes, "output": orjson.dumps(output)})
                 span.set_status(Status(StatusCode.OK))
             except Exception as e:
                 logger.error(f"Operation failed - {span_name}", exc_info=True, error=str(e))
@@ -206,7 +206,7 @@ class InstrumentationWrapper(wrapt.ObjectProxy):
         elif isinstance(output, BaseModel):
             return output.model_dump()
         elif isinstance(output, object):
-            return json.dumps(output)
+            return orjson.dumps(output)
         else:
             return str(output)
 

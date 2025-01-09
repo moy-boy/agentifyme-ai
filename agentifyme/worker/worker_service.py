@@ -1,5 +1,4 @@
 import asyncio
-import json
 import queue
 import random
 import traceback
@@ -303,7 +302,7 @@ class WorkerService:
                 metadata=carrier,
             )
 
-            span.add_event("job_queued", attributes={"request_id": msg.request_id, "input_parameters": json.dumps(workflow_job.input_parameters)})
+            span.add_event("job_queued", attributes={"request_id": msg.request_id, "input_parameters": orjson.dumps(workflow_job.input_parameters)})
 
             await self.jobs_queue.put(workflow_job)
             logger.debug(f"Queued workflow job: {msg.request_id}")
@@ -399,7 +398,7 @@ class WorkerService:
 
                     workflow_task = asyncio.current_task()
                     self.active_jobs[job.run_id] = workflow_task
-                    span.add_event("job_started", attributes={"request.id": job.run_id, "input_parameters": json.dumps(job.input_parameters)})
+                    span.add_event("job_started", attributes={"request.id": job.run_id, "input_parameters": orjson.dumps(job.input_parameters)})
 
                     while not self.shutdown_event.is_set():
                         error = None
@@ -411,7 +410,7 @@ class WorkerService:
 
                             logger.info(f"Workflow {job.run_id} result: {job.output}, job.success: {job.success}")
 
-                            span.add_event("job_completed", attributes={"request.id": job.run_id, "output": json.dumps(job.output), "success": job.success})
+                            span.add_event("job_completed", attributes={"request.id": job.run_id, "output": orjson.dumps(job.output), "success": job.success})
 
                             if job.success:
                                 span.set_status(StatusCode.OK)

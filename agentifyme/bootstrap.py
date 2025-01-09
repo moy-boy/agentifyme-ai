@@ -1,9 +1,9 @@
-import json
 import os
 import sys
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
+import orjson
 from loguru import logger
 
 from agentifyme.tasks.task import TaskConfig
@@ -24,7 +24,7 @@ def write_config_file(config, file_path):
         None
     """
     with open(file_path, "w", encoding="utf-8") as f:
-        f.write(json.dumps(config, indent=2))
+        f.write(orjson.dumps(config, indent=2))
 
 
 def signal_steady_state():
