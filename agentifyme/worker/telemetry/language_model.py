@@ -2,10 +2,12 @@ import inspect
 import json
 import time
 from contextlib import contextmanager
+from datetime import datetime
 from functools import wraps
 from typing import Any, Callable, Dict, TypeVar
 
 from opentelemetry import metrics, trace
+from opentelemetry.baggage import get_baggage
 from opentelemetry.trace import SpanKind, Status, StatusCode
 
 from agentifyme.ml.llm import LanguageModel, LanguageModelProvider, LanguageModelResponse, Message, Role
@@ -131,8 +133,10 @@ def extract_telemetry_attributes(instance: LanguageModel, method_name: str, args
     return attributes
 
 
-def record_provider_metrics(provider: LanguageModelProvider, response: LanguageModelResponse, span: trace.Span) -> None:
+def record_provider_metrics(provider: LanguageModelProvider, response: LanguageModelResponse, span: trace.Span) -> dict:
     """Record provider-specific metrics"""
+
+    metrics = {}
 
     # Record token usage
     if response.usage:
@@ -140,6 +144,9 @@ def record_provider_metrics(provider: LanguageModelProvider, response: LanguageM
         prompt_tokens.record(response.usage.prompt_tokens)
         completion_tokens.record(response.usage.completion_tokens)
         total_tokens.record(_total_tokens)
+        metrics[SemanticAttributes.LLM_TOKEN_COUNT_TOTAL] = _total_tokens
+        metrics[SemanticAttributes.LLM_TOKEN_COUNT_PROMPT] = response.usage.prompt_tokens
+        metrics[SemanticAttributes.LLM_TOKEN_COUNT_COMPLETION] = response.usage.completion_tokens
 
         span.set_attribute(SemanticAttributes.LLM_TOKEN_COUNT_TOTAL, _total_tokens)
         span.set_attribute(SemanticAttributes.LLM_TOKEN_COUNT_PROMPT, response.usage.prompt_tokens)
@@ -148,9 +155,12 @@ def record_provider_metrics(provider: LanguageModelProvider, response: LanguageM
     # Provider-specific metrics
     if provider == LanguageModelProvider.ANTHROPIC and response.tool_calls:
         tools.add(len(response.tool_calls))
-
+        metrics[SemanticAttributes.LLM_TOOLS] = len(response.tool_calls)
     elif provider == LanguageModelProvider.OPENAI and response.tool_calls:
         function_calls.add(len(response.tool_calls))
+        metrics[SemanticAttributes.MESSAGE_TOOL_CALLS] = len(response.tool_calls)
+
+    return metrics
 
 
 def llm_telemetry(method_name: str, callback_handler: CallbackHandler) -> Callable:
@@ -164,11 +174,24 @@ def llm_telemetry(method_name: str, callback_handler: CallbackHandler) -> Callab
 
             with LLMTelemetryContext(method_name, provider)() as span:
                 try:
+                    trace_id = format(span.get_span_context().trace_id, "032x")
                     span_id = format(span.get_span_context().span_id, "016x")
+                    parent_id = get_baggage("parent.id")
+                    request_id = get_baggage("request.id")
+
+                    attributes = {
+                        "name": instance.llm_model.value,
+                        "request.id": request_id,
+                        "trace.id": trace_id,
+                        "parent_id": parent_id,
+                        "step_id": span_id,
+                        "timestamp": int(datetime.now().timestamp() * 1_000_000),
+                    }
+
                     # Set basic attributes
                     span.set_attributes(extract_telemetry_attributes(instance, method_name, args, kwargs))
 
-                    callback_handler.on_llm_start(instance.llm_model.value, span_id)
+                    callback_handler.on_llm_start(attributes)
 
                     # Execute method
                     result = func(instance, *args, **kwargs)
@@ -180,12 +203,14 @@ def llm_telemetry(method_name: str, callback_handler: CallbackHandler) -> Callab
                             span.record_exception(Exception(result.error))
                             span.set_status(Status(StatusCode.ERROR))
                         else:
-                            record_provider_metrics(provider, result, span)
+                            metrics = record_provider_metrics(provider, result, span)
+                            attributes.update(metrics)
+
                             span.set_status(Status(StatusCode.OK))
                             if result.message:
                                 span.set_attribute(SemanticAttributes.LLM_OUTPUT_MESSAGE, result.message)
 
-                    callback_handler.on_llm_end(instance.llm_model.value, span_id, result)
+                    callback_handler.on_llm_end({**attributes, "output": result})
                     return result
 
                 except Exception as e:

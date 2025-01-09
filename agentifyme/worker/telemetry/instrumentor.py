@@ -16,7 +16,7 @@ from agentifyme.tasks.task import TaskConfig
 from agentifyme.utilities.modules import load_modules_from_directory
 from agentifyme.worker.callback import CallbackHandler
 from agentifyme.worker.telemetry.semconv import SemanticAttributes
-from agentifyme.workflows.workflow import WorkflowConfig
+from agentifyme.workflows.workflow import WorkflowConfig, WorkflowExecutionError
 
 from .base import get_resource_attributes
 
@@ -98,6 +98,7 @@ class InstrumentationWrapper(wrapt.ObjectProxy):
             _token = attach(baggage.set_baggage("parent_id", span_id))
 
             output = None
+            error = None
             try:
                 if self.event_source == "task":
                     self.callback_handler.on_task_start({**attributes, "input_parameters": json.dumps(args)})
@@ -109,23 +110,40 @@ class InstrumentationWrapper(wrapt.ObjectProxy):
                 # _log_output = self._prepare_log_output(output)
                 logger.info("Operation completed successfully")
                 span.set_status(Status(StatusCode.OK))
+            except WorkflowExecutionError as e:
+                error = e
+                traceback.print_exc()
+                logger.error("Operation failed", exc_info=True, error=str(e))
+                span.record_exception(e)
+                span.set_status(Status(StatusCode.ERROR, str(e)))
+                raise e
             except Exception as e:
+                error = e
                 traceback.print_exc()
                 logger.error("Operation failed", exc_info=True, error=str(e))
                 span.record_exception(e)
                 span.set_status(Status(StatusCode.ERROR, str(e)))
                 raise e
             finally:
-                _output = self._prepare_log_output(output)
-                span.set_attribute("output", _output)
                 end_time = time.perf_counter()
                 ts_diff = end_time - start_time
                 span.set_attribute("duration", ts_diff)
                 detach(_token)
-                if self.event_source == "task":
-                    self.callback_handler.on_task_end({**attributes, "output": json.dumps(_output)})
-                elif self.event_source == "workflow":
-                    self.callback_handler.on_workflow_end({**attributes, "output": json.dumps(_output)})
+
+                if error:
+                    error_output = str(error)
+                    span.set_attribute("error", error_output)
+                    if self.event_source == "task":
+                        self.callback_handler.on_task_end({**attributes, "error": error_output})
+                    elif self.event_source == "workflow":
+                        self.callback_handler.on_workflow_end({**attributes, "error": error_output})
+                else:
+                    _output = self._prepare_log_output(output)
+                    span.set_attribute("output", _output)
+                    if self.event_source == "task":
+                        self.callback_handler.on_task_end({**attributes, "output": json.dumps(_output)})
+                    elif self.event_source == "workflow":
+                        self.callback_handler.on_workflow_end({**attributes, "output": json.dumps(_output)})
             return output
 
     async def _async_call(self, *args, **kwargs):

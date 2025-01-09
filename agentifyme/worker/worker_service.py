@@ -32,6 +32,7 @@ from agentifyme.worker.workflows import (
     WorkflowHandler,
     WorkflowJob,
 )
+from agentifyme.workflows.workflow import WorkflowExecutionError
 
 
 async def exponential_backoff(attempt: int, max_delay: int = 32) -> None:
@@ -401,6 +402,7 @@ class WorkerService:
                     span.add_event("job_started", attributes={"request.id": job.run_id, "input_parameters": json.dumps(job.input_parameters)})
 
                     while not self.shutdown_event.is_set():
+                        error = None
                         try:
                             self.callback_handler.on_exec_start(data={**attributes, "input_parameters": job.input_parameters})
                             # Execute workflow step
@@ -415,6 +417,7 @@ class WorkerService:
                                 span.set_status(StatusCode.OK)
                             else:
                                 span.set_status(StatusCode.ERROR, job.error)
+                                error = job.error
 
                             # Send event
                             await self.events_queue.put(job)
@@ -423,13 +426,17 @@ class WorkerService:
                             # TODO: Handle errors and retry scenario.
                             if job.completed:
                                 break
-                        except Exception as e:
+                        except WorkflowExecutionError as e:
+                            error = e
                             logger.error(f"Error executing workflow: {e}")
-                            traceback.print_exc()
-                            self.callback_handler.on_exec_end(data={**attributes, "output": job.output, "success": job.success})
-                            raise
+                        except Exception as e:
+                            error = e
+                            logger.error(f"Error executing workflow: {e}")
                         finally:
-                            self.callback_handler.on_exec_end(data={**attributes, "output": job.output, "success": job.success})
+                            if error:
+                                self.callback_handler.on_exec_end(data={**attributes, "error": str(error), "success": False})
+                            else:
+                                self.callback_handler.on_exec_end(data={**attributes, "output": job.output, "success": True})
                             detach(_token)
                 detach(token)
 
