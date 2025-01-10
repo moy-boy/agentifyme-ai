@@ -125,8 +125,8 @@ class WorkerService:
             "exec_start",
             "exec_end",
         ]
-        for event in callback_events:
-            self.callback_handler.register(event, self.notify_callback)
+        # for event in callback_events:
+        #     self.callback_handler.register(event, self.notify_callback)
 
     async def start_service(self) -> bool:
         """Start the worker service."""
@@ -407,6 +407,9 @@ class WorkerService:
                             self.callback_handler.on_exec_start(data={**attributes, "input_parameters": job.input_parameters})
                             # Execute workflow step
                             _workflow_handler = self._workflow_handlers.get(job.workflow_name)
+                            if _workflow_handler is None:
+                                raise Exception(f"Workflow handler not found for {job.workflow_name}")
+
                             job = await _workflow_handler(job)
 
                             logger.info(f"Workflow {job.run_id} result: {job.output}, job.success: {job.success}")
@@ -437,7 +440,6 @@ class WorkerService:
                                 self.callback_handler.on_exec_end(data={**attributes, "error": str(error), "success": False})
                             else:
                                 self.callback_handler.on_exec_end(data={**attributes, "output": job.output, "success": True})
-                            detach(_token)
                 detach(token)
 
             except asyncio.CancelledError:

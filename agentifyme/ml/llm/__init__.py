@@ -8,6 +8,7 @@ from .base import (
     ToolCall,
 )
 from .builder import LanguageModelBuilder, LanguageModelConfig, get_language_model
+from .openai import OpenAILanguageModel
 
 __all__ = [
     "LanguageModel",
@@ -20,4 +21,5 @@ __all__ = [
     "ToolCall",
     "Message",
     "Role",
+    "OpenAILanguageModel",
 ]

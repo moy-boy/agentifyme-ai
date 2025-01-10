@@ -1,4 +1,3 @@
-import asyncio
 import inspect
 import time
 from contextlib import contextmanager
@@ -169,7 +168,7 @@ def llm_telemetry(method_name: str, callback_handler: CallbackHandler) -> Callab
 
     def method_decorator(func: Callable[..., ResponseType]) -> Callable[..., ResponseType]:
         @wraps(func)
-        async def wrapper(instance: LanguageModel, *args, **kwargs) -> ResponseType:
+        def wrapper(instance: LanguageModel, *args, **kwargs) -> ResponseType:
             # Get provider from instance
             provider, _ = instance.get_model_name(instance.llm_model)
 
@@ -194,10 +193,8 @@ def llm_telemetry(method_name: str, callback_handler: CallbackHandler) -> Callab
 
                     callback_handler.on_llm_start(attributes)
 
-                    if asyncio.iscoroutine(func(instance, *args, **kwargs)):
-                        result = await func(instance, *args, **kwargs)
-                    else:
-                        result = func(instance, *args, **kwargs)
+                    # Execute method
+                    result = func(instance, *args, **kwargs)
 
                     # Handle response
                     if isinstance(result, LanguageModelResponse):
@@ -277,11 +274,12 @@ def instrument_llm_class(cls: Any, callback_handler: CallbackHandler) -> None:
 
 def auto_instrument_language_models(callback_handler: CallbackHandler) -> None:
     """Automatically instrument all Language Model classes"""
-    import agentifyme.ml.llm
+    pass
+    # import agentifyme.ml.llm
 
-    for provider in LanguageModelProvider:
-        provider_module = getattr(agentifyme.ml.llm, provider.value.lower(), None)
-        if provider_module:
-            for name, obj in inspect.getmembers(provider_module):
-                if isinstance(obj, type) and issubclass(obj, LanguageModel) and obj != LanguageModel:
-                    instrument_llm_class(obj, callback_handler)
+    # for provider in LanguageModelProvider:
+    #     provider_module = getattr(agentifyme.ml.llm, provider.value.lower(), None)
+    #     if provider_module:
+    #         for name, obj in inspect.getmembers(provider_module):
+    #             if isinstance(obj, type) and issubclass(obj, LanguageModel) and obj != LanguageModel:
+    #                 instrument_llm_class(obj, callback_handler)

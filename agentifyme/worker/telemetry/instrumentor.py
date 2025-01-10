@@ -113,15 +113,13 @@ class InstrumentationWrapper(wrapt.ObjectProxy):
                 span.set_status(Status(StatusCode.OK))
             except WorkflowExecutionError as e:
                 error = e
-                traceback.print_exc()
-                logger.error("Operation failed", exc_info=True, error=str(e))
+                logger.error("Operation failed", error=str(e))
                 span.record_exception(e)
                 span.set_status(Status(StatusCode.ERROR, str(e)))
                 raise e
             except Exception as e:
                 error = e
-                traceback.print_exc()
-                logger.error("Operation failed", exc_info=True, error=str(e))
+                logger.error("Operation failed", error=str(e))
                 span.record_exception(e)
                 span.set_status(Status(StatusCode.ERROR, str(e)))
                 raise e

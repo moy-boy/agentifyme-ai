@@ -112,6 +112,8 @@ class OpenAILanguageModel(LanguageModel):
         if tools is None:
             return NotGiven()
 
+        print("Tools", tools)
+
         _tools = [{"name": tool.name, "parameters": tool.parameters} for tool in tools] if tools else None
 
         openai_tools: Iterable[ChatCompletionToolParam] | NotGiven = NotGiven()
