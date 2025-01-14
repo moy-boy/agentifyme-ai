@@ -427,9 +427,15 @@ class WorkerService:
                     if "input" in event:
                         input_data = event.get("input")
                         if isinstance(input_data, dict):
-                            input_data = orjson.dumps(input_data).decode("utf-8")
-                            runtime_event.input_data_format = pb.DATA_FORMAT_JSON
-                            runtime_event.json_input = input_data
+                            struct = struct_pb2.Struct()
+                            struct.update(input_data)
+                            runtime_event.input_data_format = pb.DATA_FORMAT_STRUCT
+                            runtime_event.struct_input = struct
+                        elif isinstance(input_data, BaseModel):
+                            struct = struct_pb2.Struct()
+                            struct.update(input_data.model_dump())
+                            runtime_event.input_data_format = pb.DATA_FORMAT_STRUCT
+                            runtime_event.struct_input = struct
                         elif isinstance(input_data, bytes):
                             runtime_event.input_data_format = pb.DATA_FORMAT_BINARY
                             runtime_event.binary_input = input_data
