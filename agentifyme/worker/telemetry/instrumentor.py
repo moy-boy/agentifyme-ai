@@ -46,184 +46,125 @@ def rename_event_to_message(logger, method_name, event_dict):
     return event_dict
 
 
-class InstrumentationWrapper(wrapt.ObjectProxy):
-    tracer = trace.get_tracer("agentifyme-worker")
+def get_base_attributes():
+    """Get common base attributes for instrumentation"""
+    return {
+        SemanticAttributes.PROJECT_ID: os.getenv("AGENTIFYME_PROJECT_ID", "UNKNOWN"),
+        SemanticAttributes.DEPLOYMENT_ID: os.getenv("AGENTIFYME_DEPLOYMENT_ID", "UNKNOWN"),
+        SemanticAttributes.WORKER_ID: os.getenv("AGENTIFYME_REPLICA_ID", "UNKNOWN"),
+        SemanticAttributes.DEPLOYMENT_NAME: os.getenv("AGENTIFYME_ENDPOINT", "UNKNOWN"),
+    }
 
-    def __init__(self, wrapped, callback_handler: CallbackHandler, event_source: str):
-        super().__init__(wrapped)
-        self.callback_handler = callback_handler
-        self.event_source = event_source
 
-    def get_attributes(self):
-        project_id = os.getenv("AGENTIFYME_PROJECT_ID", default="UNKNOWN")
-        deployment_id = os.getenv("AGENTIFYME_DEPLOYMENT_ID", default="UNKNOWN")
-        replica_id = os.getenv("AGENTIFYME_REPLICA_ID", default="UNKNOWN")
-        endpoint = os.getenv("AGENTIFYME_ENDPOINT", default="UNKNOWN")
-        return {
-            SemanticAttributes.PROJECT_ID: project_id,
-            SemanticAttributes.DEPLOYMENT_ID: deployment_id,
-            SemanticAttributes.WORKER_ID: replica_id,
-            SemanticAttributes.DEPLOYMENT_NAME: endpoint,
-        }
+def prepare_span_attributes(span, span_name):
+    """Prepare common span attributes"""
+    trace_id = format(span.get_span_context().trace_id, "032x")
+    span_id = format(span.get_span_context().span_id, "016x")
+    request_id = baggage.get_baggage("request.id")
 
-    def __call__(self, *args, **kwargs):
-        if asyncio.iscoroutinefunction(self.__wrapped__):
-            return self._async_call(*args, **kwargs)
-        else:
-            return self._sync_call(*args, **kwargs)
+    span.set_attribute("request.id", request_id)
 
-    def _sync_call(self, *args, **kwargs):
-        span_name = self.__wrapped__.__name__
-        start_time = time.perf_counter()
-        with self.tracer.start_as_current_span(
-            name=span_name,
-            kind=SpanKind.INTERNAL,
-            attributes=self.get_attributes(),
-        ) as span:
-            trace_id = format(span.get_span_context().trace_id, "032x")
-            span_id = format(span.get_span_context().span_id, "016x")
-            request_id = baggage.get_baggage("request.id")
+    return {
+        "name": span_name,
+        "request.id": request_id,
+        "trace.id": trace_id,
+        "step_id": span_id,
+        "parent_id": baggage.get_baggage("parent_id"),
+        "timestamp": int(datetime.now().timestamp() * 1_000_000),
+        **get_base_attributes(),
+    }
 
-            span.set_attribute("request.id", request_id)
-            attributes = {
-                "name": span_name,
-                "request.id": request_id,
-                "trace.id": trace_id,
-                "step_id": span_id,
-                "parent_id": baggage.get_baggage("parent_id"),
-                "timestamp": int(datetime.now().timestamp() * 1_000_000),
-                **self.get_attributes(),
-            }
 
-            _token = attach(baggage.set_baggage("parent_id", span_id))
+def prepare_output(output):
+    """Standardize output preparation"""
+    if isinstance(output, dict):
+        return {k: v for k, v in output.items() if k != "output"}
+    elif isinstance(output, BaseModel):
+        return output.model_dump()
+    elif isinstance(output, object):
+        return orjson.dumps(output)
+    return str(output)
 
-            output = None
-            error = None
-            try:
-                _input_parameters = orjson.dumps(args).decode("utf-8")
-                if self.event_source == "task":
-                    self.callback_handler.on_task_start({**attributes, "input_parameters": _input_parameters})
-                elif self.event_source == "workflow":
-                    self.callback_handler.on_workflow_start({**attributes, "input_parameters": _input_parameters})
 
-                logger.info("Starting operation", operation=span_name)
-                output = self.__wrapped__(*args, **kwargs)
-                # _log_output = self._prepare_log_output(output)
-                logger.info("Operation completed successfully")
-                span.set_status(Status(StatusCode.OK))
-            except WorkflowExecutionError as e:
-                error = e
-                logger.error("Operation failed", error=str(e))
-                span.record_exception(e)
-                span.set_status(Status(StatusCode.ERROR, str(e)))
-                raise e
-            except Exception as e:
-                error = e
-                logger.error("Operation failed", error=str(e))
-                span.record_exception(e)
-                span.set_status(Status(StatusCode.ERROR, str(e)))
-                raise e
-            finally:
-                end_time = time.perf_counter()
-                ts_diff = end_time - start_time
-                span.set_attribute("duration", ts_diff)
-                detach(_token)
+def create_instrumentation_wrapper(callback_handler: CallbackHandler, event_source: str, name: str):
+    """Create an instrumentation wrapper with the given callback handler and event source"""
 
-                if error:
-                    error_output = str(error)
-                    span.set_attribute("error", error_output)
-                    if self.event_source == "task":
-                        self.callback_handler.on_task_end({**attributes, "error": error_output})
-                    elif self.event_source == "workflow":
-                        self.callback_handler.on_workflow_end({**attributes, "error": error_output})
-                else:
-                    _output = self._prepare_log_output(output)
-                    span.set_attribute("output", _output)
+    def instrument_function(wrapped, instance, args, kwargs):
+        """Core instrumentation logic"""
+        tracer = trace.get_tracer("agentifyme-worker")
 
-                    if self.event_source == "task":
-                        self.callback_handler.on_task_end({**attributes, "output": orjson.dumps(_output)})
-                    elif self.event_source == "workflow":
-                        self.callback_handler.on_workflow_end({**attributes, "output": orjson.dumps(_output)})
-            return output
+        async def async_handler():
+            start_time = time.perf_counter()
+            span_name = wrapped.__name__
 
-    async def _async_call(self, *args, **kwargs):
-        span_name = self.__wrapped__.__name__
-        start_time = time.perf_counter()
+            with tracer.start_as_current_span(
+                name=span_name,
+                kind=SpanKind.INTERNAL,
+                attributes=get_base_attributes(),
+            ) as span:
+                attributes = prepare_span_attributes(span, span_name)
+                token = attach(baggage.set_baggage("parent_id", attributes["step_id"]))
 
-        with self.tracer.start_as_current_span(
-            name=span_name,
-            kind=SpanKind.INTERNAL,
-            attributes=self.get_attributes(),
-        ) as span:
-            output = None
-            error = None
-            request_id = baggage.get_baggage("request.id")
-            span_id = format(span.get_span_context().span_id, "016x")
-            trace_id = format(span.get_span_context().trace_id, "032x")
-            span.set_attribute("request_id", request_id)
+                try:
+                    _kwargs = kwargs.copy()
+                    _kwargs.update(zip(wrapped.__code__.co_varnames, args))
+                    await callback_handler.fire_event_async(f"{event_source}.run", "started", {**attributes, "name": name, "input": _kwargs})
+                    output = await wrapped(*args, **kwargs)
+                    span.set_status(Status(StatusCode.OK))
+                    prepared_output = prepare_output(output)
+                    await callback_handler.fire_event_async(f"{event_source}.run", "completed", {**attributes, "name": name, "output": prepared_output, "input": _kwargs})
+                    return output
 
-            attributes = {
-                "name": span_name,
-                "request.id": request_id,
-                "trace.id": trace_id,
-                "step_id": span_id,
-                "parent_id": baggage.get_baggage("parent_id"),
-                "timestamp": int(datetime.now().timestamp() * 1_000_000),
-                **self.get_attributes(),
-            }
+                except Exception as error:
+                    logger.error(f"Operation failed - {span_name}", exc_info=True)
+                    span.record_exception(error)
+                    span.set_status(Status(StatusCode.ERROR, str(error)))
+                    await callback_handler.fire_event_async(f"{event_source}.run", "completed", {**attributes, "name": name, "error": str(error), "input": _kwargs})
+                    raise
 
-            _token = attach(baggage.set_baggage("parent_id", span_id))
-            try:
-                _input_parameters = orjson.dumps(args).decode("utf-8")
-                if self.event_source == "task":
-                    self.callback_handler.on_task_start({**attributes, "input_parameters": _input_parameters})
-                elif self.event_source == "workflow":
-                    self.callback_handler.on_workflow_start({**attributes, "input_parameters": _input_parameters})
-                logger.info(f"Starting operation - {span_name}")
-                output = await self.__wrapped__(*args, **kwargs)
-                logger.info(f"Operation completed successfully - {span_name}")
-                span.set_status(Status(StatusCode.OK))
-            except Exception as e:
-                error = e
-                logger.error(f"Operation failed - {span_name}", exc_info=True, error=str(e))
-                span.record_exception(e)
-                span.set_status(Status(StatusCode.ERROR, str(e)))
-                raise e
-            finally:
-                _output = self._prepare_log_output(output)
-                span.set_attribute("output", _output)
-                end_time = time.perf_counter()
-                ts_diff = end_time - start_time
-                span.set_attribute("duration", ts_diff)
+                finally:
+                    span.set_attribute("duration", time.perf_counter() - start_time)
+                    detach(token)
 
-                if error:
-                    error_output = str(error)
-                    span.set_attribute("error", error_output)
-                    if self.event_source == "task":
-                        self.callback_handler.on_task_end({**attributes, "error": error_output})
-                    elif self.event_source == "workflow":
-                        self.callback_handler.on_workflow_end({**attributes, "error": error_output})
-                else:
-                    _output = self._prepare_log_output(output)
-                    span.set_attribute("output", _output)
+        def sync_handler():
+            start_time = time.perf_counter()
+            span_name = wrapped.__name__
 
-                    if self.event_source == "task":
-                        self.callback_handler.on_task_end({**attributes, "output": orjson.dumps(_output)})
-                    elif self.event_source == "workflow":
-                        self.callback_handler.on_workflow_end({**attributes, "output": orjson.dumps(_output)})
+            with tracer.start_as_current_span(
+                name=span_name,
+                kind=SpanKind.INTERNAL,
+                attributes=get_base_attributes(),
+            ) as span:
+                attributes = prepare_span_attributes(span, span_name)
+                token = attach(baggage.set_baggage("parent_id", attributes["step_id"]))
 
-                detach(_token)
-            return output
+                try:
+                    _kwargs = kwargs.copy()
+                    _kwargs.update(zip(wrapped.__code__.co_varnames, args))
+                    callback_handler.fire_event(f"{event_source}.run", "started", {**attributes, "name": name, "input": _kwargs})
 
-    def _prepare_log_output(self, output):
-        if isinstance(output, dict):
-            return {k: v for k, v in output.items() if k != "output"}
-        elif isinstance(output, BaseModel):
-            return output.model_dump()
-        elif isinstance(output, object):
-            return orjson.dumps(output)
-        else:
-            return str(output)
+                    output = wrapped(*args, **kwargs)
+                    span.set_status(Status(StatusCode.OK))
+                    prepared_output = prepare_output(output)
+                    callback_handler.fire_event(f"{event_source}.run", "completed", {**attributes, "name": name, "output": prepared_output, "input": _kwargs})
+                    return output
+
+                except Exception as error:
+                    logger.error(f"Operation failed - {span_name}", exc_info=True)
+                    span.record_exception(error)
+                    span.set_status(Status(StatusCode.ERROR, str(error)))
+                    callback_handler.fire_event(f"{event_source}.run", "completed", {**attributes, "name": name, "error": str(error), "input": _kwargs})
+                    raise
+
+                finally:
+                    span.set_attribute("duration", time.perf_counter() - start_time)
+                    detach(token)
+
+        if asyncio.iscoroutinefunction(wrapped):
+            return async_handler()
+        return sync_handler()
+
+    return instrument_function
 
 
 class OTELInstrumentor:
@@ -232,38 +173,26 @@ class OTELInstrumentor:
         WorkflowConfig.reset_registry()
         TaskConfig.reset_registry()
 
-        # # if ./src exists, load modules from there
         if os.path.exists(os.path.join(project_dir, "src")):
             project_dir = os.path.join(project_dir, "src")
 
         logger.info(f"Loading workflows and tasks from project directory - {project_dir}")
-        error = True
+
         try:
             load_modules_from_directory(project_dir)
-            error = False
+
+            # Instrument tasks
+            for task_name, task in TaskConfig.get_registry().items():
+                task_wrapper = create_instrumentation_wrapper(callback_handler, "task", task_name)
+                wrapt.wrap_function_wrapper(task.config.func.__module__, task.config.func.__name__, task_wrapper)
+
+            # Instrument workflows
+            for workflow_name, workflow in WorkflowConfig._registry.items():
+                workflow_wrapper = create_instrumentation_wrapper(callback_handler, "workflow", workflow_name)
+                wrapt.wrap_function_wrapper(workflow.config.func.__module__, workflow.config.func.__name__, workflow_wrapper)
+
+            logger.info(f"Found workflows - {WorkflowConfig.get_all()}")
+
         except ValueError as e:
-            logger.error(
-                f"Error {e} while loading modules from project directory - {project_dir}",
-                exc_info=True,
-                error=str(e),
-            )
-
-        if error:
-            logger.error("Failed to load modules, exiting")
-
-        # Inject telemetry into tasks and workflows
-        task_registry = TaskConfig.get_registry().copy()
-        for task_name in TaskConfig.get_registry().keys():
-            _task = TaskConfig.get_registry()[task_name]
-            _task.config.func = InstrumentationWrapper(_task.config.func, callback_handler, "task")
-            task_registry[task_name] = _task
-        TaskConfig._registry = task_registry
-
-        workflow_registry = WorkflowConfig._registry.copy()
-        for workflow_name in WorkflowConfig._registry.keys():
-            _workflow = WorkflowConfig._registry[workflow_name]
-            _workflow.config.func = InstrumentationWrapper(_workflow.config.func, callback_handler, "workflow")
-            workflow_registry[workflow_name] = _workflow
-        WorkflowConfig._registry = workflow_registry
-
-        logger.info(f"Found workflows - {WorkflowConfig.get_all()}")
+            logger.error(f"Error loading modules from {project_dir}: {e}", exc_info=True)
+            raise

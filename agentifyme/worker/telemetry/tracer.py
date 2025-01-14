@@ -1,3 +1,4 @@
+from openinference.instrumentation.openai import OpenAIInstrumentor
 from opentelemetry import context, trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.processor.baggage import ALLOW_ALL_BAGGAGE_KEYS, BaggageSpanProcessor
@@ -24,3 +25,4 @@ def configure_tracer(otel_endpoint: str, resource: Resource):
     otlp_exporter = OTLPSpanExporter(endpoint=otel_endpoint, insecure=True)
     span_processor = BatchSpanProcessor(otlp_exporter)
     trace.get_tracer_provider().add_span_processor(span_processor)
+    OpenAIInstrumentor().instrument(tracer_provider=tracer_provider)

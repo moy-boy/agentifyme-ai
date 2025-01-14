@@ -88,7 +88,6 @@ async def init_worker_service(api_gateway_url: str, api_key: str, project_id: st
 
     try:
         api_key_interceptor = APIKeyInterceptor(api_key)
-        # , interceptors=[api_key_interceptor]
         async with grpc.aio.insecure_channel(target=api_gateway_url, options=grpc_options, interceptors=[api_key_interceptor]) as channel:
             stub = pb_grpc.GatewayServiceStub(channel)
             worker_service = WorkerService(stub, callback_handler, api_gateway_url, project_id, deployment_id, worker_id)

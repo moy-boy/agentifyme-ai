@@ -9,26 +9,26 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
-class WorkerJobStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+class WorkflowExecutionStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
-    WORKER_JOB_STATUS_UNSPECIFIED: _ClassVar[WorkerJobStatus]
-    WORKER_JOB_STATUS_QUEUED: _ClassVar[WorkerJobStatus]
-    WORKER_JOB_STATUS_PROCESSING: _ClassVar[WorkerJobStatus]
-    WORKER_JOB_STATUS_COMPLETED: _ClassVar[WorkerJobStatus]
-    WORKER_JOB_STATUS_FAILED: _ClassVar[WorkerJobStatus]
-    WORKER_JOB_STATUS_RETRYING: _ClassVar[WorkerJobStatus]
-    WORKER_JOB_STATUS_CANCELLED: _ClassVar[WorkerJobStatus]
-    WORKER_JOB_STATUS_TIMEOUT: _ClassVar[WorkerJobStatus]
-    WORKER_JOB_STATUS_PAUSED: _ClassVar[WorkerJobStatus]
-WORKER_JOB_STATUS_UNSPECIFIED: WorkerJobStatus
-WORKER_JOB_STATUS_QUEUED: WorkerJobStatus
-WORKER_JOB_STATUS_PROCESSING: WorkerJobStatus
-WORKER_JOB_STATUS_COMPLETED: WorkerJobStatus
-WORKER_JOB_STATUS_FAILED: WorkerJobStatus
-WORKER_JOB_STATUS_RETRYING: WorkerJobStatus
-WORKER_JOB_STATUS_CANCELLED: WorkerJobStatus
-WORKER_JOB_STATUS_TIMEOUT: WorkerJobStatus
-WORKER_JOB_STATUS_PAUSED: WorkerJobStatus
+    WORKFLOW_EXECUTION_STATUS_UNSPECIFIED: _ClassVar[WorkflowExecutionStatus]
+    WORKFLOW_EXECUTION_STATUS_QUEUED: _ClassVar[WorkflowExecutionStatus]
+    WORKFLOW_EXECUTION_STATUS_PROCESSING: _ClassVar[WorkflowExecutionStatus]
+    WORKFLOW_EXECUTION_STATUS_COMPLETED: _ClassVar[WorkflowExecutionStatus]
+    WORKFLOW_EXECUTION_STATUS_FAILED: _ClassVar[WorkflowExecutionStatus]
+    WORKFLOW_EXECUTION_STATUS_RETRYING: _ClassVar[WorkflowExecutionStatus]
+    WORKFLOW_EXECUTION_STATUS_CANCELLED: _ClassVar[WorkflowExecutionStatus]
+    WORKFLOW_EXECUTION_STATUS_TIMEOUT: _ClassVar[WorkflowExecutionStatus]
+    WORKFLOW_EXECUTION_STATUS_PAUSED: _ClassVar[WorkflowExecutionStatus]
+WORKFLOW_EXECUTION_STATUS_UNSPECIFIED: WorkflowExecutionStatus
+WORKFLOW_EXECUTION_STATUS_QUEUED: WorkflowExecutionStatus
+WORKFLOW_EXECUTION_STATUS_PROCESSING: WorkflowExecutionStatus
+WORKFLOW_EXECUTION_STATUS_COMPLETED: WorkflowExecutionStatus
+WORKFLOW_EXECUTION_STATUS_FAILED: WorkflowExecutionStatus
+WORKFLOW_EXECUTION_STATUS_RETRYING: WorkflowExecutionStatus
+WORKFLOW_EXECUTION_STATUS_CANCELLED: WorkflowExecutionStatus
+WORKFLOW_EXECUTION_STATUS_TIMEOUT: WorkflowExecutionStatus
+WORKFLOW_EXECUTION_STATUS_PAUSED: WorkflowExecutionStatus
 
 class Param(_message.Message):
     __slots__ = ("name", "description", "data_type", "default_value", "required", "class_name", "nested_fields")
@@ -139,42 +139,22 @@ class OutboundClientMessage(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 
-class WorkflowResult(_message.Message):
-    __slots__ = ("request_id", "data", "error", "metadata")
-    class MetadataEntry(_message.Message):
-        __slots__ = ("key", "value")
-        KEY_FIELD_NUMBER: _ClassVar[int]
-        VALUE_FIELD_NUMBER: _ClassVar[int]
-        key: str
-        value: str
-        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
-    REQUEST_ID_FIELD_NUMBER: _ClassVar[int]
+class WorkflowExecutionResult(_message.Message):
+    __slots__ = ("data", "error", "status")
     DATA_FIELD_NUMBER: _ClassVar[int]
     ERROR_FIELD_NUMBER: _ClassVar[int]
-    METADATA_FIELD_NUMBER: _ClassVar[int]
-    request_id: str
-    data: _struct_pb2.Struct
-    error: str
-    metadata: _containers.ScalarMap[str, str]
-    def __init__(self, request_id: _Optional[str] = ..., data: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., error: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ...) -> None: ...
-
-class WorkflowJob(_message.Message):
-    __slots__ = ("job_id", "status", "data", "error", "metadata")
-    class MetadataEntry(_message.Message):
-        __slots__ = ("key", "value")
-        KEY_FIELD_NUMBER: _ClassVar[int]
-        VALUE_FIELD_NUMBER: _ClassVar[int]
-        key: str
-        value: str
-        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
-    JOB_ID_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
-    DATA_FIELD_NUMBER: _ClassVar[int]
-    ERROR_FIELD_NUMBER: _ClassVar[int]
-    METADATA_FIELD_NUMBER: _ClassVar[int]
-    job_id: str
-    status: WorkerJobStatus
-    data: WorkflowResult
+    data: _struct_pb2.Value
     error: str
-    metadata: _containers.ScalarMap[str, str]
-    def __init__(self, job_id: _Optional[str] = ..., status: _Optional[_Union[WorkerJobStatus, str]] = ..., data: _Optional[_Union[WorkflowResult, _Mapping]] = ..., error: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ...) -> None: ...
+    status: WorkflowExecutionStatus
+    def __init__(self, data: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ..., error: _Optional[str] = ..., status: _Optional[_Union[WorkflowExecutionStatus, str]] = ...) -> None: ...
+
+class MessageAck(_message.Message):
+    __slots__ = ("msg_id", "success", "error")
+    MSG_ID_FIELD_NUMBER: _ClassVar[int]
+    SUCCESS_FIELD_NUMBER: _ClassVar[int]
+    ERROR_FIELD_NUMBER: _ClassVar[int]
+    msg_id: str
+    success: bool
+    error: str
+    def __init__(self, msg_id: _Optional[str] = ..., success: bool = ..., error: _Optional[str] = ...) -> None: ...

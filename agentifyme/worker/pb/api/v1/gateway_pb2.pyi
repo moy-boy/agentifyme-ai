@@ -11,18 +11,65 @@ DESCRIPTOR: _descriptor.FileDescriptor
 class InboundWorkerMessageType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     INBOUND_WORKER_MESSAGE_TYPE_UNSPECIFIED: _ClassVar[InboundWorkerMessageType]
-    INBOUND_WORKER_MESSAGE_TYPE_REGISTER: _ClassVar[InboundWorkerMessageType]
-    INBOUND_WORKER_MESSAGE_TYPE_HEARTBEAT: _ClassVar[InboundWorkerMessageType]
-    INBOUND_WORKER_MESSAGE_TYPE_WORKFLOW_STATUS: _ClassVar[InboundWorkerMessageType]
-    INBOUND_WORKER_MESSAGE_TYPE_WORKFLOW_RESULT: _ClassVar[InboundWorkerMessageType]
-    INBOUND_WORKER_MESSAGE_TYPE_LIST_WORKFLOWS: _ClassVar[InboundWorkerMessageType]
+    INBOUND_WORKER_MESSAGE_TYPE_REGISTRATION: _ClassVar[InboundWorkerMessageType]
+    INBOUND_WORKER_MESSAGE_TYPE_RUNTIME_EVENT: _ClassVar[InboundWorkerMessageType]
+    INBOUND_WORKER_MESSAGE_TYPE_WORKER_STATUS: _ClassVar[InboundWorkerMessageType]
+
+class RuntimeEventType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    RUNTIME_EVENT_TYPE_UNSPECIFIED: _ClassVar[RuntimeEventType]
+    RUNTIME_EVENT_TYPE_EXECUTION: _ClassVar[RuntimeEventType]
+    RUNTIME_EVENT_TYPE_WORKFLOW: _ClassVar[RuntimeEventType]
+    RUNTIME_EVENT_TYPE_TASK: _ClassVar[RuntimeEventType]
+    RUNTIME_EVENT_TYPE_LLM: _ClassVar[RuntimeEventType]
+
+class RuntimeEventStage(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    RUNTIME_EVENT_STAGE_UNSPECIFIED: _ClassVar[RuntimeEventStage]
+    RUNTIME_EVENT_STAGE_INITIATED: _ClassVar[RuntimeEventStage]
+    RUNTIME_EVENT_STAGE_QUEUED: _ClassVar[RuntimeEventStage]
+    RUNTIME_EVENT_STAGE_STARTED: _ClassVar[RuntimeEventStage]
+    RUNTIME_EVENT_STAGE_COMPLETED: _ClassVar[RuntimeEventStage]
+    RUNTIME_EVENT_STAGE_CANCELLED: _ClassVar[RuntimeEventStage]
+    RUNTIME_EVENT_STAGE_TIMEOUT: _ClassVar[RuntimeEventStage]
+    RUNTIME_EVENT_STAGE_RETRY: _ClassVar[RuntimeEventStage]
+    RUNTIME_EVENT_STAGE_FINISHED: _ClassVar[RuntimeEventStage]
+
+class RuntimeEventStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    RUNTIME_EVENT_STATUS_UNSPECIFIED: _ClassVar[RuntimeEventStatus]
+    RUNTIME_EVENT_STATUS_SUCCESS: _ClassVar[RuntimeEventStatus]
+    RUNTIME_EVENT_STATUS_FAILED: _ClassVar[RuntimeEventStatus]
+
+class DataFormat(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    DATA_FORMAT_UNSPECIFIED: _ClassVar[DataFormat]
+    DATA_FORMAT_JSON: _ClassVar[DataFormat]
+    DATA_FORMAT_BINARY: _ClassVar[DataFormat]
+    DATA_FORMAT_STRUCT: _ClassVar[DataFormat]
+    DATA_FORMAT_STRING: _ClassVar[DataFormat]
+
+class WorkerState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    WORKER_STATE_UNSPECIFIED: _ClassVar[WorkerState]
+    WORKER_STATE_READY: _ClassVar[WorkerState]
+    WORKER_STATE_BUSY: _ClassVar[WorkerState]
+    WORKER_STATE_DRAINING: _ClassVar[WorkerState]
 
 class OutboundWorkerMessageType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     OUTBOUND_WORKER_MESSAGE_TYPE_UNSPECIFIED: _ClassVar[OutboundWorkerMessageType]
     OUTBOUND_WORKER_MESSAGE_TYPE_ACK: _ClassVar[OutboundWorkerMessageType]
+    OUTBOUND_WORKER_MESSAGE_TYPE_WORKFLOW_REQUEST: _ClassVar[OutboundWorkerMessageType]
     OUTBOUND_WORKER_MESSAGE_TYPE_WORKFLOW_COMMAND: _ClassVar[OutboundWorkerMessageType]
-    OUTBOUND_WORKER_MESSAGE_TYPE_LIST_WORKFLOWS: _ClassVar[OutboundWorkerMessageType]
+    OUTBOUND_WORKER_MESSAGE_TYPE_HEALTH_CHECK: _ClassVar[OutboundWorkerMessageType]
+
+class ControlCommandType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    CONTROL_COMMAND_TYPE_UNSPECIFIED: _ClassVar[ControlCommandType]
+    CONTROL_COMMAND_TYPE_PAUSE: _ClassVar[ControlCommandType]
+    CONTROL_COMMAND_TYPE_RESUME: _ClassVar[ControlCommandType]
+    CONTROL_COMMAND_TYPE_CANCEL: _ClassVar[ControlCommandType]
 
 class WorkflowExecMode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -30,71 +77,52 @@ class WorkflowExecMode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     WORKFLOW_EXEC_MODE_SYNC: _ClassVar[WorkflowExecMode]
     WORKFLOW_EXEC_MODE_ASYNC: _ClassVar[WorkflowExecMode]
     WORKFLOW_EXEC_MODE_INTERACTIVE: _ClassVar[WorkflowExecMode]
-
-class WorkflowCommandType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
-    __slots__ = ()
-    WORKFLOW_COMMAND_TYPE_UNSPECIFIED: _ClassVar[WorkflowCommandType]
-    WORKFLOW_COMMAND_TYPE_RUN: _ClassVar[WorkflowCommandType]
-    WORKFLOW_COMMAND_TYPE_PAUSE: _ClassVar[WorkflowCommandType]
-    WORKFLOW_COMMAND_TYPE_RESUME: _ClassVar[WorkflowCommandType]
-    WORKFLOW_COMMAND_TYPE_CANCEL: _ClassVar[WorkflowCommandType]
-    WORKFLOW_COMMAND_TYPE_ABORT: _ClassVar[WorkflowCommandType]
-    WORKFLOW_COMMAND_TYPE_LIST: _ClassVar[WorkflowCommandType]
-
-class EventType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
-    __slots__ = ()
-    EVENT_TYPE_UNSPECIFIED: _ClassVar[EventType]
-    EVENT_TYPE_EXECUTION_QUEUED: _ClassVar[EventType]
-    EVENT_TYPE_EXECUTION_STARTED: _ClassVar[EventType]
-    EVENT_TYPE_EXECUTION_COMPLETED: _ClassVar[EventType]
-    EVENT_TYPE_EXECUTION_FAILED: _ClassVar[EventType]
-    EVENT_TYPE_WORKFLOW_STARTED: _ClassVar[EventType]
-    EVENT_TYPE_WORKFLOW_COMPLETED: _ClassVar[EventType]
-    EVENT_TYPE_WORKFLOW_FAILED: _ClassVar[EventType]
-    EVENT_TYPE_TASK_STARTED: _ClassVar[EventType]
-    EVENT_TYPE_TASK_COMPLETED: _ClassVar[EventType]
-    EVENT_TYPE_TASK_FAILED: _ClassVar[EventType]
-    EVENT_TYPE_AGENT_STARTED: _ClassVar[EventType]
-    EVENT_TYPE_AGENT_COMPLETED: _ClassVar[EventType]
-    EVENT_TYPE_AGENT_FAILED: _ClassVar[EventType]
 INBOUND_WORKER_MESSAGE_TYPE_UNSPECIFIED: InboundWorkerMessageType
-INBOUND_WORKER_MESSAGE_TYPE_REGISTER: InboundWorkerMessageType
-INBOUND_WORKER_MESSAGE_TYPE_HEARTBEAT: InboundWorkerMessageType
-INBOUND_WORKER_MESSAGE_TYPE_WORKFLOW_STATUS: InboundWorkerMessageType
-INBOUND_WORKER_MESSAGE_TYPE_WORKFLOW_RESULT: InboundWorkerMessageType
-INBOUND_WORKER_MESSAGE_TYPE_LIST_WORKFLOWS: InboundWorkerMessageType
+INBOUND_WORKER_MESSAGE_TYPE_REGISTRATION: InboundWorkerMessageType
+INBOUND_WORKER_MESSAGE_TYPE_RUNTIME_EVENT: InboundWorkerMessageType
+INBOUND_WORKER_MESSAGE_TYPE_WORKER_STATUS: InboundWorkerMessageType
+RUNTIME_EVENT_TYPE_UNSPECIFIED: RuntimeEventType
+RUNTIME_EVENT_TYPE_EXECUTION: RuntimeEventType
+RUNTIME_EVENT_TYPE_WORKFLOW: RuntimeEventType
+RUNTIME_EVENT_TYPE_TASK: RuntimeEventType
+RUNTIME_EVENT_TYPE_LLM: RuntimeEventType
+RUNTIME_EVENT_STAGE_UNSPECIFIED: RuntimeEventStage
+RUNTIME_EVENT_STAGE_INITIATED: RuntimeEventStage
+RUNTIME_EVENT_STAGE_QUEUED: RuntimeEventStage
+RUNTIME_EVENT_STAGE_STARTED: RuntimeEventStage
+RUNTIME_EVENT_STAGE_COMPLETED: RuntimeEventStage
+RUNTIME_EVENT_STAGE_CANCELLED: RuntimeEventStage
+RUNTIME_EVENT_STAGE_TIMEOUT: RuntimeEventStage
+RUNTIME_EVENT_STAGE_RETRY: RuntimeEventStage
+RUNTIME_EVENT_STAGE_FINISHED: RuntimeEventStage
+RUNTIME_EVENT_STATUS_UNSPECIFIED: RuntimeEventStatus
+RUNTIME_EVENT_STATUS_SUCCESS: RuntimeEventStatus
+RUNTIME_EVENT_STATUS_FAILED: RuntimeEventStatus
+DATA_FORMAT_UNSPECIFIED: DataFormat
+DATA_FORMAT_JSON: DataFormat
+DATA_FORMAT_BINARY: DataFormat
+DATA_FORMAT_STRUCT: DataFormat
+DATA_FORMAT_STRING: DataFormat
+WORKER_STATE_UNSPECIFIED: WorkerState
+WORKER_STATE_READY: WorkerState
+WORKER_STATE_BUSY: WorkerState
+WORKER_STATE_DRAINING: WorkerState
 OUTBOUND_WORKER_MESSAGE_TYPE_UNSPECIFIED: OutboundWorkerMessageType
 OUTBOUND_WORKER_MESSAGE_TYPE_ACK: OutboundWorkerMessageType
+OUTBOUND_WORKER_MESSAGE_TYPE_WORKFLOW_REQUEST: OutboundWorkerMessageType
 OUTBOUND_WORKER_MESSAGE_TYPE_WORKFLOW_COMMAND: OutboundWorkerMessageType
-OUTBOUND_WORKER_MESSAGE_TYPE_LIST_WORKFLOWS: OutboundWorkerMessageType
+OUTBOUND_WORKER_MESSAGE_TYPE_HEALTH_CHECK: OutboundWorkerMessageType
+CONTROL_COMMAND_TYPE_UNSPECIFIED: ControlCommandType
+CONTROL_COMMAND_TYPE_PAUSE: ControlCommandType
+CONTROL_COMMAND_TYPE_RESUME: ControlCommandType
+CONTROL_COMMAND_TYPE_CANCEL: ControlCommandType
 WORKFLOW_EXEC_MODE_UNSPECIFIED: WorkflowExecMode
 WORKFLOW_EXEC_MODE_SYNC: WorkflowExecMode
 WORKFLOW_EXEC_MODE_ASYNC: WorkflowExecMode
 WORKFLOW_EXEC_MODE_INTERACTIVE: WorkflowExecMode
-WORKFLOW_COMMAND_TYPE_UNSPECIFIED: WorkflowCommandType
-WORKFLOW_COMMAND_TYPE_RUN: WorkflowCommandType
-WORKFLOW_COMMAND_TYPE_PAUSE: WorkflowCommandType
-WORKFLOW_COMMAND_TYPE_RESUME: WorkflowCommandType
-WORKFLOW_COMMAND_TYPE_CANCEL: WorkflowCommandType
-WORKFLOW_COMMAND_TYPE_ABORT: WorkflowCommandType
-WORKFLOW_COMMAND_TYPE_LIST: WorkflowCommandType
-EVENT_TYPE_UNSPECIFIED: EventType
-EVENT_TYPE_EXECUTION_QUEUED: EventType
-EVENT_TYPE_EXECUTION_STARTED: EventType
-EVENT_TYPE_EXECUTION_COMPLETED: EventType
-EVENT_TYPE_EXECUTION_FAILED: EventType
-EVENT_TYPE_WORKFLOW_STARTED: EventType
-EVENT_TYPE_WORKFLOW_COMPLETED: EventType
-EVENT_TYPE_WORKFLOW_FAILED: EventType
-EVENT_TYPE_TASK_STARTED: EventType
-EVENT_TYPE_TASK_COMPLETED: EventType
-EVENT_TYPE_TASK_FAILED: EventType
-EVENT_TYPE_AGENT_STARTED: EventType
-EVENT_TYPE_AGENT_COMPLETED: EventType
-EVENT_TYPE_AGENT_FAILED: EventType
 
 class InboundWorkerMessage(_message.Message):
-    __slots__ = ("type", "request_id", "worker_id", "deployment_id", "metadata", "registration", "heartbeat", "workflow_status", "workflow_result", "list_workflows")
+    __slots__ = ("msg_id", "worker_id", "deployment_id", "timestamp", "metadata", "type", "registration", "event", "worker_status")
     class MetadataEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -102,42 +130,73 @@ class InboundWorkerMessage(_message.Message):
         key: str
         value: str
         def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
-    TYPE_FIELD_NUMBER: _ClassVar[int]
-    REQUEST_ID_FIELD_NUMBER: _ClassVar[int]
+    MSG_ID_FIELD_NUMBER: _ClassVar[int]
     WORKER_ID_FIELD_NUMBER: _ClassVar[int]
     DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
     METADATA_FIELD_NUMBER: _ClassVar[int]
+    TYPE_FIELD_NUMBER: _ClassVar[int]
     REGISTRATION_FIELD_NUMBER: _ClassVar[int]
-    HEARTBEAT_FIELD_NUMBER: _ClassVar[int]
-    WORKFLOW_STATUS_FIELD_NUMBER: _ClassVar[int]
-    WORKFLOW_RESULT_FIELD_NUMBER: _ClassVar[int]
-    LIST_WORKFLOWS_FIELD_NUMBER: _ClassVar[int]
-    type: InboundWorkerMessageType
-    request_id: str
+    EVENT_FIELD_NUMBER: _ClassVar[int]
+    WORKER_STATUS_FIELD_NUMBER: _ClassVar[int]
+    msg_id: str
     worker_id: str
     deployment_id: str
+    timestamp: int
     metadata: _containers.ScalarMap[str, str]
+    type: InboundWorkerMessageType
     registration: WorkerRegistration
-    heartbeat: WorkerHeartbeat
-    workflow_status: WorkflowStatus
-    workflow_result: _common_pb2.WorkflowResult
-    list_workflows: _common_pb2.ListWorkflowsResponse
-    def __init__(self, type: _Optional[_Union[InboundWorkerMessageType, str]] = ..., request_id: _Optional[str] = ..., worker_id: _Optional[str] = ..., deployment_id: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ..., registration: _Optional[_Union[WorkerRegistration, _Mapping]] = ..., heartbeat: _Optional[_Union[WorkerHeartbeat, _Mapping]] = ..., workflow_status: _Optional[_Union[WorkflowStatus, _Mapping]] = ..., workflow_result: _Optional[_Union[_common_pb2.WorkflowResult, _Mapping]] = ..., list_workflows: _Optional[_Union[_common_pb2.ListWorkflowsResponse, _Mapping]] = ...) -> None: ...
+    event: RuntimeEvent
+    worker_status: WorkerStatus
+    def __init__(self, msg_id: _Optional[str] = ..., worker_id: _Optional[str] = ..., deployment_id: _Optional[str] = ..., timestamp: _Optional[int] = ..., metadata: _Optional[_Mapping[str, str]] = ..., type: _Optional[_Union[InboundWorkerMessageType, str]] = ..., registration: _Optional[_Union[WorkerRegistration, _Mapping]] = ..., event: _Optional[_Union[RuntimeEvent, _Mapping]] = ..., worker_status: _Optional[_Union[WorkerStatus, _Mapping]] = ...) -> None: ...
 
 class WorkerRegistration(_message.Message):
-    __slots__ = ("workflows",)
-    WORKFLOWS_FIELD_NUMBER: _ClassVar[int]
-    workflows: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, workflows: _Optional[_Iterable[str]] = ...) -> None: ...
+    __slots__ = ("version", "capabilities")
+    class CapabilitiesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+    VERSION_FIELD_NUMBER: _ClassVar[int]
+    CAPABILITIES_FIELD_NUMBER: _ClassVar[int]
+    version: str
+    capabilities: _containers.ScalarMap[str, str]
+    def __init__(self, version: _Optional[str] = ..., capabilities: _Optional[_Mapping[str, str]] = ...) -> None: ...
 
-class WorkerHeartbeat(_message.Message):
-    __slots__ = ("status",)
-    STATUS_FIELD_NUMBER: _ClassVar[int]
-    status: str
-    def __init__(self, status: _Optional[str] = ...) -> None: ...
+class LLMEventData(_message.Message):
+    __slots__ = ("model", "vendor", "total_tokens", "prompt_tokens", "completion_tokens", "total_cost", "prompt_cost", "completion_cost", "latency_ms", "temperature", "max_tokens", "messages", "response")
+    MODEL_FIELD_NUMBER: _ClassVar[int]
+    VENDOR_FIELD_NUMBER: _ClassVar[int]
+    TOTAL_TOKENS_FIELD_NUMBER: _ClassVar[int]
+    PROMPT_TOKENS_FIELD_NUMBER: _ClassVar[int]
+    COMPLETION_TOKENS_FIELD_NUMBER: _ClassVar[int]
+    TOTAL_COST_FIELD_NUMBER: _ClassVar[int]
+    PROMPT_COST_FIELD_NUMBER: _ClassVar[int]
+    COMPLETION_COST_FIELD_NUMBER: _ClassVar[int]
+    LATENCY_MS_FIELD_NUMBER: _ClassVar[int]
+    TEMPERATURE_FIELD_NUMBER: _ClassVar[int]
+    MAX_TOKENS_FIELD_NUMBER: _ClassVar[int]
+    MESSAGES_FIELD_NUMBER: _ClassVar[int]
+    RESPONSE_FIELD_NUMBER: _ClassVar[int]
+    model: str
+    vendor: str
+    total_tokens: int
+    prompt_tokens: int
+    completion_tokens: int
+    total_cost: str
+    prompt_cost: str
+    completion_cost: str
+    latency_ms: int
+    temperature: float
+    max_tokens: int
+    messages: _containers.RepeatedScalarFieldContainer[str]
+    response: str
+    def __init__(self, model: _Optional[str] = ..., vendor: _Optional[str] = ..., total_tokens: _Optional[int] = ..., prompt_tokens: _Optional[int] = ..., completion_tokens: _Optional[int] = ..., total_cost: _Optional[str] = ..., prompt_cost: _Optional[str] = ..., completion_cost: _Optional[str] = ..., latency_ms: _Optional[int] = ..., temperature: _Optional[float] = ..., max_tokens: _Optional[int] = ..., messages: _Optional[_Iterable[str]] = ..., response: _Optional[str] = ...) -> None: ...
 
-class WorkflowStatus(_message.Message):
-    __slots__ = ("workflow_id", "status", "metadata")
+class RuntimeEvent(_message.Message):
+    __slots__ = ("event_type", "event_stage", "event_name", "timestamp", "event_id", "parent_event_id", "run_id", "request_id", "idempotency_key", "status", "retry_attempt", "error_message", "error_code", "max_retries", "retry_delay", "metadata", "input_data_format", "json_input", "binary_input", "struct_input", "string_input", "output_data_format", "json_output", "binary_output", "struct_output", "string_output", "llm_output")
     class MetadataEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -145,16 +204,76 @@ class WorkflowStatus(_message.Message):
         key: str
         value: str
         def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
-    WORKFLOW_ID_FIELD_NUMBER: _ClassVar[int]
+    EVENT_TYPE_FIELD_NUMBER: _ClassVar[int]
+    EVENT_STAGE_FIELD_NUMBER: _ClassVar[int]
+    EVENT_NAME_FIELD_NUMBER: _ClassVar[int]
+    TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
+    EVENT_ID_FIELD_NUMBER: _ClassVar[int]
+    PARENT_EVENT_ID_FIELD_NUMBER: _ClassVar[int]
+    RUN_ID_FIELD_NUMBER: _ClassVar[int]
+    REQUEST_ID_FIELD_NUMBER: _ClassVar[int]
+    IDEMPOTENCY_KEY_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
+    RETRY_ATTEMPT_FIELD_NUMBER: _ClassVar[int]
+    ERROR_MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    ERROR_CODE_FIELD_NUMBER: _ClassVar[int]
+    MAX_RETRIES_FIELD_NUMBER: _ClassVar[int]
+    RETRY_DELAY_FIELD_NUMBER: _ClassVar[int]
     METADATA_FIELD_NUMBER: _ClassVar[int]
-    workflow_id: str
-    status: str
+    INPUT_DATA_FORMAT_FIELD_NUMBER: _ClassVar[int]
+    JSON_INPUT_FIELD_NUMBER: _ClassVar[int]
+    BINARY_INPUT_FIELD_NUMBER: _ClassVar[int]
+    STRUCT_INPUT_FIELD_NUMBER: _ClassVar[int]
+    STRING_INPUT_FIELD_NUMBER: _ClassVar[int]
+    OUTPUT_DATA_FORMAT_FIELD_NUMBER: _ClassVar[int]
+    JSON_OUTPUT_FIELD_NUMBER: _ClassVar[int]
+    BINARY_OUTPUT_FIELD_NUMBER: _ClassVar[int]
+    STRUCT_OUTPUT_FIELD_NUMBER: _ClassVar[int]
+    STRING_OUTPUT_FIELD_NUMBER: _ClassVar[int]
+    LLM_OUTPUT_FIELD_NUMBER: _ClassVar[int]
+    event_type: RuntimeEventType
+    event_stage: RuntimeEventStage
+    event_name: str
+    timestamp: int
+    event_id: str
+    parent_event_id: str
+    run_id: str
+    request_id: str
+    idempotency_key: str
+    status: RuntimeEventStatus
+    retry_attempt: int
+    error_message: str
+    error_code: str
+    max_retries: int
+    retry_delay: int
     metadata: _containers.ScalarMap[str, str]
-    def __init__(self, workflow_id: _Optional[str] = ..., status: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ...) -> None: ...
+    input_data_format: DataFormat
+    json_input: str
+    binary_input: bytes
+    struct_input: _struct_pb2.Struct
+    string_input: str
+    output_data_format: DataFormat
+    json_output: str
+    binary_output: bytes
+    struct_output: _struct_pb2.Struct
+    string_output: str
+    llm_output: LLMEventData
+    def __init__(self, event_type: _Optional[_Union[RuntimeEventType, str]] = ..., event_stage: _Optional[_Union[RuntimeEventStage, str]] = ..., event_name: _Optional[str] = ..., timestamp: _Optional[int] = ..., event_id: _Optional[str] = ..., parent_event_id: _Optional[str] = ..., run_id: _Optional[str] = ..., request_id: _Optional[str] = ..., idempotency_key: _Optional[str] = ..., status: _Optional[_Union[RuntimeEventStatus, str]] = ..., retry_attempt: _Optional[int] = ..., error_message: _Optional[str] = ..., error_code: _Optional[str] = ..., max_retries: _Optional[int] = ..., retry_delay: _Optional[int] = ..., metadata: _Optional[_Mapping[str, str]] = ..., input_data_format: _Optional[_Union[DataFormat, str]] = ..., json_input: _Optional[str] = ..., binary_input: _Optional[bytes] = ..., struct_input: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., string_input: _Optional[str] = ..., output_data_format: _Optional[_Union[DataFormat, str]] = ..., json_output: _Optional[str] = ..., binary_output: _Optional[bytes] = ..., struct_output: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., string_output: _Optional[str] = ..., llm_output: _Optional[_Union[LLMEventData, _Mapping]] = ...) -> None: ...
+
+class WorkerStatus(_message.Message):
+    __slots__ = ("cpu_usage", "memory_usage", "active_tasks", "state")
+    CPU_USAGE_FIELD_NUMBER: _ClassVar[int]
+    MEMORY_USAGE_FIELD_NUMBER: _ClassVar[int]
+    ACTIVE_TASKS_FIELD_NUMBER: _ClassVar[int]
+    STATE_FIELD_NUMBER: _ClassVar[int]
+    cpu_usage: float
+    memory_usage: float
+    active_tasks: int
+    state: WorkerState
+    def __init__(self, cpu_usage: _Optional[float] = ..., memory_usage: _Optional[float] = ..., active_tasks: _Optional[int] = ..., state: _Optional[_Union[WorkerState, str]] = ...) -> None: ...
 
 class OutboundWorkerMessage(_message.Message):
-    __slots__ = ("type", "request_id", "worker_id", "deployment_id", "metadata", "workflow_command", "ack")
+    __slots__ = ("msg_id", "timestamp", "metadata", "type", "workflow_request", "control_command", "health_check", "ack")
     class MetadataEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -162,163 +281,73 @@ class OutboundWorkerMessage(_message.Message):
         key: str
         value: str
         def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
-    TYPE_FIELD_NUMBER: _ClassVar[int]
-    REQUEST_ID_FIELD_NUMBER: _ClassVar[int]
-    WORKER_ID_FIELD_NUMBER: _ClassVar[int]
-    DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
-    METADATA_FIELD_NUMBER: _ClassVar[int]
-    WORKFLOW_COMMAND_FIELD_NUMBER: _ClassVar[int]
-    ACK_FIELD_NUMBER: _ClassVar[int]
-    type: OutboundWorkerMessageType
-    request_id: str
-    worker_id: str
-    deployment_id: str
-    metadata: _containers.ScalarMap[str, str]
-    workflow_command: WorkflowCommand
-    ack: WorkerAck
-    def __init__(self, type: _Optional[_Union[OutboundWorkerMessageType, str]] = ..., request_id: _Optional[str] = ..., worker_id: _Optional[str] = ..., deployment_id: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ..., workflow_command: _Optional[_Union[WorkflowCommand, _Mapping]] = ..., ack: _Optional[_Union[WorkerAck, _Mapping]] = ...) -> None: ...
-
-class WorkerAck(_message.Message):
-    __slots__ = ("status",)
-    STATUS_FIELD_NUMBER: _ClassVar[int]
-    status: str
-    def __init__(self, status: _Optional[str] = ...) -> None: ...
-
-class WorkflowCommand(_message.Message):
-    __slots__ = ("type", "metadata", "run_workflow", "pause_workflow", "resume_workflow", "cancel_workflow", "abort_workflow", "list_workflows")
-    class MetadataEntry(_message.Message):
-        __slots__ = ("key", "value")
-        KEY_FIELD_NUMBER: _ClassVar[int]
-        VALUE_FIELD_NUMBER: _ClassVar[int]
-        key: str
-        value: str
-        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
-    TYPE_FIELD_NUMBER: _ClassVar[int]
-    METADATA_FIELD_NUMBER: _ClassVar[int]
-    RUN_WORKFLOW_FIELD_NUMBER: _ClassVar[int]
-    PAUSE_WORKFLOW_FIELD_NUMBER: _ClassVar[int]
-    RESUME_WORKFLOW_FIELD_NUMBER: _ClassVar[int]
-    CANCEL_WORKFLOW_FIELD_NUMBER: _ClassVar[int]
-    ABORT_WORKFLOW_FIELD_NUMBER: _ClassVar[int]
-    LIST_WORKFLOWS_FIELD_NUMBER: _ClassVar[int]
-    type: WorkflowCommandType
-    metadata: _containers.ScalarMap[str, str]
-    run_workflow: RunWorkflowCommand
-    pause_workflow: PauseWorkflowCommand
-    resume_workflow: ResumeWorkflowCommand
-    cancel_workflow: CancelWorkflowCommand
-    abort_workflow: AbortWorkflowCommand
-    list_workflows: ListWorkflowsCommand
-    def __init__(self, type: _Optional[_Union[WorkflowCommandType, str]] = ..., metadata: _Optional[_Mapping[str, str]] = ..., run_workflow: _Optional[_Union[RunWorkflowCommand, _Mapping]] = ..., pause_workflow: _Optional[_Union[PauseWorkflowCommand, _Mapping]] = ..., resume_workflow: _Optional[_Union[ResumeWorkflowCommand, _Mapping]] = ..., cancel_workflow: _Optional[_Union[CancelWorkflowCommand, _Mapping]] = ..., abort_workflow: _Optional[_Union[AbortWorkflowCommand, _Mapping]] = ..., list_workflows: _Optional[_Union[ListWorkflowsCommand, _Mapping]] = ...) -> None: ...
-
-class RunWorkflowCommand(_message.Message):
-    __slots__ = ("workflow_name", "parameters")
-    WORKFLOW_NAME_FIELD_NUMBER: _ClassVar[int]
-    PARAMETERS_FIELD_NUMBER: _ClassVar[int]
-    workflow_name: str
-    parameters: _struct_pb2.Struct
-    def __init__(self, workflow_name: _Optional[str] = ..., parameters: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ...) -> None: ...
-
-class PauseWorkflowCommand(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
-
-class ResumeWorkflowCommand(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
-
-class CancelWorkflowCommand(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
-
-class AbortWorkflowCommand(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
-
-class ListWorkflowsCommand(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
-
-class ExecutionEventData(_message.Message):
-    __slots__ = ("execution_id", "status", "metadata", "payload")
-    class MetadataEntry(_message.Message):
-        __slots__ = ("key", "value")
-        KEY_FIELD_NUMBER: _ClassVar[int]
-        VALUE_FIELD_NUMBER: _ClassVar[int]
-        key: str
-        value: str
-        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
-    EXECUTION_ID_FIELD_NUMBER: _ClassVar[int]
-    STATUS_FIELD_NUMBER: _ClassVar[int]
-    METADATA_FIELD_NUMBER: _ClassVar[int]
-    PAYLOAD_FIELD_NUMBER: _ClassVar[int]
-    execution_id: str
-    status: str
-    metadata: _containers.ScalarMap[str, str]
-    payload: str
-    def __init__(self, execution_id: _Optional[str] = ..., status: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ..., payload: _Optional[str] = ...) -> None: ...
-
-class WorkflowEventData(_message.Message):
-    __slots__ = ("workflow_id", "status", "metadata", "payload")
-    class MetadataEntry(_message.Message):
-        __slots__ = ("key", "value")
-        KEY_FIELD_NUMBER: _ClassVar[int]
-        VALUE_FIELD_NUMBER: _ClassVar[int]
-        key: str
-        value: str
-        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
-    WORKFLOW_ID_FIELD_NUMBER: _ClassVar[int]
-    STATUS_FIELD_NUMBER: _ClassVar[int]
-    METADATA_FIELD_NUMBER: _ClassVar[int]
-    PAYLOAD_FIELD_NUMBER: _ClassVar[int]
-    workflow_id: str
-    status: str
-    metadata: _containers.ScalarMap[str, str]
-    payload: str
-    def __init__(self, workflow_id: _Optional[str] = ..., status: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ..., payload: _Optional[str] = ...) -> None: ...
-
-class TaskEventData(_message.Message):
-    __slots__ = ("task_id", "workflow_id", "status", "metadata", "payload")
-    class MetadataEntry(_message.Message):
-        __slots__ = ("key", "value")
-        KEY_FIELD_NUMBER: _ClassVar[int]
-        VALUE_FIELD_NUMBER: _ClassVar[int]
-        key: str
-        value: str
-        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
-    TASK_ID_FIELD_NUMBER: _ClassVar[int]
-    WORKFLOW_ID_FIELD_NUMBER: _ClassVar[int]
-    STATUS_FIELD_NUMBER: _ClassVar[int]
-    METADATA_FIELD_NUMBER: _ClassVar[int]
-    PAYLOAD_FIELD_NUMBER: _ClassVar[int]
-    task_id: str
-    workflow_id: str
-    status: str
-    metadata: _containers.ScalarMap[str, str]
-    payload: str
-    def __init__(self, task_id: _Optional[str] = ..., workflow_id: _Optional[str] = ..., status: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ..., payload: _Optional[str] = ...) -> None: ...
-
-class RuntimeExecutionEventRequest(_message.Message):
-    __slots__ = ("event_id", "event_type", "timestamp", "workflow_event", "task_event", "execution_event")
-    EVENT_ID_FIELD_NUMBER: _ClassVar[int]
-    EVENT_TYPE_FIELD_NUMBER: _ClassVar[int]
+    MSG_ID_FIELD_NUMBER: _ClassVar[int]
     TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
-    WORKFLOW_EVENT_FIELD_NUMBER: _ClassVar[int]
-    TASK_EVENT_FIELD_NUMBER: _ClassVar[int]
-    EXECUTION_EVENT_FIELD_NUMBER: _ClassVar[int]
-    event_id: str
-    event_type: EventType
+    METADATA_FIELD_NUMBER: _ClassVar[int]
+    TYPE_FIELD_NUMBER: _ClassVar[int]
+    WORKFLOW_REQUEST_FIELD_NUMBER: _ClassVar[int]
+    CONTROL_COMMAND_FIELD_NUMBER: _ClassVar[int]
+    HEALTH_CHECK_FIELD_NUMBER: _ClassVar[int]
+    ACK_FIELD_NUMBER: _ClassVar[int]
+    msg_id: str
     timestamp: int
-    workflow_event: WorkflowEventData
-    task_event: TaskEventData
-    execution_event: ExecutionEventData
-    def __init__(self, event_id: _Optional[str] = ..., event_type: _Optional[_Union[EventType, str]] = ..., timestamp: _Optional[int] = ..., workflow_event: _Optional[_Union[WorkflowEventData, _Mapping]] = ..., task_event: _Optional[_Union[TaskEventData, _Mapping]] = ..., execution_event: _Optional[_Union[ExecutionEventData, _Mapping]] = ...) -> None: ...
+    metadata: _containers.ScalarMap[str, str]
+    type: OutboundWorkerMessageType
+    workflow_request: WorkflowRequest
+    control_command: ControlCommand
+    health_check: HealthCheck
+    ack: _common_pb2.MessageAck
+    def __init__(self, msg_id: _Optional[str] = ..., timestamp: _Optional[int] = ..., metadata: _Optional[_Mapping[str, str]] = ..., type: _Optional[_Union[OutboundWorkerMessageType, str]] = ..., workflow_request: _Optional[_Union[WorkflowRequest, _Mapping]] = ..., control_command: _Optional[_Union[ControlCommand, _Mapping]] = ..., health_check: _Optional[_Union[HealthCheck, _Mapping]] = ..., ack: _Optional[_Union[_common_pb2.MessageAck, _Mapping]] = ...) -> None: ...
 
-class RuntimeExecutionEventResponse(_message.Message):
-    __slots__ = ("status",)
-    STATUS_FIELD_NUMBER: _ClassVar[int]
-    status: str
-    def __init__(self, status: _Optional[str] = ...) -> None: ...
+class WorkflowRequest(_message.Message):
+    __slots__ = ("run_id", "workflow_name", "idempotency_key", "metadata", "input_data_format", "json_input", "binary_input", "struct_input")
+    class MetadataEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+    RUN_ID_FIELD_NUMBER: _ClassVar[int]
+    WORKFLOW_NAME_FIELD_NUMBER: _ClassVar[int]
+    IDEMPOTENCY_KEY_FIELD_NUMBER: _ClassVar[int]
+    METADATA_FIELD_NUMBER: _ClassVar[int]
+    INPUT_DATA_FORMAT_FIELD_NUMBER: _ClassVar[int]
+    JSON_INPUT_FIELD_NUMBER: _ClassVar[int]
+    BINARY_INPUT_FIELD_NUMBER: _ClassVar[int]
+    STRUCT_INPUT_FIELD_NUMBER: _ClassVar[int]
+    run_id: str
+    workflow_name: str
+    idempotency_key: str
+    metadata: _containers.ScalarMap[str, str]
+    input_data_format: DataFormat
+    json_input: str
+    binary_input: bytes
+    struct_input: _struct_pb2.Struct
+    def __init__(self, run_id: _Optional[str] = ..., workflow_name: _Optional[str] = ..., idempotency_key: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ..., input_data_format: _Optional[_Union[DataFormat, str]] = ..., json_input: _Optional[str] = ..., binary_input: _Optional[bytes] = ..., struct_input: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ...) -> None: ...
+
+class ControlCommand(_message.Message):
+    __slots__ = ("type", "run_id", "parameters")
+    class ParametersEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+    TYPE_FIELD_NUMBER: _ClassVar[int]
+    RUN_ID_FIELD_NUMBER: _ClassVar[int]
+    PARAMETERS_FIELD_NUMBER: _ClassVar[int]
+    type: ControlCommandType
+    run_id: str
+    parameters: _containers.ScalarMap[str, str]
+    def __init__(self, type: _Optional[_Union[ControlCommandType, str]] = ..., run_id: _Optional[str] = ..., parameters: _Optional[_Mapping[str, str]] = ...) -> None: ...
+
+class HealthCheck(_message.Message):
+    __slots__ = ("server_time",)
+    SERVER_TIME_FIELD_NUMBER: _ClassVar[int]
+    server_time: int
+    def __init__(self, server_time: _Optional[int] = ...) -> None: ...
 
 class SyncWorkflowsRequest(_message.Message):
     __slots__ = ("worker_id", "deployment_id", "workflows")

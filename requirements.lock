@@ -109,8 +109,17 @@ numpy==2.0.1
     # via together
 openai==1.59.3
     # via agentifyme
+openinference-instrumentation==0.1.20
+    # via openinference-instrumentation-openai
+openinference-instrumentation-openai==0.1.18
+    # via agentifyme
+openinference-semantic-conventions==0.1.12
+    # via openinference-instrumentation
+    # via openinference-instrumentation-openai
 opentelemetry-api==1.29.0
     # via agentifyme
+    # via openinference-instrumentation
+    # via openinference-instrumentation-openai
     # via opentelemetry-exporter-otlp-proto-grpc
     # via opentelemetry-instrumentation
     # via opentelemetry-processor-baggage
@@ -122,6 +131,7 @@ opentelemetry-exporter-otlp-proto-grpc==1.29.0
     # via agentifyme
 opentelemetry-instrumentation==0.50b0
     # via agentifyme
+    # via openinference-instrumentation-openai
 opentelemetry-processor-baggage==0.50b0
     # via agentifyme
 opentelemetry-proto==1.29.0
@@ -129,9 +139,11 @@ opentelemetry-proto==1.29.0
     # via opentelemetry-exporter-otlp-proto-grpc
 opentelemetry-sdk==1.29.0
     # via agentifyme
+    # via openinference-instrumentation
     # via opentelemetry-exporter-otlp-proto-grpc
     # via opentelemetry-processor-baggage
 opentelemetry-semantic-conventions==0.50b0
+    # via openinference-instrumentation-openai
     # via opentelemetry-instrumentation
     # via opentelemetry-sdk
 orjson==3.10.11
@@ -196,6 +208,7 @@ typer==0.12.3
     # via together
 typing-extensions==4.12.2
     # via openai
+    # via openinference-instrumentation-openai
     # via opentelemetry-sdk
     # via pydantic
     # via pydantic-core
@@ -207,6 +220,7 @@ urllib3==2.2.2
 wrapt==1.16.0
     # via agentifyme
     # via deprecated
+    # via openinference-instrumentation-openai
     # via opentelemetry-instrumentation
     # via opentelemetry-processor-baggage
 yarl==1.9.4

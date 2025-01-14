@@ -84,7 +84,7 @@ class WorkflowHandler:
                 return validated.model_dump()
             return result
         elif isinstance(result, str):
-            return {"output": result}
+            return result
 
         if hasattr(return_type, "model_validate"):
             validated = return_type.model_validate(result)
@@ -182,111 +182,111 @@ class WorkflowCommandHandler:
     def set_stub(self, stub: pb_grpc.GatewayServiceStub):
         self.stub = stub
 
-    async def run_workflow(self, payload: pb.RunWorkflowCommand) -> dict | None:
-        try:
-            await self.stub.RuntimeExecutionEvent(
-                pb.RuntimeExecutionEventRequest(
-                    event_id=str(uuid.uuid4()),
-                    timestamp=int(datetime.now().timestamp() * 1000),
-                    event_type=pb.EVENT_TYPE_EXECUTION_QUEUED,
-                )
-            )
-            async with self._job_semaphore:
-                self._current_jobs += 1
+    # async def run_workflow(self, payload: pb.RunWorkflowCommand) -> dict | None:
+    #     try:
+    #         await self.stub.RuntimeExecutionEvent(
+    #             pb.RuntimeExecutionEventRequest(
+    #                 event_id=str(uuid.uuid4()),
+    #                 timestamp=int(datetime.now().timestamp() * 1000),
+    #                 event_type=pb.EVENT_TYPE_EXECUTION_QUEUED,
+    #             )
+    #         )
+    #         async with self._job_semaphore:
+    #             self._current_jobs += 1
 
-                workflow_name = payload.workflow_name
-                workflow_parameters = struct_to_dict(payload.parameters)
+    #             workflow_name = payload.workflow_name
+    #             workflow_parameters = struct_to_dict(payload.parameters)
 
-                logger.info(f"Running workflow {workflow_name} with parameters {workflow_parameters}")
+    #             logger.info(f"Running workflow {workflow_name} with parameters {workflow_parameters}")
 
-                if workflow_name not in self.workflow_handlers:
-                    raise ValueError(f"Workflow {workflow_name} not found")
+    #             if workflow_name not in self.workflow_handlers:
+    #                 raise ValueError(f"Workflow {workflow_name} not found")
 
-                await self.stub.RuntimeExecutionEvent(
-                    pb.RuntimeExecutionEventRequest(
-                        event_id=str(uuid.uuid4()),
-                        timestamp=int(datetime.now().timestamp() * 1000),
-                        event_type=pb.EVENT_TYPE_EXECUTION_STARTED,
-                    )
-                )
+    #             await self.stub.RuntimeExecutionEvent(
+    #                 pb.RuntimeExecutionEventRequest(
+    #                     event_id=str(uuid.uuid4()),
+    #                     timestamp=int(datetime.now().timestamp() * 1000),
+    #                     event_type=pb.EVENT_TYPE_EXECUTION_STARTED,
+    #                 )
+    #             )
 
-                workflow_handler = self.workflow_handlers[workflow_name]
-                result = await workflow_handler(workflow_parameters)
+    #             workflow_handler = self.workflow_handlers[workflow_name]
+    #             result = await workflow_handler(workflow_parameters)
 
-                await self.stub.RuntimeExecutionEvent(
-                    pb.RuntimeExecutionEventRequest(
-                        event_id=str(uuid.uuid4()),
-                        timestamp=int(datetime.now().timestamp() * 1000),
-                        event_type=pb.EVENT_TYPE_EXECUTION_COMPLETED,
-                    )
-                )
+    #             await self.stub.RuntimeExecutionEvent(
+    #                 pb.RuntimeExecutionEventRequest(
+    #                     event_id=str(uuid.uuid4()),
+    #                     timestamp=int(datetime.now().timestamp() * 1000),
+    #                     event_type=pb.EVENT_TYPE_EXECUTION_COMPLETED,
+    #                 )
+    #             )
 
-                return result
-        except Exception as e:
-            await self.stub.RuntimeExecutionEvent(
-                pb.RuntimeExecutionEventRequest(
-                    event_id=str(uuid.uuid4()),
-                    timestamp=int(datetime.now().timestamp() * 1000),
-                    event_type=pb.EVENT_TYPE_EXECUTION_FAILED,
-                )
-            )
-            raise RuntimeError(f"Error running workflow: {str(e)}")
-        finally:
-            self._current_jobs -= 1
-            logger.info(f"Finished job. Current concurrent jobs: {self._current_jobs}")
+    #             return result
+    #     except Exception as e:
+    #         await self.stub.RuntimeExecutionEvent(
+    #             pb.RuntimeExecutionEventRequest(
+    #                 event_id=str(uuid.uuid4()),
+    #                 timestamp=int(datetime.now().timestamp() * 1000),
+    #                 event_type=pb.EVENT_TYPE_EXECUTION_FAILED,
+    #             )
+    #         )
+    #         raise RuntimeError(f"Error running workflow: {str(e)}")
+    #     finally:
+    #         self._current_jobs -= 1
+    #         logger.info(f"Finished job. Current concurrent jobs: {self._current_jobs}")
 
-    async def pause_workflow(self, payload: pb.PauseWorkflowCommand) -> str:
-        pass
+    # async def pause_workflow(self, payload: pb.PauseWorkflowCommand) -> str:
+    #     pass
 
-    async def resume_workflow(self, payload: pb.ResumeWorkflowCommand) -> str:
-        pass
+    # async def resume_workflow(self, payload: pb.ResumeWorkflowCommand) -> str:
+    #     pass
 
-    async def cancel_workflow(self, payload: pb.CancelWorkflowCommand) -> str:
-        pass
+    # async def cancel_workflow(self, payload: pb.CancelWorkflowCommand) -> str:
+    #     pass
 
-    async def list_workflows(self) -> common_pb.ListWorkflowsResponse:
-        pb_workflows: list[common_pb.WorkflowConfig] = []
-        for workflow_name in WorkflowConfig.get_all():
-            workflow = WorkflowConfig.get(workflow_name)
-            workflow_config = workflow.config
-            if isinstance(workflow_config, WorkflowConfig):
-                _input_parameters = {}
-                for (
-                    input_parameter_name,
-                    input_parameter,
-                ) in workflow_config.input_parameters.items():
-                    _input_parameters[input_parameter_name] = input_parameter.model_dump()
+    # async def list_workflows(self) -> common_pb.ListWorkflowsResponse:
+    #     pb_workflows: list[common_pb.WorkflowConfig] = []
+    #     for workflow_name in WorkflowConfig.get_all():
+    #         workflow = WorkflowConfig.get(workflow_name)
+    #         workflow_config = workflow.config
+    #         if isinstance(workflow_config, WorkflowConfig):
+    #             _input_parameters = {}
+    #             for (
+    #                 input_parameter_name,
+    #                 input_parameter,
+    #             ) in workflow_config.input_parameters.items():
+    #                 _input_parameters[input_parameter_name] = input_parameter.model_dump()
 
-                _output_parameters = {}
-                for idx, output_parameter in enumerate(workflow_config.output_parameters):
-                    _output_parameters[f"output_{idx}"] = output_parameter.model_dump()
+    #             _output_parameters = {}
+    #             for idx, output_parameter in enumerate(workflow_config.output_parameters):
+    #                 _output_parameters[f"output_{idx}"] = output_parameter.model_dump()
 
-                pb_workflow = common_pb.WorkflowConfig(
-                    name=workflow_config.name,
-                    slug=workflow_config.slug,
-                    description=workflow_config.description,
-                    input_parameters=_input_parameters,
-                    output_parameters=_output_parameters,
-                    schedule=common_pb.Schedule(
-                        cron_expression=workflow_config.normalize_schedule(workflow_config.schedule),
-                    ),
-                )
-                pb_workflows.append(pb_workflow)
+    #             pb_workflow = common_pb.WorkflowConfig(
+    #                 name=workflow_config.name,
+    #                 slug=workflow_config.slug,
+    #                 description=workflow_config.description,
+    #                 input_parameters=_input_parameters,
+    #                 output_parameters=_output_parameters,
+    #                 schedule=common_pb.Schedule(
+    #                     cron_expression=workflow_config.normalize_schedule(workflow_config.schedule),
+    #                 ),
+    #             )
+    #             pb_workflows.append(pb_workflow)
 
-        return common_pb.ListWorkflowsResponse(workflows=pb_workflows)
+    #     return common_pb.ListWorkflowsResponse(workflows=pb_workflows)
 
-    async def __call__(self, command: pb.WorkflowCommand) -> dict | None:
-        """Handle workflow command"""
-        match command.type:
-            case pb.WORKFLOW_COMMAND_TYPE_RUN:
-                return await self.run_workflow(command.run_workflow)
-            case pb.WORKFLOW_COMMAND_TYPE_PAUSE:
-                return await self.pause_workflow(command.pause_workflow)
-            case pb.WORKFLOW_COMMAND_TYPE_RESUME:
-                return await self.resume_workflow(command.resume_workflow)
-            case pb.WORKFLOW_COMMAND_TYPE_CANCEL:
-                return await self.cancel_workflow(command.cancel_workflow)
-            case pb.WORKFLOW_COMMAND_TYPE_LIST:
-                return await self.list_workflows()
-            case _:
-                raise ValueError(f"Unsupported workflow command type: {command.type}")
+    # async def __call__(self, command: pb.WorkflowCommand) -> dict | None:
+    #     """Handle workflow command"""
+    # match command.type:
+    #     case pb.WORKFLOW_COMMAND_TYPE_RUN:
+    #         return await self.run_workflow(command.run_workflow)
+    #     case pb.WORKFLOW_COMMAND_TYPE_PAUSE:
+    #         return await self.pause_workflow(command.pause_workflow)
+    #     case pb.WORKFLOW_COMMAND_TYPE_RESUME:
+    #         return await self.resume_workflow(command.resume_workflow)
+    #     case pb.WORKFLOW_COMMAND_TYPE_CANCEL:
+    #         return await self.cancel_workflow(command.cancel_workflow)
+    #     case pb.WORKFLOW_COMMAND_TYPE_LIST:
+    #         return await self.list_workflows()
+    #     case _:
+    #         raise ValueError(f"Unsupported workflow command type: {command.type}")

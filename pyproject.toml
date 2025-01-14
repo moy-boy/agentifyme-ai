@@ -32,6 +32,7 @@ dependencies = [
     "googleapis-common-protos>=1.66.0",
     "opentelemetry-processor-baggage>=0.50b0",
     "opentelemetry-instrumentation>=0.50b0",
+    "openinference-instrumentation-openai>=0.1.18",
 ]
 readme = "README.md"
 requires-python = ">= 3.11"
