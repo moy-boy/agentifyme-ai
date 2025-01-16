@@ -49,17 +49,16 @@ async def run():
         callback_handler = CallbackHandler()
         agentifyme_project_dir = get_env("AGENTIFYME_PROJECT_DIR", Path.cwd().as_posix())
         agentifyme_version = get_package_version("agentifyme")
+        api_gateway_url = get_env("AGENTIFYME_API_GATEWAY_URL")
 
         dev_mode = get_env("AGENTIFYME_DEV_MODE")
         if dev_mode == "true":
-            api_gateway_url = "http://localhost:63418"
             api_key = "dev"
             project_id = "dev"
             deployment_id = "dev"
             worker_id = "dev"
             logger.info("Running in dev mode, using local API gateway")
         else:
-            api_gateway_url = get_env("AGENTIFYME_API_GATEWAY_URL")
             api_key = get_env("AGENTIFYME_API_KEY")
             agentifyme_env = get_env("AGENTIFYME_ENV")
             project_id = get_env("AGENTIFYME_PROJECT_ID")
