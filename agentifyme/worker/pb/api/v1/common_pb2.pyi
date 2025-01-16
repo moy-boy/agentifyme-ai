@@ -12,22 +12,22 @@ DESCRIPTOR: _descriptor.FileDescriptor
 class WorkflowExecutionStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     WORKFLOW_EXECUTION_STATUS_UNSPECIFIED: _ClassVar[WorkflowExecutionStatus]
-    WORKFLOW_EXECUTION_STATUS_QUEUED: _ClassVar[WorkflowExecutionStatus]
-    WORKFLOW_EXECUTION_STATUS_PROCESSING: _ClassVar[WorkflowExecutionStatus]
-    WORKFLOW_EXECUTION_STATUS_COMPLETED: _ClassVar[WorkflowExecutionStatus]
+    WORKFLOW_EXECUTION_STATUS_WAITING: _ClassVar[WorkflowExecutionStatus]
+    WORKFLOW_EXECUTION_STATUS_RUNNING: _ClassVar[WorkflowExecutionStatus]
+    WORKFLOW_EXECUTION_STATUS_SUCCEEDED: _ClassVar[WorkflowExecutionStatus]
     WORKFLOW_EXECUTION_STATUS_FAILED: _ClassVar[WorkflowExecutionStatus]
     WORKFLOW_EXECUTION_STATUS_RETRYING: _ClassVar[WorkflowExecutionStatus]
     WORKFLOW_EXECUTION_STATUS_CANCELLED: _ClassVar[WorkflowExecutionStatus]
-    WORKFLOW_EXECUTION_STATUS_TIMEOUT: _ClassVar[WorkflowExecutionStatus]
+    WORKFLOW_EXECUTION_STATUS_TIMED_OUT: _ClassVar[WorkflowExecutionStatus]
     WORKFLOW_EXECUTION_STATUS_PAUSED: _ClassVar[WorkflowExecutionStatus]
 WORKFLOW_EXECUTION_STATUS_UNSPECIFIED: WorkflowExecutionStatus
-WORKFLOW_EXECUTION_STATUS_QUEUED: WorkflowExecutionStatus
-WORKFLOW_EXECUTION_STATUS_PROCESSING: WorkflowExecutionStatus
-WORKFLOW_EXECUTION_STATUS_COMPLETED: WorkflowExecutionStatus
+WORKFLOW_EXECUTION_STATUS_WAITING: WorkflowExecutionStatus
+WORKFLOW_EXECUTION_STATUS_RUNNING: WorkflowExecutionStatus
+WORKFLOW_EXECUTION_STATUS_SUCCEEDED: WorkflowExecutionStatus
 WORKFLOW_EXECUTION_STATUS_FAILED: WorkflowExecutionStatus
 WORKFLOW_EXECUTION_STATUS_RETRYING: WorkflowExecutionStatus
 WORKFLOW_EXECUTION_STATUS_CANCELLED: WorkflowExecutionStatus
-WORKFLOW_EXECUTION_STATUS_TIMEOUT: WorkflowExecutionStatus
+WORKFLOW_EXECUTION_STATUS_TIMED_OUT: WorkflowExecutionStatus
 WORKFLOW_EXECUTION_STATUS_PAUSED: WorkflowExecutionStatus
 
 class Param(_message.Message):
@@ -145,9 +145,17 @@ class WorkflowExecutionResult(_message.Message):
     ERROR_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
     data: _struct_pb2.Value
-    error: str
+    error: WorkflowExecutionError
     status: WorkflowExecutionStatus
-    def __init__(self, data: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ..., error: _Optional[str] = ..., status: _Optional[_Union[WorkflowExecutionStatus, str]] = ...) -> None: ...
+    def __init__(self, data: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ..., error: _Optional[_Union[WorkflowExecutionError, _Mapping]] = ..., status: _Optional[_Union[WorkflowExecutionStatus, str]] = ...) -> None: ...
+
+class WorkflowExecutionError(_message.Message):
+    __slots__ = ("error_code", "error_message")
+    ERROR_CODE_FIELD_NUMBER: _ClassVar[int]
+    ERROR_MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    error_code: str
+    error_message: str
+    def __init__(self, error_code: _Optional[str] = ..., error_message: _Optional[str] = ...) -> None: ...
 
 class MessageAck(_message.Message):
     __slots__ = ("msg_id", "success", "error")
