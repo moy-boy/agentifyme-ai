@@ -54,6 +54,9 @@ async def run():
         if dev_mode == "true":
             api_gateway_url = "http://localhost:63418"
             api_key = "dev"
+            project_id = "dev"
+            deployment_id = "dev"
+            worker_id = "dev"
             logger.info("Running in dev mode, using local API gateway")
         else:
             api_gateway_url = get_env("AGENTIFYME_API_GATEWAY_URL")
