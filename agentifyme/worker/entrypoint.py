@@ -38,33 +38,43 @@ def main():
 async def run():
     """Entry point for the worker service"""
     try:
+        if Path(".env").exists():
+            logger.info("Loading environment variables")
+            load_dotenv(Path(".env"))
+
         if Path(".env.worker").exists():
             logger.info("Loading worker environment variables")
             load_dotenv(Path(".env.worker"))
 
-        api_gateway_url = get_env("AGENTIFYME_API_GATEWAY_URL")
-        api_key = get_env("AGENTIFYME_API_KEY")
-        agentifyme_env = get_env("AGENTIFYME_ENV")
-        project_id = get_env("AGENTIFYME_PROJECT_ID")
-        deployment_id = get_env("AGENTIFYME_DEPLOYMENT_ID")
-        worker_id = get_env("AGENTIFYME_WORKER_ID")
-        otel_endpoint = get_env("AGENTIFYME_OTEL_ENDPOINT")
+        callback_handler = CallbackHandler()
         agentifyme_project_dir = get_env("AGENTIFYME_PROJECT_DIR", Path.cwd().as_posix())
         agentifyme_version = get_package_version("agentifyme")
 
-        callback_handler = CallbackHandler()
+        dev_mode = get_env("AGENTIFYME_DEV_MODE")
+        if dev_mode == "true":
+            api_gateway_url = "http://localhost:63418"
+            api_key = "dev"
+            logger.info("Running in dev mode, using local API gateway")
+        else:
+            api_gateway_url = get_env("AGENTIFYME_API_GATEWAY_URL")
+            api_key = get_env("AGENTIFYME_API_KEY")
+            agentifyme_env = get_env("AGENTIFYME_ENV")
+            project_id = get_env("AGENTIFYME_PROJECT_ID")
 
-        # Setup telemetry
-        setup_telemetry(
-            otel_endpoint,
-            agentifyme_env,
-            agentifyme_version,
-        )
+            deployment_id = get_env("AGENTIFYME_DEPLOYMENT_ID")
+            worker_id = get_env("AGENTIFYME_WORKER_ID")
+            otel_endpoint = get_env("AGENTIFYME_OTEL_ENDPOINT")
 
-        # Add instrumentation to workflows and tasks
-        auto_instrument(agentifyme_project_dir, callback_handler)
+            # Setup telemetry
+            setup_telemetry(
+                otel_endpoint,
+                agentifyme_env,
+                agentifyme_version,
+            )
 
-        logger.info(f"Starting Agentifyme service with worker {worker_id} and deployment {deployment_id}")
+            # Add instrumentation to workflows and tasks
+            auto_instrument(agentifyme_project_dir, callback_handler)
+            logger.info(f"Starting Agentifyme service with worker {worker_id} and deployment {deployment_id}")
 
         await init_worker_service(api_gateway_url, api_key, project_id, deployment_id, worker_id, callback_handler)
 
