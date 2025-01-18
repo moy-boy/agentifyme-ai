@@ -143,7 +143,14 @@ class WorkerService:
             self.process_callbacks_task = asyncio.create_task(self._process_callback_events())
             self.heartbeat_task = asyncio.create_task(self._heartbeat_loop())
 
-            tasks = [self.process_jobs_task, self.subscribe_to_event_stream_task, self.send_events_task, self.heartbeat_task, self.health_status_task, self.process_callbacks_task]
+            tasks = [
+                self.process_jobs_task,
+                self.subscribe_to_event_stream_task,
+                self.send_events_task,
+                self.heartbeat_task,
+                self.health_status_task,
+                self.process_callbacks_task,
+            ]
             await asyncio.gather(*tasks)
 
             logger.info("Worker service started successfully")
@@ -154,7 +161,6 @@ class WorkerService:
             for task in tasks:
                 if task:
                     task.cancel()
-            traceback.print_exc()
             logger.error(f"Unexpected error during worker registration: {str(e)}")
             return False
 
@@ -194,7 +200,6 @@ class WorkerService:
                         await self._handle_workflow_request(msg)
 
             except grpc.RpcError as e:
-                traceback.print_exc()
                 self.connected = False
                 logger.error(f"Stream error on attempt {self.retry_attempt+1}/{self.MAX_RECONNECT_ATTEMPTS}: {e}")
 
@@ -242,7 +247,7 @@ class WorkerService:
             workflows=_workflows,
         )
         response = await self._stub.SyncWorkflows(sync_msg)
-        logger.info(f"Synchronized workflows: {response}")
+        logger.info(f"Synchronized workflows: {str(response).strip()}")
 
     async def _receive_commands(self) -> None:
         """Receive and process commands from gRPC stream"""
@@ -298,7 +303,10 @@ class WorkerService:
                     metadata=carrier,
                 )
 
-                span.add_event("job_queued", attributes={"run.id": run_id, "input_parameters": input_parameters})
+                span.add_event(
+                    "job_queued",
+                    attributes={"run.id": run_id, "input_parameters": input_parameters},
+                )
 
                 await self.jobs_queue.put(workflow_job)
                 logger.debug(f"Queued workflow job: {request.run_id}")
@@ -306,7 +314,6 @@ class WorkerService:
             detach(token)
 
         except Exception as e:
-            traceback.print_exc()
             logger.error(f"Error handling workflow request: {e}")
 
     # async def _handle_run_command(self, msg: pb.OutboundWorkerMessage, command: pb.WorkflowCommand) -> None:
@@ -356,7 +363,10 @@ class WorkerService:
     async def _handle_stream_error(self, e: grpc.aio.AioRpcError) -> None:
         """Handle stream errors"""
         if e.code() == grpc.StatusCode.INTERNAL and "RST_STREAM" in str(e.details()):
-            logger.warning("Received RST_STREAM error, initiating graceful reconnect", extra={"error_details": e.details()})
+            logger.warning(
+                "Received RST_STREAM error, initiating graceful reconnect",
+                extra={"error_details": e.details()},
+            )
             self.connected = False
             return
 
@@ -394,91 +404,106 @@ class WorkerService:
     async def _send_events(self) -> None:
         while not self.shutdown_event.is_set():
             try:
-                if self._stream is None or self.events_queue.empty():
+                if not self.connected or self._stream is None or self.events_queue.empty():
                     await asyncio.sleep(1)
                     continue
 
                 event = await self.events_queue.get()
-                if isinstance(event, dict):
-                    metadata = {}
-                    metadata["project.id"] = self.project_id
-                    metadata["deployment.id"] = self.deployment_id
-                    metadata["worker.id"] = self.worker_id
-                    logger.info(f"Sending event: {event}")
+                try:
+                    if isinstance(event, dict):
+                        metadata = {}
+                        metadata["project.id"] = self.project_id
+                        metadata["deployment.id"] = self.deployment_id
+                        metadata["worker.id"] = self.worker_id
+                        logger.info(f"Sending event: {event}")
 
-                    event_stage = event.get("event_stage")
-                    runtime_event = pb.RuntimeEvent(
-                        event_type=self.get_event_type(event.get("event_type")),
-                        event_stage=self.get_event_stage(event_stage),
-                        event_name=event.get("event_name"),
-                        timestamp=event.get("timestamp"),
-                        event_id=event.get("step_id"),
-                        parent_event_id=event.get("parent_id"),
-                        run_id=event.get("run_id", "UNKNOWN"),
-                        request_id=event.get("request.id", "UNKNOWN"),
-                        idempotency_key=event.get("idempotency_key", "UNKNOWN"),
-                        status=pb.RuntimeEventStatus.RUNTIME_EVENT_STATUS_SUCCESS,
-                        retry_attempt=event.get("retry_attempt", 0),
-                        error_message=event.get("error", ""),
-                        error_code=event.get("error_code", ""),
-                        metadata=metadata,
-                    )
+                        event_stage = event.get("event_stage")
+                        runtime_event = pb.RuntimeEvent(
+                            event_type=self.get_event_type(event.get("event_type")),
+                            event_stage=self.get_event_stage(event_stage),
+                            event_name=event.get("event_name"),
+                            timestamp=event.get("timestamp"),
+                            event_id=event.get("step_id"),
+                            parent_event_id=event.get("parent_id"),
+                            run_id=event.get("run_id", "UNKNOWN"),
+                            request_id=event.get("request.id", "UNKNOWN"),
+                            idempotency_key=event.get("idempotency_key", "UNKNOWN"),
+                            status=pb.RuntimeEventStatus.RUNTIME_EVENT_STATUS_SUCCESS,
+                            retry_attempt=event.get("retry_attempt", 0),
+                            error_message=event.get("error", ""),
+                            error_code=event.get("error_code", ""),
+                            metadata=metadata,
+                        )
 
-                    if "input" in event:
-                        input_data = event.get("input")
-                        if isinstance(input_data, dict):
-                            struct = struct_pb2.Struct()
-                            struct.update(input_data)
-                            runtime_event.input_data_format = pb.DATA_FORMAT_STRUCT
-                            runtime_event.struct_input = struct
-                        elif isinstance(input_data, BaseModel):
-                            struct = struct_pb2.Struct()
-                            struct.update(input_data.model_dump())
-                            runtime_event.input_data_format = pb.DATA_FORMAT_STRUCT
-                            runtime_event.struct_input = struct
-                        elif isinstance(input_data, bytes):
-                            runtime_event.input_data_format = pb.DATA_FORMAT_BINARY
-                            runtime_event.binary_input = input_data
-                        elif isinstance(input_data, str):
-                            runtime_event.input_data_format = pb.DATA_FORMAT_STRING
-                            runtime_event.string_input = input_data
-                        else:
-                            logger.error(f"Received unexpected input type: {type(input_data)}")
+                        if "input" in event:
+                            input_data = event.get("input")
+                            if isinstance(input_data, dict):
+                                struct = struct_pb2.Struct()
+                                struct.update(input_data)
+                                runtime_event.input_data_format = pb.DATA_FORMAT_STRUCT
+                                runtime_event.struct_input = struct
+                            elif isinstance(input_data, BaseModel):
+                                struct = struct_pb2.Struct()
+                                struct.update(input_data.model_dump())
+                                runtime_event.input_data_format = pb.DATA_FORMAT_STRUCT
+                                runtime_event.struct_input = struct
+                            elif isinstance(input_data, bytes):
+                                runtime_event.input_data_format = pb.DATA_FORMAT_BINARY
+                                runtime_event.binary_input = input_data
+                            elif isinstance(input_data, str):
+                                runtime_event.input_data_format = pb.DATA_FORMAT_STRING
+                                runtime_event.string_input = input_data
+                            else:
+                                logger.error(f"Received unexpected input type: {type(input_data)}")
 
-                    if "output" in event:
-                        output_data = event.get("output")
-                        if isinstance(output_data, dict):
-                            struct = struct_pb2.Struct()
-                            struct.update(output_data)
-                            runtime_event.output_data_format = pb.DATA_FORMAT_STRUCT
-                            runtime_event.struct_output = struct
-                        elif isinstance(output_data, BaseModel):
-                            runtime_event.output_data_format = pb.DATA_FORMAT_STRUCT
-                            struct = struct_pb2.Struct()
-                            struct.update(output_data.model_dump())
-                            runtime_event.struct_output = struct
-                        elif isinstance(output_data, bytes):
-                            runtime_event.output_data_format = pb.DATA_FORMAT_BINARY
-                            runtime_event.binary_output = output_data
-                        elif isinstance(output_data, str):
-                            runtime_event.output_data_format = pb.DATA_FORMAT_STRING
-                            runtime_event.string_output = output_data
-                        else:
-                            logger.error(f"Received unexpected output type: {type(output_data)}")
+                        if "output" in event:
+                            output_data = event.get("output")
+                            if isinstance(output_data, dict):
+                                struct = struct_pb2.Struct()
+                                struct.update(output_data)
+                                runtime_event.output_data_format = pb.DATA_FORMAT_STRUCT
+                                runtime_event.struct_output = struct
+                            elif isinstance(output_data, BaseModel):
+                                runtime_event.output_data_format = pb.DATA_FORMAT_STRUCT
+                                struct = struct_pb2.Struct()
+                                struct.update(output_data.model_dump())
+                                runtime_event.struct_output = struct
+                            elif isinstance(output_data, bytes):
+                                runtime_event.output_data_format = pb.DATA_FORMAT_BINARY
+                                runtime_event.binary_output = output_data
+                            elif isinstance(output_data, str):
+                                runtime_event.output_data_format = pb.DATA_FORMAT_STRING
+                                runtime_event.string_output = output_data
+                            else:
+                                logger.error(f"Received unexpected output type: {type(output_data)}")
 
-                    msg = pb.InboundWorkerMessage(
-                        msg_id=get_message_id(),
-                        worker_id=self.worker_id,
-                        deployment_id=self.deployment_id,
-                        type=pb.INBOUND_WORKER_MESSAGE_TYPE_RUNTIME_EVENT,
-                        event=runtime_event,
-                        metadata=metadata,
-                    )
+                        msg = pb.InboundWorkerMessage(
+                            msg_id=get_message_id(),
+                            worker_id=self.worker_id,
+                            deployment_id=self.deployment_id,
+                            type=pb.INBOUND_WORKER_MESSAGE_TYPE_RUNTIME_EVENT,
+                            event=runtime_event,
+                            metadata=metadata,
+                        )
 
-                    await self._stream.write(msg)
+                        await self._stream.write(msg)
 
-                else:
-                    logger.error(f"Received unexpected event type: {type(event)}")
+                    else:
+                        logger.error(f"Received unexpected event type: {type(event)}")
+
+                except grpc.aio.AioRpcError as e:
+                    logger.error(f"Stream error in send_events: {e}")
+                    self.connected = False  # Mark as disconnected on error
+                    # Put the event back in the queue
+                    await self.events_queue.put(event)
+                    continue
+
+                except Exception as e:
+                    logger.error(f"Error processing event: {e}")
+                    # For other errors, also requeue
+                    await self.events_queue.put(event)
+                    continue
+
             except queue.Empty:
                 pass
 
@@ -530,7 +555,11 @@ class WorkerService:
                     while not self.shutdown_event.is_set():
                         error = None
                         try:
-                            self.callback_handler.fire_event("workflow.execution", "initiated", {**attributes, "input": job.input_parameters})
+                            self.callback_handler.fire_event(
+                                "workflow.execution",
+                                "initiated",
+                                {**attributes, "input": job.input_parameters},
+                            )
                             # Execute workflow step
                             _workflow_handler = self._workflow_handlers.get(job.workflow_name)
                             if _workflow_handler is None:
@@ -540,7 +569,14 @@ class WorkerService:
 
                             logger.info(f"Workflow {job.run_id} result: {job.output}, job.success: {job.success}")
 
-                            span.add_event("job_completed", attributes={"request.id": job.run_id, "output": orjson.dumps(job.output), "success": job.success})
+                            span.add_event(
+                                "job_completed",
+                                attributes={
+                                    "request.id": job.run_id,
+                                    "output": orjson.dumps(job.output),
+                                    "success": job.success,
+                                },
+                            )
 
                             if job.success:
                                 span.set_status(StatusCode.OK)
@@ -563,9 +599,25 @@ class WorkerService:
                             logger.error(f"Error executing workflow: {e}")
                         finally:
                             if error:
-                                self.callback_handler.fire_event("workflow.execution", "finished", {**attributes, "error": str(error), "input": job.input_parameters})
+                                self.callback_handler.fire_event(
+                                    "workflow.execution",
+                                    "finished",
+                                    {
+                                        **attributes,
+                                        "error": str(error),
+                                        "input": job.input_parameters,
+                                    },
+                                )
                             else:
-                                self.callback_handler.fire_event("workflow.execution", "finished", {**attributes, "output": job.output, "input": job.input_parameters})
+                                self.callback_handler.fire_event(
+                                    "workflow.execution",
+                                    "finished",
+                                    {
+                                        **attributes,
+                                        "output": job.output,
+                                        "input": job.input_parameters,
+                                    },
+                                )
                 detach(token)
 
             except asyncio.CancelledError:
@@ -693,11 +745,14 @@ class WorkerService:
                     if current_state:
                         self.health_file.parent.mkdir(exist_ok=True)
                         self.health_file.touch()
+                        self.health_file.write_text(str(int(datetime.now().timestamp() * 1_000_000)))
+                        logger.info("Workflow service is healthy")
                     else:
                         self.health_file.unlink(missing_ok=True)
+                        logger.info("Workflow service is unhealthy")
                     self._last_health_state = current_state
 
-                await asyncio.sleep(1)  # Check state every second
+                await asyncio.sleep(5)
 
             except Exception as e:
                 logger.error(f"Error updating health status: {e}")
@@ -731,10 +786,26 @@ class WorkerService:
         event_type_mapping = {
             "task_start": (pb.EVENT_TYPE_TASK_STARTED, "task_event", pb.TaskEventData),
             "task_end": (pb.EVENT_TYPE_TASK_COMPLETED, "task_event", pb.TaskEventData),
-            "workflow_start": (pb.EVENT_TYPE_WORKFLOW_STARTED, "workflow_event", pb.WorkflowEventData),
-            "workflow_end": (pb.EVENT_TYPE_WORKFLOW_COMPLETED, "workflow_event", pb.WorkflowEventData),
-            "exec_start": (pb.EVENT_TYPE_EXECUTION_STARTED, "execution_event", pb.ExecutionEventData),
-            "exec_end": (pb.EVENT_TYPE_EXECUTION_COMPLETED, "execution_event", pb.ExecutionEventData),
+            "workflow_start": (
+                pb.EVENT_TYPE_WORKFLOW_STARTED,
+                "workflow_event",
+                pb.WorkflowEventData,
+            ),
+            "workflow_end": (
+                pb.EVENT_TYPE_WORKFLOW_COMPLETED,
+                "workflow_event",
+                pb.WorkflowEventData,
+            ),
+            "exec_start": (
+                pb.EVENT_TYPE_EXECUTION_STARTED,
+                "execution_event",
+                pb.ExecutionEventData,
+            ),
+            "exec_end": (
+                pb.EVENT_TYPE_EXECUTION_COMPLETED,
+                "execution_event",
+                pb.ExecutionEventData,
+            ),
         }
 
         event_type = data["event_type"]
@@ -752,6 +823,11 @@ class WorkerService:
         logger.info(f"Event data: {event_data}")
 
         # Create and send request
-        request = pb.RuntimeExecutionEventRequest(event_id=event_id, timestamp=timestamp, event_type=pb_event_type, **{event_field: event_class(**event_data)})
+        request = pb.RuntimeExecutionEventRequest(
+            event_id=event_id,
+            timestamp=timestamp,
+            event_type=pb_event_type,
+            **{event_field: event_class(**event_data)},
+        )
 
         await self._stub.RuntimeExecutionEvent(request)

@@ -25,14 +25,28 @@ from agentifyme.workflows import WorkflowConfig
 
 
 def main():
+    exit_code = 1
     try:
-        asyncio.run(run())
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        exit_code = loop.run_until_complete(run())
     except KeyboardInterrupt:
         logger.info("Worker service stopped by user")
-        return 0
+        exit_code = 0
     except Exception as e:
         logger.error("Worker service error", exc_info=True, error=str(e))
-        return 1
+        exit_code = 1
+    finally:
+        # Ensure logger is properly closed and flush outputs
+        try:
+            logger.remove()
+            sys.stdout.flush()
+            sys.stderr.flush()
+            loop.close()
+        except Exception as e:
+            logger.error("Failed to close logger", exc_info=True, error=str(e))
+
+    sys.exit(exit_code)
 
 
 async def run():
@@ -46,39 +60,38 @@ async def run():
             logger.info("Loading worker environment variables")
             load_dotenv(Path(".env.worker"))
 
-        callback_handler = CallbackHandler()
+        api_gateway_url = get_env("AGENTIFYME_API_GATEWAY_URL")
+        api_key = get_env("AGENTIFYME_API_KEY")
+        agentifyme_env = get_env("AGENTIFYME_ENV")
+        project_id = get_env("AGENTIFYME_PROJECT_ID")
+        deployment_id = get_env("AGENTIFYME_DEPLOYMENT_ID")
+        worker_id = get_env("AGENTIFYME_WORKER_ID")
+        otel_endpoint = get_env("AGENTIFYME_OTEL_ENDPOINT")
         agentifyme_project_dir = get_env("AGENTIFYME_PROJECT_DIR", Path.cwd().as_posix())
         agentifyme_version = get_package_version("agentifyme")
-        api_gateway_url = get_env("AGENTIFYME_API_GATEWAY_URL")
 
-        dev_mode = get_env("AGENTIFYME_DEV_MODE")
-        if dev_mode == "true":
-            api_key = "dev"
-            project_id = "dev"
-            deployment_id = "dev"
-            worker_id = "dev"
-            logger.info("Running in dev mode, using local API gateway")
-        else:
-            api_key = get_env("AGENTIFYME_API_KEY")
-            agentifyme_env = get_env("AGENTIFYME_ENV")
-            project_id = get_env("AGENTIFYME_PROJECT_ID")
+        callback_handler = CallbackHandler()
 
-            deployment_id = get_env("AGENTIFYME_DEPLOYMENT_ID")
-            worker_id = get_env("AGENTIFYME_WORKER_ID")
-            otel_endpoint = get_env("AGENTIFYME_OTEL_ENDPOINT")
+        # Setup telemetry
+        setup_telemetry(
+            otel_endpoint,
+            agentifyme_env,
+            agentifyme_version,
+        )
 
-            # Setup telemetry
-            setup_telemetry(
-                otel_endpoint,
-                agentifyme_env,
-                agentifyme_version,
-            )
+        # Add instrumentation to workflows and tasks
+        auto_instrument(agentifyme_project_dir, callback_handler)
 
-            # Add instrumentation to workflows and tasks
-            auto_instrument(agentifyme_project_dir, callback_handler)
-            logger.info(f"Starting Agentifyme service with worker {worker_id} and deployment {deployment_id}")
+        logger.info(f"Starting Agentifyme service with worker {worker_id} and deployment {deployment_id}")
 
-        await init_worker_service(api_gateway_url, api_key, project_id, deployment_id, worker_id, callback_handler)
+        await init_worker_service(
+            api_gateway_url,
+            api_key,
+            project_id,
+            deployment_id,
+            worker_id,
+            callback_handler,
+        )
 
     except ValueError as e:
         logger.error(f"Worker service error: {e}")
@@ -90,7 +103,14 @@ async def run():
     return 0
 
 
-async def init_worker_service(api_gateway_url: str, api_key: str, project_id: str, deployment_id: str, worker_id: str, callback_handler: CallbackHandler):
+async def init_worker_service(
+    api_gateway_url: str,
+    api_key: str,
+    project_id: str,
+    deployment_id: str,
+    worker_id: str,
+    callback_handler: CallbackHandler,
+):
     grpc_options = [
         ("grpc.keepalive_time_ms", 60000),
         ("grpc.keepalive_timeout_ms", 20000),
@@ -100,9 +120,20 @@ async def init_worker_service(api_gateway_url: str, api_key: str, project_id: st
 
     try:
         api_key_interceptor = APIKeyInterceptor(api_key)
-        async with grpc.aio.insecure_channel(target=api_gateway_url, options=grpc_options, interceptors=[api_key_interceptor]) as channel:
+        async with grpc.aio.insecure_channel(
+            target=api_gateway_url,
+            options=grpc_options,
+            interceptors=[api_key_interceptor],
+        ) as channel:
             stub = pb_grpc.GatewayServiceStub(channel)
-            worker_service = WorkerService(stub, callback_handler, api_gateway_url, project_id, deployment_id, worker_id)
+            worker_service = WorkerService(
+                stub,
+                callback_handler,
+                api_gateway_url,
+                project_id,
+                deployment_id,
+                worker_id,
+            )
             await worker_service.start_service()
     except KeyboardInterrupt:
         logger.info("Worker service stopped by user", exc_info=True)
