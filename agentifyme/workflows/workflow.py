@@ -13,6 +13,7 @@ from typing import (
 from loguru import logger
 
 from agentifyme.config import BaseModule, WorkflowConfig
+from agentifyme.errors import AgentifyMeExecutionError, AgentifyMeValidationError, ErrorContext
 from agentifyme.utilities.func_utils import (
     execute_function,
     get_function_metadata,
@@ -20,18 +21,6 @@ from agentifyme.utilities.func_utils import (
 
 P = ParamSpec("P")
 R = TypeVar("R", bound=Callable[..., Any])
-
-
-class WorkflowError(Exception):
-    pass
-
-
-class WorkflowExecutionError(WorkflowError):
-    pass
-
-
-class AsyncWorkflowExecutionError(WorkflowError):
-    pass
 
 
 class Workflow(BaseModule):
@@ -47,9 +36,16 @@ class Workflow(BaseModule):
             try:
                 return execute_function(self.config.func, kwargs)
             except Exception as e:
-                raise WorkflowExecutionError(f"Error executing workflow {self.config.name}: {str(e)}") from e
+                raise AgentifyMeExecutionError(
+                    message=f"Error executing workflow {self.config.name}: {str(e)}",
+                    context=ErrorContext(component_type="workflow", component_id=self.config.name),
+                    execution_state=kwargs,
+                ) from e
         else:
-            raise NotImplementedError("Workflow function not implemented")
+            raise AgentifyMeValidationError(
+                message="Workflow function not implemented",
+                context=ErrorContext(component_type="workflow", component_id=self.config.name),
+            )
 
     async def arun(self, *args, **kwargs: Any) -> Any:
         logger.info(f"Running async workflow: {self.config.name}")
@@ -61,9 +57,16 @@ class Workflow(BaseModule):
                 else:
                     return await asyncio.to_thread(self.config.func, **kwargs)
             except Exception as e:
-                raise AsyncWorkflowExecutionError(f"Error executing async workflow {self.config.name}: {str(e)}") from e
+                raise AgentifyMeExecutionError(
+                    message=f"Error executing workflow {self.config.name}: {str(e)}",
+                    context=ErrorContext(component_type="workflow", component_id=self.config.name),
+                    execution_state=kwargs,
+                ) from e
         else:
-            raise NotImplementedError("Workflow function not implemented")
+            raise AgentifyMeValidationError(
+                message="Workflow function not implemented",
+                context=ErrorContext(component_type="workflow", component_id=self.config.name),
+            )
 
 
 @overload
@@ -110,15 +113,6 @@ def workflow(
             result = await _workflow_instance.arun(**kwargs)
             return result
 
-        # nested_calls = []
-        # source = inspect.getsource(func)
-        # tree = ast.parse(source)
-        # for node in ast.walk(tree):
-        #     if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
-        #         call_name = node.func.id
-        #         if WorkflowConfig.get(call_name) or TaskConfig.get(call_name):
-        #             nested_calls.append(call_name)
-
         # Choose the appropriate wrapper based on whether the function is async or not
         final_wrapper = async_wrapper if asyncio.iscoroutinefunction(func) else wrapper
 
@@ -140,4 +134,7 @@ def workflow(
     elif name is not None:
         return decorator
     else:
-        raise WorkflowError("Invalid arguments for workflow decorator")
+        raise AgentifyMeValidationError(
+            message="Invalid arguments for workflow decorator",
+            context=ErrorContext(component_type="workflow", component_id="decorator"),
+        )

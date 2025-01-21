@@ -1,12 +1,9 @@
 import asyncio
-import copy
 import queue
 import random
-import traceback
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
-from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +26,7 @@ import agentifyme.worker.pb.api.v1.gateway_pb2 as pb
 import agentifyme.worker.pb.api.v1.gateway_pb2_grpc as pb_grpc
 from agentifyme import __version__
 from agentifyme.config import TaskConfig, WorkflowConfig
+from agentifyme.errors import AgentifyMeExecutionError, ErrorContext
 from agentifyme.utilities.grpc import get_message_id, get_timestamp
 from agentifyme.worker.callback import CallbackHandler
 from agentifyme.worker.helpers import convert_workflow_to_pb, struct_to_dict
@@ -37,7 +35,6 @@ from agentifyme.worker.workflows import (
     WorkflowHandler,
     WorkflowJob,
 )
-from agentifyme.workflows.workflow import WorkflowExecutionError
 
 
 async def exponential_backoff(attempt: int, max_delay: int = 32) -> None:
@@ -410,6 +407,7 @@ class WorkerService:
 
                 event = await self.events_queue.get()
                 try:
+                    logger.info(f"Sending event: {event}")
                     if isinstance(event, dict):
                         metadata = {}
                         metadata["project.id"] = self.project_id
@@ -591,12 +589,15 @@ class WorkerService:
                             # TODO: Handle errors and retry scenario.
                             if job.completed:
                                 break
-                        except WorkflowExecutionError as e:
-                            error = e
-                            logger.error(f"Error executing workflow: {e}")
+
                         except Exception as e:
                             error = e
-                            logger.error(f"Error executing workflow: {e}")
+                            logger.error(f"{type(e)} executing workflow: {e}")
+                            raise AgentifyMeExecutionError(
+                                message=f"Error executing workflow: {e}",
+                                context=ErrorContext(component_type="workflow", component_id=job.workflow_name),
+                                execution_state=job.input_parameters,
+                            ) from e
                         finally:
                             if error:
                                 self.callback_handler.fire_event(

@@ -1,7 +1,6 @@
 import asyncio
 import os
 import time
-import traceback
 from datetime import datetime
 
 import orjson
@@ -16,7 +15,7 @@ from agentifyme.tasks.task import TaskConfig
 from agentifyme.utilities.modules import load_modules_from_directory
 from agentifyme.worker.callback import CallbackHandler
 from agentifyme.worker.telemetry.semconv import SemanticAttributes
-from agentifyme.workflows.workflow import WorkflowConfig, WorkflowExecutionError
+from agentifyme.workflows.workflow import WorkflowConfig
 
 from .base import get_resource_attributes
 
