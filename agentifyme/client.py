@@ -1,9 +1,11 @@
 import os
 from abc import ABC, abstractmethod
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 import httpx
 from pydantic import BaseModel
+
+from agentifyme.utilities.json_utils import serialize_value
 
 
 class AgentifymeError(Exception):
@@ -36,6 +38,7 @@ class BaseClient(ABC):
         organization: str | None = None,
         project: str | None = None,
         local_mode: bool | None = None,
+        timeout: float = 300.0,
     ):
         """
         Initialize the base Agentifyme client
@@ -45,6 +48,7 @@ class BaseClient(ABC):
             api_key: API key for authentication (not required for local mode)
             organization: Organization ID (not required for local mode)
             project: Optional project ID
+            timeout: Timeout for API requests, defaults to 300 seconds (5 minutes)
         """
         # Set default endpoints
         DEFAULT_CLOUD_ENDPOINT = "https://run.agentifyme.ai/v1/workflows"
@@ -82,7 +86,7 @@ class BaseClient(ABC):
         self.project = project
 
         # Initialize HTTP client with appropriate headers
-        self._http_client = self._create_http_client()
+        self._http_client = self._create_http_client(timeout)
 
     def _is_local_endpoint(self, endpoint: str | httpx.URL) -> bool:
         """
@@ -113,13 +117,26 @@ class BaseClient(ABC):
                 headers["X-ORG-ID"] = self.organization
         return headers
 
-    def _prepare_input(self, name: str, input_data: Union[dict, BaseModel]) -> dict:
-        """Convert input data to dictionary format"""
+    def _prepare_input(self, name: str, input_data: Union[dict[str, Any], BaseModel]) -> dict:
+        """
+        Convert input data to dictionary format with proper serialization of datetime objects
+
+        Args:
+            name: Name of the input
+            input_data: Input data either as dictionary or Pydantic model
+
+        Returns:
+            Dictionary with serialized values suitable for JSON serialization
+        """
         data = {"name": name}
+
         if isinstance(input_data, BaseModel):
+            # Pydantic models already handle datetime serialization in model_dump()
             data["parameters"] = input_data.model_dump()
         else:
-            data["parameters"] = input_data
+            # For raw dictionaries, we need to handle serialization ourselves
+            data["parameters"] = serialize_value(input_data)
+
         return data
 
     @abstractmethod
@@ -136,12 +153,12 @@ class BaseClient(ABC):
 class Client(BaseClient):
     """Synchronous client for the Agentifyme API"""
 
-    def _create_http_client(self) -> httpx.Client:
+    def _create_http_client(self, timeout: float) -> httpx.Client:
         """Create a synchronous HTTP client"""
         headers = self._get_request_headers()
         return httpx.Client(
             headers=headers,
-            timeout=30.0,  # 30 second timeout
+            timeout=timeout,
         )
 
     def _handle_response(self, response: httpx.Response) -> Union[dict, list, str, None]:
@@ -223,12 +240,12 @@ class Client(BaseClient):
 class AsyncClient(BaseClient):
     """Async client for the Agentifyme API"""
 
-    def _create_http_client(self) -> httpx.AsyncClient:
+    def _create_http_client(self, timeout: float) -> httpx.AsyncClient:
         """Create an async HTTP client"""
         headers = self._get_request_headers()
         return httpx.AsyncClient(
             headers=headers,
-            timeout=30.0,  # 30 second timeout
+            timeout=timeout,
         )
 
     async def _handle_response(self, response: httpx.Response) -> Union[dict, list, str, None]:

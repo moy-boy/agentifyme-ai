@@ -1,24 +1,21 @@
 import asyncio
 import os
 import traceback
-import uuid
 from datetime import datetime
+from decimal import Decimal, InvalidOperation
 from inspect import signature
-from typing import Any, Callable, Type, TypeVar, get_type_hints
+from numbers import Number
+from typing import Any, Callable, Type, TypeVar, Union, get_type_hints
 
 import orjson
-from grpc.aio import Channel, StreamStreamCall
+from grpc.aio import StreamStreamCall
 from loguru import logger
 from opentelemetry import trace
-from opentelemetry.baggage import set_baggage
 from opentelemetry.trace import Status, StatusCode
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 from pydantic import BaseModel, ValidationError
 
-import agentifyme.worker.pb.api.v1.common_pb2 as common_pb
-import agentifyme.worker.pb.api.v1.gateway_pb2 as pb
 import agentifyme.worker.pb.api.v1.gateway_pb2_grpc as pb_grpc
-from agentifyme.worker.helpers import convert_workflow_to_pb, struct_to_dict
 from agentifyme.workflows import Workflow, WorkflowConfig
 
 Input = TypeVar("Input")
@@ -56,19 +53,104 @@ class WorkflowHandler:
 
     def _build_args_from_signature(self, func: Callable, input_dict: dict[str, Any]) -> dict[str, Any]:
         """
-        Builds function arguments using signature and type hints
+        Builds function arguments using signature and type hints with improved numeric type handling
+
+        Args:
+            func: The function whose signature to use
+            input_dict: Dictionary of input parameters
+
+        Returns:
+            Dictionary of converted arguments matching the function signature
         """
         sig = signature(func)
         type_hints = get_type_hints(func)
         type_hints.pop("return", None)
 
+        def convert_numeric(value: Any, target_type: type) -> Number:
+            """Helper function to convert numeric values with proper type checking"""
+            if isinstance(value, str):
+                # Handle strings that might represent numbers
+                value = value.strip()
+                try:
+                    if isinstance(target_type, type) and issubclass(target_type, int):
+                        # Handle float strings that are actually integers
+                        float_val = float(value)
+                        if float_val.is_integer():
+                            return int(float_val)
+                        raise ValueError(f"Value {value} is not an integer")
+                    elif isinstance(target_type, type) and issubclass(target_type, float):
+                        return float(value)
+                    elif isinstance(target_type, type) and issubclass(target_type, Decimal):
+                        return Decimal(value)
+                except (ValueError, InvalidOperation) as e:
+                    raise ValueError(f"Cannot convert {value} to {target_type.__name__}: {str(e)}")
+
+            # Handle numeric type conversion for non-string values
+            if isinstance(value, Number):
+                if isinstance(target_type, type) and issubclass(target_type, int) and isinstance(value, float):
+                    if value.is_integer():
+                        return int(value)
+                    raise ValueError(f"Float value {value} cannot be converted to integer without loss")
+                return target_type(value)
+
+            raise ValueError(f"Cannot convert {type(value).__name__} to {target_type.__name__}")
+
         args = {}
-        for param_name, param_type in type_hints.items():
-            if param_name in input_dict:
+        for param_name, param in sig.parameters.items():
+            param_type = type_hints.get(param_name)
+
+            # Skip if no type hint or parameter not in input
+            if not param_type or (param_name not in input_dict and param.default is not param.empty):
+                continue
+
+            value = input_dict.get(param_name)
+
+            # Handle None for Optional types
+            if value is None:
+                if param.default is param.empty:  # Required parameter
+                    raise ValueError(f"Required parameter {param_name} cannot be None")
+                args[param_name] = None
+                continue
+
+            try:
+                # Handle Pydantic models
                 if hasattr(param_type, "model_validate"):
-                    args[param_name] = param_type.model_validate(input_dict[param_name])
+                    args[param_name] = param_type.model_validate(value)
+
+                # Handle datetime
+                elif param_type == datetime:
+                    if isinstance(value, str):
+                        args[param_name] = datetime.fromisoformat(value.replace("Z", "+00:00"))
+                    else:
+                        args[param_name] = value
+
+                # Handle numeric types
+                elif param_type in (int, float, Decimal):
+                    args[param_name] = convert_numeric(value, param_type)
+
+                # Handle Optional/Union types
+                elif hasattr(param_type, "__origin__"):
+                    if param_type.__origin__ == Union:
+                        # Try each possible type until one works
+                        for possible_type in param_type.__args__:
+                            try:
+                                if possible_type in (int, float, Decimal):
+                                    args[param_name] = convert_numeric(value, possible_type)
+                                    break
+                                args[param_name] = possible_type(value)
+                                break
+                            except (ValueError, TypeError):
+                                continue
+                        else:
+                            raise ValueError(f"Could not convert {param_name} to any of {param_type.__args__}")
+
+                # Handle basic types
                 else:
-                    args[param_name] = param_type(input_dict[param_name])
+                    args[param_name] = param_type(value)
+
+            except (ValueError, TypeError) as e:
+                raise ValueError(f"Failed to convert parameter {param_name} to {param_type}: {str(e)}")
+
         return args
 
     def _process_output(self, result: Any, return_type: Type) -> dict[str, Any]:

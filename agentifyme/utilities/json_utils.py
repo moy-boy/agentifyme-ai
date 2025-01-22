@@ -1,5 +1,6 @@
 import json
 import re
+from datetime import date, datetime
 from typing import Any, Dict
 
 
@@ -42,3 +43,18 @@ def extract_json(text: str) -> Dict[str, Any] | None:
             # If parsing fails, return None
             return None
     return None
+
+
+def serialize_value(value: Any) -> Any:
+    """Recursively serialize values in data structures"""
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    elif isinstance(value, dict):
+        return {k: serialize_value(v) for k, v in value.items()}
+    elif isinstance(value, list):
+        return [serialize_value(item) for item in value]
+    elif isinstance(value, tuple):
+        return tuple(serialize_value(item) for item in value)
+    elif isinstance(value, set):
+        return {serialize_value(item) for item in value}
+    return value
