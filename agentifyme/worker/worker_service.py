@@ -499,7 +499,7 @@ class WorkerService:
                 except Exception as e:
                     logger.error(f"Error processing event: {e}")
                     # For other errors, also requeue
-                    await self.events_queue.put(event)
+                    # await self.events_queue.put(event)
                     continue
 
             except queue.Empty:
