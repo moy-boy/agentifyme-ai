@@ -14,6 +14,7 @@ class ErrorCategory(Enum):
     RESOURCE = "RESOURCE"
     PERMISSION = "PERMISSION"
     CONFIGURATION = "CONFIGURATION"
+    CUSTOM = "CUSTOM"
 
 
 class ErrorSeverity(Enum):
@@ -39,19 +40,43 @@ class AgentifyMeError(Exception):
     def __init__(
         self,
         message: str,
-        category: ErrorCategory,
-        context: ErrorContext,
+        error_code: str | None = None,
+        category: ErrorCategory | None = None,
+        context: ErrorContext | None = None,
         severity: ErrorSeverity = ErrorSeverity.ERROR,
     ):
         self.message = message
+        self.error_code = error_code
         self.category = category
         self.context = context
         self.severity = severity
-        self.traceback = traceback.format_exc()
+        self._traceback = traceback.format_exc()
         super().__init__(message)
 
-    def __str__(self):
-        return f"{self.category.value} Error in {self.context.component_type} " f"[{self.context.component_id}]: {self.message}"
+    @property
+    def traceback(self) -> str:
+        return str(self._traceback)
+
+    def __str__(self) -> str:
+        category_str = self.category.value if self.category else "AgentifyMe"
+
+        if self.context:
+            component_type = self.context.component_type
+            component_id = self.context.component_id
+            return f"{category_str} Error in {component_type} [{component_id}]: {self.message}"
+
+        return f"{category_str} Error: {self.message}"
+
+    def __dict__(self) -> dict:
+        return {
+            "message": str(self.message),
+            "error_code": str(self.error_code) if self.error_code else None,
+            "category": str(self.category.value) if self.category else None,
+            "component_type": str(self.context.component_type) if self.context else None,
+            "component_id": str(self.context.component_id) if self.context else None,
+            "severity": str(self.severity.value),
+            "traceback": self.traceback,
+        }
 
 
 class AgentifyMeTimeoutError(AgentifyMeError):

@@ -51,8 +51,8 @@ class BaseClient(ABC):
             timeout: Timeout for API requests, defaults to 300 seconds (5 minutes)
         """
         # Set default endpoints
-        DEFAULT_CLOUD_ENDPOINT = "https://run.agentifyme.ai/v1/workflows"
-        DEFAULT_LOCAL_ENDPOINT = "http://localhost:63419/v1/workflows"
+        DEFAULT_CLOUD_ENDPOINT = "https://run.agentifyme.ai"
+        DEFAULT_LOCAL_ENDPOINT = "http://localhost:63419"
 
         # Set endpoint URL
         if endpoint_url is None:
@@ -60,7 +60,7 @@ class BaseClient(ABC):
             # If no endpoint is specified, use appropriate default based on local_mode
             if endpoint_url is None:
                 endpoint_url = DEFAULT_LOCAL_ENDPOINT if local_mode else DEFAULT_CLOUD_ENDPOINT
-        self.endpoint_url = endpoint_url
+        self.endpoint_url = endpoint_url.rstrip("/")
 
         # Determine if we're in local mode
         self.is_local_mode = local_mode if local_mode is not None else self._is_local_endpoint(self.endpoint_url)
@@ -183,15 +183,21 @@ class Client(BaseClient):
         except Exception as e:
             raise AgentifymeError(f"Unexpected error: {str(e)}")
 
-    def run_workflow(self, name: str, input: Union[dict, BaseModel] | None = None, deployment_endpoint: str | None = None) -> Union[dict, list, str, None]:
+    def run_workflow(
+        self,
+        name: str,
+        input: Union[dict, BaseModel] | None = None,
+        deployment_endpoint: str | None = None,
+        timeout: float = 300.0,
+    ) -> Union[dict, list, str, None]:
         """
-        Run a workflow synchronously
+        Run a workflow
 
         Args:
             name: Workflow name
             input: Workflow input parameters as dict or Pydantic model
             deployment_endpoint: Workflow deployment endpoint identifier
-
+            timeout: Timeout for API requests, defaults to 300 seconds (5 minutes)
         Returns:
             API response data
         """
@@ -201,14 +207,15 @@ class Client(BaseClient):
             headers["x-wf-endpoint"] = deployment_endpoint
 
         try:
-            response = self._http_client.post(f"{self.endpoint_url}/run", json=data, headers=headers)
+            http_client = self._create_http_client(timeout)
+            response = http_client.post(f"{self.endpoint_url}/v1/workflows/run", json=data, headers=headers)
             return self._handle_response(response)
         except httpx.RequestError as e:
             raise AgentifymeError(f"Request failed: {str(e)}")
 
     def submit_workflow(self, name: str, input: Union[dict, BaseModel] | None = None, deployment_endpoint: str | None = None) -> dict:
         """
-        Submit a workflow asynchronously
+        Submit a workflow
 
         Args:
             name: Workflow name
@@ -224,7 +231,7 @@ class Client(BaseClient):
             headers["x-wf-endpoint"] = deployment_endpoint
 
         try:
-            response = self._http_client.post(f"{self.endpoint_url}/jobs", json=data, headers=headers)
+            response = self._http_client.post(f"{self.endpoint_url}/v1/workflows/jobs", json=data, headers=headers)
             return self._handle_response(response)
         except httpx.RequestError as e:
             raise AgentifymeError(f"Request failed: {str(e)}")
@@ -233,7 +240,7 @@ class Client(BaseClient):
         """
         Get the result of a workflow job
         """
-        response = self._http_client.get(f"{self.endpoint_url}/jobs/{job_id}")
+        response = self._http_client.get(f"{self.endpoint_url}/v1/workflows/jobs/{job_id}")
         return self._handle_response(response)
 
 
@@ -270,9 +277,15 @@ class AsyncClient(BaseClient):
         except Exception as e:
             raise AgentifymeError(f"Unexpected error: {str(e)}")
 
-    async def run_workflow(self, name: str, input: Union[dict, BaseModel] | None = None, deployment_endpoint: str | None = None) -> Union[dict, list, str, None]:
+    async def run_workflow(
+        self,
+        name: str,
+        input: Union[dict, BaseModel] | None = None,
+        deployment_endpoint: str | None = None,
+        timeout: float = 300.0,
+    ) -> Union[dict, list, str, None]:
         """
-        Run a workflow synchronously
+        Run a workflow
 
         Args:
             name: Workflow name
@@ -288,15 +301,16 @@ class AsyncClient(BaseClient):
             headers["x-wf-endpoint"] = deployment_endpoint
 
         try:
-            async with self._http_client as client:
-                response = await client.post(f"{self.endpoint_url}/run", json=data, headers=headers)
+            async_http_client = self._create_http_client(timeout)
+            async with async_http_client as client:
+                response = await client.post(f"{self.endpoint_url}/v1/workflows/run", json=data, headers=headers)
                 return await self._handle_response(response)
         except httpx.RequestError as e:
             raise AgentifymeError(f"Request failed: {str(e)}")
 
     async def submit_workflow(self, name: str, input: Union[dict, BaseModel] | None = None, deployment_endpoint: str | None = None) -> dict:
         """
-        Submit a workflow asynchronously
+        Submit a workflow
 
         Args:
             name: Workflow name
@@ -313,7 +327,7 @@ class AsyncClient(BaseClient):
 
         try:
             async with self._http_client as client:
-                response = await client.post(f"{self.endpoint_url}/jobs", json=data, headers=headers)
+                response = await client.post(f"{self.endpoint_url}/v1/workflows/jobs", json=data, headers=headers)
                 return await self._handle_response(response)
         except httpx.RequestError as e:
             raise AgentifymeError(f"Request failed: {str(e)}")
@@ -323,5 +337,5 @@ class AsyncClient(BaseClient):
         Get the result of a workflow job
         """
         async with self._http_client as client:
-            response = await client.get(f"{self.endpoint_url}/jobs/{job_id}")
+            response = await client.get(f"{self.endpoint_url}/v1/workflows/jobs/{job_id}")
             return await self._handle_response(response)
