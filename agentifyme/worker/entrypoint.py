@@ -95,6 +95,7 @@ async def run():
         return 1
     except Exception as e:
         logger.error("Worker service error", exc_info=True, error=str(e))
+        logger.exception(e)
         return 1
     return 0
 
