@@ -6,15 +6,14 @@ from pathlib import Path
 import orjson
 from loguru import logger
 
-from agentifyme.tasks.task import TaskConfig
+from agentifyme.components.task import TaskConfig
+from agentifyme.components.workflow import WorkflowConfig
 from agentifyme.worker.telemetry import setup_telemetry
 from agentifyme.worker.telemetry.instrumentor import OTELInstrumentor
-from agentifyme.workflows.workflow import WorkflowConfig
 
 
 def write_config_file(config, file_path):
-    """
-    Write the given configuration dictionary to a file.
+    """Write the given configuration dictionary to a file.
 
     Args:
         config (dict): The configuration dictionary to write.
@@ -22,6 +21,7 @@ def write_config_file(config, file_path):
 
     Returns:
         None
+
     """
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(orjson.dumps(config, indent=2))

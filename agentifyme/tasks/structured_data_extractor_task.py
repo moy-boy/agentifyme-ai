@@ -1,37 +1,36 @@
 import warnings
-from typing import Any, Dict, Optional, Type, Union
+from typing import Any
 
 import orjson
 from pydantic import BaseModel, ValidationError
 
-from agentifyme.ml.llm import LanguageModelConfig, LanguageModelType
-from agentifyme.tasks.extractors.json_data_extractor_task import (
-    JSONDataExtractorTask,
-    JSONParsingError,
-)
-from agentifyme.tasks.reflection import (
+from agentifyme.components.reflection import (
     ReflectionConfig,
     ReflectionMixin,
     ReflectionResult,
 )
-from agentifyme.tasks.task import Task, TaskConfig
+from agentifyme.components.task import Task, TaskConfig
+from agentifyme.ml.llm import LanguageModelConfig, LanguageModelType
+from agentifyme.tasks.json_data_extractor_task import (
+    JSONDataExtractorTask,
+    JSONParsingError,
+)
 from agentifyme.utilities.func_utils import Param
 
 
 class StructuredDataExtractorTask(Task, ReflectionMixin):
-    """
-    Extracts structured data from text using LLMs with reflection capabilities for error correction.
+    """Extracts structured data from text using LLMs with reflection capabilities for error correction.
     """
 
     def __init__(
         self,
-        config: Optional[TaskConfig] = None,
-        output_schema: Optional[Union[str, Dict[str, str]]] = None,
-        language_model: Optional[Union[LanguageModelType, str]] = None,
-        language_model_config: Optional[LanguageModelConfig] = None,
-        prompt_template: Optional[str] = None,
+        config: TaskConfig | None = None,
+        output_schema: str | dict[str, str] | None = None,
+        language_model: LanguageModelType | str | None = None,
+        language_model_config: LanguageModelConfig | None = None,
+        prompt_template: str | None = None,
         max_retries: int = 3,
-        reflection_config: Optional[ReflectionConfig] = None,
+        reflection_config: ReflectionConfig | None = None,
         **kwargs,
     ) -> None:
         Task.__init__(self, config, **kwargs)
@@ -46,14 +45,14 @@ class StructuredDataExtractorTask(Task, ReflectionMixin):
                         name="text",
                         data_type="str",
                         description="The text to extract data from.",
-                    )
+                    ),
                 },
                 output_parameters=[
                     Param(
                         name="json",
                         data_type="str",
                         description="The extracted structured data.",
-                    )
+                    ),
                 ],
             )
 
@@ -71,21 +70,21 @@ class StructuredDataExtractorTask(Task, ReflectionMixin):
                         name="text",
                         data_type="str",
                         description="The text to extract JSON from.",
-                    )
+                    ),
                 },
                 output_parameters=[
                     Param(
                         name="json",
                         data_type="str",
                         description="The extracted JSON object.",
-                    )
+                    ),
                 ],
             ),
             language_model=language_model,
             language_model_config=language_model_config,
         )
 
-    def _validate_and_parse_data(self, json_data: Dict[str, Any], output_type: Type[BaseModel]) -> BaseModel:
+    def _validate_and_parse_data(self, json_data: dict[str, Any], output_type: type[BaseModel]) -> BaseModel:
         """Validate and parse extracted JSON data"""
         if isinstance(json_data, str):
             raise JSONParsingError("No JSON object found in the response")
@@ -99,7 +98,7 @@ class StructuredDataExtractorTask(Task, ReflectionMixin):
                 error_details.append(f"Field '{location}': {error['msg']}")
 
             raise JSONParsingError(
-                f"Data validation failed:\n" f"{chr(10).join(error_details)}\n\n" f"Schema: {output_type.model_json_schema()}\n" f"Data: {json_data}",
+                f"Data validation failed:\n{chr(10).join(error_details)}\n\nSchema: {output_type.model_json_schema()}\nData: {json_data}",
                 None,  # No raw_errors attribute available
             ) from e
 
@@ -109,7 +108,7 @@ class StructuredDataExtractorTask(Task, ReflectionMixin):
 
             raise e
 
-    async def _extract_with_reflection(self, text: str, output_type: Type[BaseModel]) -> Union[BaseModel, ReflectionResult]:
+    async def _extract_with_reflection(self, text: str, output_type: type[BaseModel]) -> BaseModel | ReflectionResult:
         """Extract data with reflection support"""
         try:
             output_schema = output_type.model_json_schema()
@@ -131,13 +130,13 @@ class StructuredDataExtractorTask(Task, ReflectionMixin):
                 correction_handler=correction_handler,
             )
 
-    async def arun(self, input_data: Union[str, Dict[str, Any]], output_type: Type[BaseModel]) -> Union[BaseModel, ReflectionResult]:
+    async def arun(self, input_data: str | dict[str, Any], output_type: type[BaseModel]) -> BaseModel | ReflectionResult:
         """Async execution with reflection support"""
         text = input_data if isinstance(input_data, str) else orjson.dumps(input_data, option=orjson.OPT_INDENT_2).decode()
 
         return await self._extract_with_reflection(text, output_type)
 
-    def run(self, input_data: Union[str, Dict[str, Any]], output_type: Type[BaseModel]) -> Union[BaseModel, ReflectionResult]:
+    def run(self, input_data: str | dict[str, Any], output_type: type[BaseModel]) -> BaseModel | ReflectionResult:
         """Synchronous execution with reflection support"""
         import asyncio
 

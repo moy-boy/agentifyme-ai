@@ -4,7 +4,7 @@ import pytest
 from pydantic import BaseModel
 
 from agentifyme.components.workflow import WorkflowConfig, workflow
-from agentifyme.errors import AgentifyMeError, ErrorCategory
+from agentifyme.errors import AgentifyMeError
 
 
 class Email(BaseModel):

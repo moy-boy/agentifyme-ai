@@ -7,7 +7,7 @@ def load_env_file(file_path: str):
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"{file_path} does not exist.")
 
-    with open(file_path, "r", encoding="utf-8") as file:
+    with open(file_path, encoding="utf-8") as file:
         for line in file:
             line = line.strip()
             if line and not line.startswith("#"):

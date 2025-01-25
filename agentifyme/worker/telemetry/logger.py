@@ -146,7 +146,7 @@ class LoguruHandler:
         if levelno < 10 or levelno == 25:
             return SeverityNumber.UNSPECIFIED
 
-        elif levelno > 53:
+        if levelno > 53:
             return SeverityNumber.FATAL4
 
         return _STD_TO_OTEL[levelno]

@@ -1,15 +1,12 @@
 import ast
 import inspect
+from collections.abc import Callable
 from datetime import date, datetime
 from enum import Enum
 from textwrap import dedent
 from typing import (
     Any,
-    Callable,
-    Dict,
-    List,
     Optional,
-    Tuple,
     Union,
     get_args,
     get_origin,
@@ -22,8 +19,7 @@ from pydantic import BaseModel, Field
 
 
 class Param(BaseModel):
-    """
-    Represents a parameter.
+    """Represents a parameter.
 
     Attributes:
         name (str): The name of the parameter.
@@ -31,6 +27,7 @@ class Param(BaseModel):
         data_type (str): The data type of the parameter.
         default_value (Any): The default value of the parameter. Defaults to None.
         required (bool): Whether the parameter is required. Defaults to True.
+
     """
 
     name: str
@@ -38,12 +35,11 @@ class Param(BaseModel):
     data_type: str
     default_value: Any = None
     required: bool = False
-    class_name: Optional[str] = None
+    class_name: str | None = None
 
 
 class FunctionMetadata(BaseModel):
-    """
-    Represents metadata for a function.
+    """Represents metadata for a function.
 
     Attributes:
         name (str): The name of the function.
@@ -51,20 +47,20 @@ class FunctionMetadata(BaseModel):
         input_params (List[Param]): The input parameters of the function.
         output_params (List[Param]): The output parameters of the function.
         doc_string (str): The docstring of the function.
+
     """
 
     name: str
     description: str
-    input_params: List[Param]
-    output_params: List[Param]
-    input_parameters: Dict[str, Param] = Field(default_factory=dict)
-    output_parameters: Dict[str, Param] = Field(default_factory=dict)
+    input_params: list[Param]
+    output_params: list[Param]
+    input_parameters: dict[str, Param] = Field(default_factory=dict)
+    output_parameters: dict[str, Param] = Field(default_factory=dict)
     doc_string: str
 
 
 def json_datatype_from_python_type(python_type: Any) -> str:
-    """
-    Converts a Python data type to its corresponding JSON data type.
+    """Converts a Python data type to its corresponding JSON data type.
     """
     if python_type in (str, "<class 'str'>", date, datetime, UUID):
         return "string"
@@ -72,9 +68,9 @@ def json_datatype_from_python_type(python_type: Any) -> str:
         return "number"
     if python_type in (bool, "<class 'bool'>"):
         return "boolean"
-    if python_type in (list, List, "<class 'list'>") or (hasattr(python_type, "__origin__") and python_type.__origin__ is list):
+    if python_type in (list, list, "<class 'list'>") or (hasattr(python_type, "__origin__") and python_type.__origin__ is list):
         return "array"
-    if python_type in (dict, Dict, "<class 'dict'>", "object") or (hasattr(python_type, "__origin__") and python_type.__origin__ is dict):
+    if python_type in (dict, dict, "<class 'dict'>", "object") or (hasattr(python_type, "__origin__") and python_type.__origin__ is dict):
         return "object"
     if python_type is type(None) or python_type is None:
         return "null"
@@ -92,19 +88,17 @@ def json_datatype_from_python_type(python_type: Any) -> str:
             non_none_types = [t for t in python_type.__args__ if t is not type(None)]
             if len(non_none_types) == 1:
                 return json_datatype_from_python_type(non_none_types[0])
-            else:
-                return "object"  # or you could return a union of types if your schema supports it
-        elif python_type.__origin__ is Optional:
+            return "object"  # or you could return a union of types if your schema supports it
+        if python_type.__origin__ is Optional:
             return json_datatype_from_python_type(python_type.__args__[0])
 
     return "string"  # def
 
 
-def process_return_annotation(return_annotation: Any, fn_return_description: str) -> List[Param]:
+def process_return_annotation(return_annotation: Any, fn_return_description: str) -> list[Param]:
+    """Process the return annotation and generate appropriate Param objects.
     """
-    Process the return annotation and generate appropriate Param objects.
-    """
-    output_parameters: List[Param] = []
+    output_parameters: list[Param] = []
 
     if return_annotation == inspect.Signature.empty or return_annotation is None:
         return output_parameters
@@ -170,9 +164,8 @@ def process_return_annotation(return_annotation: Any, fn_return_description: str
     return output_parameters
 
 
-def process_input_type(param_name: str, param_type: Any, default_value: Any, description: str) -> List[Param]:
-    """
-    Process input type and generate appropriate Param objects.
+def process_input_type(param_name: str, param_type: Any, default_value: Any, description: str) -> list[Param]:
+    """Process input type and generate appropriate Param objects.
     """
     params = []
 
@@ -188,7 +181,7 @@ def process_input_type(param_name: str, param_type: Any, default_value: Any, des
                     data_type=json_datatype_from_python_type(field_type),
                     default_value=model_field.default,
                     required=model_field.is_required(),
-                )
+                ),
             )
     elif get_origin(param_type) is Union:
         union_types = get_args(param_type)
@@ -196,7 +189,7 @@ def process_input_type(param_name: str, param_type: Any, default_value: Any, des
             if union_type is type(None):
                 continue
             params.extend(process_input_type(param_name, union_type, default_value, description=description or ""))
-    elif get_origin(param_type) in (list, List):
+    elif get_origin(param_type) in (list, list):
         item_type = get_args(param_type)[0]
         params.append(
             Param(
@@ -205,7 +198,7 @@ def process_input_type(param_name: str, param_type: Any, default_value: Any, des
                 data_type="array",
                 default_value=(default_value if default_value != inspect.Parameter.empty else None),
                 required=default_value == inspect.Parameter.empty,
-            )
+            ),
         )
         params.extend(process_input_type(f"{param_name}[]", item_type, None, description=description or ""))
     else:
@@ -216,15 +209,14 @@ def process_input_type(param_name: str, param_type: Any, default_value: Any, des
                 data_type=json_datatype_from_python_type(param_type),
                 default_value=(default_value if default_value != inspect.Parameter.empty else None),
                 required=default_value == inspect.Parameter.empty,
-            )
+            ),
         )
 
     return params
 
 
-def get_function_metadata_with_ast(func: Callable) -> Tuple[List[str], List[str], str]:
-    """
-    Get metadata for a function.
+def get_function_metadata_with_ast(func: Callable) -> tuple[list[str], list[str], str]:
+    """Get metadata for a function.
 
     Args:
         func (Callable): The function to analyze.
@@ -234,6 +226,7 @@ def get_function_metadata_with_ast(func: Callable) -> Tuple[List[str], List[str]
             - List of argument names
             - List of argument type annotations (or "Any" if not specified)
             - Return type annotation (or "Any" if not specified)
+
     """
     # Get the source code of the function
     source = inspect.getsource(func)
@@ -265,8 +258,7 @@ def get_function_metadata_with_ast(func: Callable) -> Tuple[List[str], List[str]
 
 
 def function_metadata(func: Callable) -> FunctionMetadata:
-    """
-    Get metadata for a function.
+    """Get metadata for a function.
     """
     fn_short_description = ""
     fn_parameters = []
@@ -290,7 +282,7 @@ def function_metadata(func: Callable) -> FunctionMetadata:
     sig = inspect.signature(func)
     func_args = get_args(sig.parameters)
 
-    input_parameters: List[Param] = []
+    input_parameters: list[Param] = []
     for param in sig.parameters.values():
         if param.name == "self":
             continue

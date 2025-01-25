@@ -1,7 +1,6 @@
 import asyncio
 import os
 import sys
-import traceback
 from pathlib import Path
 
 import grpc
@@ -10,7 +9,6 @@ from importlib_metadata import PackageNotFoundError, version
 from loguru import logger
 
 import agentifyme.worker.pb.api.v1.gateway_pb2_grpc as pb_grpc
-from agentifyme.tasks import TaskConfig
 from agentifyme.utilities.modules import (
     load_modules_from_directory,
 )
@@ -21,7 +19,6 @@ from agentifyme.worker.telemetry import (
     setup_telemetry,
 )
 from agentifyme.worker.worker_service import WorkerService
-from agentifyme.workflows import WorkflowConfig
 
 
 def main():
@@ -97,7 +94,6 @@ async def run():
         logger.error(f"Worker service error: {e}")
         return 1
     except Exception as e:
-        traceback.print_exc()
         logger.error("Worker service error", exc_info=True, error=str(e))
         return 1
     return 0
@@ -139,8 +135,7 @@ async def init_worker_service(
         logger.info("Worker service stopped by user", exc_info=True)
     except Exception as e:
         logger.error("Worker service error", exc_info=True, error=str(e))
-        traceback.print_exc()
-        raise e
+        raise
     finally:
         await worker_service.stop_service()
 
@@ -150,9 +145,8 @@ def get_env(key: str, default: str | None = None) -> str:
     if not value:
         if default is None:
             raise ValueError(f"{key} is not set")
-        else:
-            logger.warning(f"{key} is not set, using default: {default}")
-            return default
+        logger.warning(f"{key} is not set, using default: {default}")
+        return default
     return value
 
 
@@ -166,8 +160,8 @@ def get_package_version(package_name: str):
 
 
 def load_modules(project_dir: str):
-    WorkflowConfig.reset_registry()
-    TaskConfig.reset_registry()
+    # WorkflowConfig.reset_registry()
+    # TaskConfig.reset_registry()
 
     if not os.path.exists(project_dir):
         logger.warning(f"Project directory not found. Defaulting to working directory: {project_dir}")

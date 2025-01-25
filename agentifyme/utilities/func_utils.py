@@ -2,14 +2,10 @@ import asyncio
 import functools
 import inspect
 import warnings
+from collections.abc import Callable
 from datetime import timedelta
 from typing import (
     Any,
-    Callable,
-    Dict,
-    List,
-    Optional,
-    Type,
     Union,
     get_args,
     get_origin,
@@ -20,8 +16,7 @@ from pydantic import BaseModel, ValidationError
 
 
 class Param(BaseModel):
-    """
-    Represents a parameter.
+    """Represents a parameter.
 
     Attributes:
         name (str): The name of the parameter.
@@ -29,6 +24,7 @@ class Param(BaseModel):
         data_type (str): The data type of the parameter.
         default_value (Any): The default value of the parameter. Defaults to None.
         required (bool): Whether the parameter is required. Defaults to True.
+
     """
 
     name: str
@@ -36,13 +32,12 @@ class Param(BaseModel):
     data_type: str
     default_value: Any = None
     required: bool = False
-    class_name: Optional[str] = None
-    nested_fields: Dict[str, "Param"] = {}
+    class_name: str | None = None
+    nested_fields: dict[str, "Param"] = {}
 
 
 class FunctionMetadata(BaseModel):
-    """
-    Represents metadata for a function.
+    """Represents metadata for a function.
 
     Attributes:
         name (str): The name of the function.
@@ -50,6 +45,7 @@ class FunctionMetadata(BaseModel):
         input_params (List[Param]): The input parameters of the function.
         output_params (List[Param]): The output parameters of the function.
         doc_string (str): The docstring of the function.
+
     """
 
     name: str
@@ -86,11 +82,11 @@ def json_datatype_from_python_type(python_type: Any) -> str:
             return json_datatype_from_python_type([arg for arg in args if arg is not type(None)][0])
 
     # Handle List types
-    if origin in (list, List) or (isinstance(python_type, type) and issubclass(python_type, list)):
+    if origin in (list, list) or (isinstance(python_type, type) and issubclass(python_type, list)):
         return "array"
 
     # Handle Dict types
-    if origin in (dict, Dict) or (isinstance(python_type, type) and issubclass(python_type, dict)):
+    if origin in (dict, dict) or (isinstance(python_type, type) and issubclass(python_type, dict)):
         return "object"
 
     # Handle primitive types and BaseModel
@@ -113,10 +109,10 @@ def json_datatype_from_python_type(python_type: Any) -> str:
 
 
 def get_pydantic_fields(
-    model: Type[BaseModel],
-    parsed_docstring: Optional[Docstring] = None,
+    model: type[BaseModel],
+    parsed_docstring: Docstring | None = None,
     is_output: bool = False,
-) -> Dict[str, Param]:
+) -> dict[str, Param]:
     fields = {}
     for name, field in model.model_fields.items():
         field_type = field.annotation
@@ -197,7 +193,7 @@ def get_input_parameters(func: Callable, parsed_docstring: Docstring) -> dict[st
     return input_parameters
 
 
-def get_output_parameters(func: Callable, parsed_docstring: Optional[Docstring]) -> list[Param]:
+def get_output_parameters(func: Callable, parsed_docstring: Docstring | None) -> list[Param]:
     signature = inspect.signature(func)
     return_annotation = signature.return_annotation
     return_description = parsed_docstring.returns.description if parsed_docstring and parsed_docstring.returns else ""
@@ -211,22 +207,20 @@ def get_output_parameters(func: Callable, parsed_docstring: Optional[Docstring])
                 data_type="object",
                 required=False,  # output is always considered optional
                 nested_fields=nested_fields,
-            )
+            ),
         ]
-    else:
-        return [
-            Param(
-                name="return_value",
-                description=return_description,
-                data_type=json_datatype_from_python_type(return_annotation),
-                required=False,  # output is always considered optional
-            )
-        ]
+    return [
+        Param(
+            name="return_value",
+            description=return_description,
+            data_type=json_datatype_from_python_type(return_annotation),
+            required=False,  # output is always considered optional
+        ),
+    ]
 
 
 def get_function_metadata(func: Callable) -> FunctionMetadata:
-    """
-    Get metadata for a function.
+    """Get metadata for a function.
     """
     # Get function name
     name = func.__name__
@@ -253,9 +247,8 @@ def get_function_metadata(func: Callable) -> FunctionMetadata:
     )
 
 
-def convert_json_to_args(func: Callable, json_data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Convert JSON data to function arguments based on function signature and type hints.
+def convert_json_to_args(func: Callable, json_data: dict[str, Any]) -> dict[str, Any]:
+    """Convert JSON data to function arguments based on function signature and type hints.
 
     Args:
         func (callable): The function to convert arguments for.
@@ -266,6 +259,7 @@ def convert_json_to_args(func: Callable, json_data: Dict[str, Any]) -> Dict[str,
 
     Raises:
         ValueError: If the JSON data is invalid or doesn't match the function signature.
+
     """
     signature = inspect.signature(func)
     converted_args = {}
@@ -288,7 +282,7 @@ def convert_json_to_args(func: Callable, json_data: Dict[str, Any]) -> Dict[str,
                     # Otherwise, create a new instance
                     converted_args[param_name] = param_type(**value)
             except ValidationError as e:
-                raise ValueError(f"Invalid data for parameter {param_name}: {str(e)}")
+                raise ValueError(f"Invalid data for parameter {param_name}: {e!s}")
         else:
             converted_args[param_name] = value
 
@@ -296,9 +290,8 @@ def convert_json_to_args(func: Callable, json_data: Dict[str, Any]) -> Dict[str,
 
 
 @deprecated
-async def validate_and_call_workflow(workflow_func: Callable, json_data: Dict[str, Any]) -> Any:
-    """
-    Validate the JSON data against the workflow function's metadata and call the function.
+async def validate_and_call_workflow(workflow_func: Callable, json_data: dict[str, Any]) -> Any:
+    """Validate the JSON data against the workflow function's metadata and call the function.
 
     Args:
         workflow_func (Callable): The workflow function to be called.
@@ -309,11 +302,12 @@ async def validate_and_call_workflow(workflow_func: Callable, json_data: Dict[st
 
     Raises:
         ValueError: If the JSON data is invalid or doesn't match the function signature.
+
     """
     return await execute_function(workflow_func, json_data)
 
 
-def validate_input_parameters(func: Callable, json_data: Dict[str, Any]):
+def validate_input_parameters(func: Callable, json_data: dict[str, Any]):
     # Get function metadata
     metadata: FunctionMetadata = get_function_metadata(func)
     # Validate input parameters
@@ -325,13 +319,12 @@ def validate_input_parameters(func: Callable, json_data: Dict[str, Any]):
             # You might want to add more specific type checking here
             if param.data_type == "object" and not (isinstance(json_data[param_name], dict) or isinstance(json_data[param_name], BaseModel)):
                 raise ValueError(f"Invalid type for parameter {param_name}. Expected object, got {type(json_data[param_name])}")
-            elif param.data_type == "array" and not isinstance(json_data[param_name], list):
+            if param.data_type == "array" and not isinstance(json_data[param_name], list):
                 raise ValueError(f"Invalid type for parameter {param_name}. Expected array, got {type(json_data[param_name])}")
 
 
-def execute_function_sync(func: Callable, json_data: Dict[str, Any]) -> Any:
-    """
-    Executes the given function with the provided JSON data as arguments.
+def execute_function_sync(func: Callable, json_data: dict[str, Any]) -> Any:
+    """Executes the given function with the provided JSON data as arguments.
 
     Args:
         func (Callable): The function to be executed.
@@ -342,8 +335,8 @@ def execute_function_sync(func: Callable, json_data: Dict[str, Any]) -> Any:
 
     Returns:
         Any: The result of the function execution.
-    """
 
+    """
     # Convert JSON to function arguments
     args = convert_json_to_args(func, json_data)
 
@@ -353,9 +346,8 @@ def execute_function_sync(func: Callable, json_data: Dict[str, Any]) -> Any:
     return result
 
 
-async def execute_function_async(func: Callable, json_data: Dict[str, Any]) -> Any:
-    """
-    Executes the given function with the provided JSON data as arguments.
+async def execute_function_async(func: Callable, json_data: dict[str, Any]) -> Any:
+    """Executes the given function with the provided JSON data as arguments.
 
     Args:
         func (Callable): The function to be executed.
@@ -366,8 +358,8 @@ async def execute_function_async(func: Callable, json_data: Dict[str, Any]) -> A
 
     Returns:
         Any: The result of the function execution.
-    """
 
+    """
     # Convert JSON to function arguments
     args = convert_json_to_args(func, json_data)
 
@@ -376,9 +368,8 @@ async def execute_function_async(func: Callable, json_data: Dict[str, Any]) -> A
     return result
 
 
-def execute_function(func: Callable, json_data: Dict[str, Any]) -> Any:
-    """
-    Executes the given function with the provided JSON data as arguments.
+def execute_function(func: Callable, json_data: dict[str, Any]) -> Any:
+    """Executes the given function with the provided JSON data as arguments.
 
     Args:
         func (Callable): The function to be executed.
@@ -389,17 +380,15 @@ def execute_function(func: Callable, json_data: Dict[str, Any]) -> Any:
 
     Returns:
         Any: The result of the function execution.
-    """
 
+    """
     if asyncio.iscoroutinefunction(func):
         return asyncio.run(execute_function_async(func, json_data))
-    else:
-        return execute_function_sync(func, json_data)
+    return execute_function_sync(func, json_data)
 
 
 def timedelta_to_cron(td: timedelta) -> str:
-    """
-    Convert a timedelta object to a cron expression.
+    """Convert a timedelta object to a cron expression.
     Returns a cron string in format: minute hour day month dow
     Only handles periods up to 1 month.
     """
@@ -408,9 +397,9 @@ def timedelta_to_cron(td: timedelta) -> str:
     # Handle common cases
     if total_minutes == 0:
         return "* * * * *"  # Every minute
-    elif total_minutes == 60:
+    if total_minutes == 60:
         return "0 * * * *"  # Every hour
-    elif total_minutes == 1440:
+    if total_minutes == 1440:
         return "0 0 * * *"  # Every day
 
     minutes = total_minutes % 60

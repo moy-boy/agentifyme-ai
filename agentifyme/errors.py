@@ -1,3 +1,4 @@
+import sys
 import traceback
 from enum import Enum
 from typing import Any
@@ -46,20 +47,38 @@ class AgentifyMeError(Exception):
         severity: ErrorSeverity = ErrorSeverity.ERROR,
         execution_state: dict[str, Any] | None = None,
         error_type: type[Exception] | str | None = None,
+        tb: str | None = None,
     ):
         self.message = message
         self.error_code = error_code
         self.category = category
         self.context = context
         self.severity = severity
-        self._traceback = traceback.format_exc()
         self.execution_state = execution_state
-        self.error_type = error_type
+        self._error_type = error_type
+
+        if tb is not None and tb != "":
+            self._tb = tb
+        else:
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+
+            if error_type is None and exc_type is not None:
+                self._error_type = exc_type
+
+            if exc_traceback:
+                self._tb = "".join(traceback.format_tb(exc_traceback))
+            else:
+                self._tb = "".join(traceback.format_stack())
+
         super().__init__(message)
 
     @property
     def traceback(self) -> str:
-        return str(self._traceback)
+        return str(self._tb)
+
+    @property
+    def error_type(self) -> str:
+        return str(self._error_type.__name__) if isinstance(self._error_type, type) else str(self._error_type) if self._error_type else ""
 
     def __str__(self) -> str:
         try:
@@ -67,31 +86,31 @@ class AgentifyMeError(Exception):
             if self.context and hasattr(self.context, "component_type") and hasattr(self.context, "component_id"):
                 return f"{category_str} Error in {self.context.component_type} [{self.context.component_id}]: {self.message}"
             return f"{category_str} Error: {self.message}"
-        except Exception as e:
+        except Exception:
             return f"Error: {self.message}"
 
     def __dict__(self) -> dict:
         return {
-            "message": str(self.message),
+            "message": str(self.message) + " " + str(self.error_type),
             "error_code": str(self.error_code) if self.error_code else None,
             "category": str(self.category.value) if self.category else None,
             "component_type": str(self.context.component_type) if self.context else None,
             "component_id": str(self.context.component_id) if self.context else None,
             "severity": str(self.severity.value) if self.severity else None,
-            "traceback": self.traceback,
+            "traceback": str(self._tb),
             "execution_state": self.execution_state,
-            "error_type": str(self.error_type.__name__) if self.error_type else None,
+            "error_type": self.error_type,
         }
 
     @property
     def as_dict(self) -> dict:
         return {
-            "message": str(self.message),
+            "message": str(self.message) + " " + str(self.error_type),
             "error_code": str(self.error_code) if self.error_code else None,
             "category": str(self.category.value) if self.category else None,
             "severity": str(self.severity.value) if self.severity else None,
-            "traceback": self.traceback,
-            "error_type": str(self.error_type.__name__) if isinstance(self.error_type, type) else str(self.error_type) if self.error_type else None,
+            "traceback": str(self._tb),
+            "error_type": self.error_type,
         }
 
 

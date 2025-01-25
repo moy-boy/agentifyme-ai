@@ -11,7 +11,7 @@ from agentifyme.ml.llm import (
     LanguageModelConfig,
     LanguageModelType,
 )
-from agentifyme.tasks.extractors import PydanticDataExtractorTask
+from agentifyme.tasks import PydanticDataExtractorTask
 from agentifyme.utilities.env import load_env_file
 
 
@@ -94,10 +94,6 @@ def test_json_data_extractor_nested(
 
 # pylint: disable=redefined-outer-name, invalid-name
 
-
-import pytest
-
-from agentifyme.tasks.extractors import PydanticDataExtractorTask
 
 # Keep the existing fixtures
 
@@ -189,7 +185,7 @@ async def test_pydantic_data_extractor_complex_async(
     assert output.publication_year == 1960
     assert output.author.name == "Harper Lee"
     assert output.author.birth_year == 1926
-    assert set(output.genres) == set(["Southern Gothic", "Bildungsroman"])
+    assert output.genres == ["Southern Gothic", "Bildungsroman"]
 
 
 @pytest.mark.asyncio

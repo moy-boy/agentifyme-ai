@@ -1,8 +1,9 @@
 import os
 from abc import ABC, abstractmethod
-from typing import Any, Optional, Union
+from typing import Any
 
 import httpx
+from loguru import logger
 from pydantic import BaseModel
 
 from agentifyme.errors import AgentifyMeError
@@ -11,17 +12,6 @@ from agentifyme.utilities.json_utils import serialize_value
 
 class AgentifymeError(Exception):
     """Base exception for Agentifyme client errors"""
-
-    pass
-
-
-class WorkflowExecutionError(AgentifymeError):
-    """Exception raised for API errors"""
-
-    def __init__(self, message: str, status_code: Optional[int] = None, response: Optional[dict] = None):
-        self.status_code = status_code
-        self.response = response
-        super().__init__(message)
 
 
 class BaseClient(ABC):
@@ -41,8 +31,7 @@ class BaseClient(ABC):
         local_mode: bool | None = None,
         timeout: float = 300.0,
     ):
-        """
-        Initialize the base Agentifyme client
+        """Initialize the base Agentifyme client
 
         Args:
             endpoint_url: Optional API endpoint override. Use http://localhost:PORT for local mode
@@ -50,6 +39,7 @@ class BaseClient(ABC):
             organization: Organization ID (not required for local mode)
             project: Optional project ID
             timeout: Timeout for API requests, defaults to 300 seconds (5 minutes)
+
         """
         # Set default endpoints
         DEFAULT_CLOUD_ENDPOINT = "https://run.agentifyme.ai"
@@ -90,14 +80,14 @@ class BaseClient(ABC):
         self._http_client = self._create_http_client(timeout)
 
     def _is_local_endpoint(self, endpoint: str | httpx.URL) -> bool:
-        """
-        Check if the endpoint is a local endpoint
+        """Check if the endpoint is a local endpoint
 
         Args:
             endpoint: Endpoint URL to check
 
         Returns:
             bool: True if endpoint is local, False otherwise
+
         """
         if isinstance(endpoint, httpx.URL):
             endpoint = str(endpoint)
@@ -105,11 +95,11 @@ class BaseClient(ABC):
         return endpoint.startswith("http://localhost") or endpoint.startswith("http://127.0.0.1") or endpoint.startswith("http://0.0.0.0")
 
     def _get_request_headers(self) -> dict:
-        """
-        Get headers for API requests based on mode
+        """Get headers for API requests based on mode
 
         Returns:
             dict: Headers to use for requests
+
         """
         headers = {"Content-Type": "application/json"}
         if not self.is_local_mode:
@@ -118,9 +108,8 @@ class BaseClient(ABC):
                 headers["X-ORG-ID"] = self.organization
         return headers
 
-    def _prepare_input(self, name: str, input_data: Union[dict[str, Any], BaseModel]) -> dict:
-        """
-        Convert input data to dictionary format with proper serialization of datetime objects
+    def _prepare_input(self, name: str, input_data: dict[str, Any] | BaseModel) -> dict:
+        """Convert input data to dictionary format with proper serialization of datetime objects
 
         Args:
             name: Name of the input
@@ -128,6 +117,7 @@ class BaseClient(ABC):
 
         Returns:
             Dictionary with serialized values suitable for JSON serialization
+
         """
         data = {"name": name}
 
@@ -141,14 +131,12 @@ class BaseClient(ABC):
         return data
 
     @abstractmethod
-    def _create_http_client(self) -> Union[httpx.Client, httpx.AsyncClient]:
+    def _create_http_client(self) -> httpx.Client | httpx.AsyncClient:
         """Create and return an HTTP client"""
-        pass
 
     @abstractmethod
-    def _handle_response(self, response: httpx.Response) -> Union[dict, list, str, None]:
+    def _handle_response(self, response: httpx.Response) -> dict | list | str | None:
         """Handle API response and errors"""
-        pass
 
 
 class Client(BaseClient):
@@ -162,7 +150,7 @@ class Client(BaseClient):
             timeout=timeout,
         )
 
-    def _handle_response(self, response: httpx.Response) -> Union[dict, list, str, None]:
+    def _handle_response(self, response: httpx.Response) -> dict | list | str | None:
         """Handle API response and errors"""
         try:
             response.raise_for_status()
@@ -189,7 +177,7 @@ class Client(BaseClient):
 
             return json_response["data"]
         except httpx.HTTPStatusError as e:
-            error_msg = f"API request failed: {str(e)}"
+            error_msg = f"API request failed: {e!s}"
             response_data = None
             try:
                 response_data = response.json()
@@ -205,7 +193,7 @@ class Client(BaseClient):
             )
         except Exception as e:
             raise AgentifyMeError(
-                message=f"Unexpected error: {str(e)}",
+                message=f"Unexpected error: {e!s}",
                 error_code="UNEXPECTED_ERROR",
                 category="API_ERROR",
                 severity="ERROR",
@@ -215,20 +203,21 @@ class Client(BaseClient):
     def run_workflow(
         self,
         name: str,
-        input: Union[dict, BaseModel] | None = None,
+        input: dict | BaseModel | None = None,
         deployment_endpoint: str | None = None,
         timeout: float = 300.0,
-    ) -> Union[dict, list, str, None]:
-        """
-        Run a workflow
+    ) -> dict | list | str | None:
+        """Run a workflow
 
         Args:
             name: Workflow name
             input: Workflow input parameters as dict or Pydantic model
             deployment_endpoint: Workflow deployment endpoint identifier
             timeout: Timeout for API requests, defaults to 300 seconds (5 minutes)
+
         Returns:
             API response data
+
         """
         data = self._prepare_input(name, input)
         headers = {}
@@ -240,11 +229,10 @@ class Client(BaseClient):
             response = http_client.post(f"{self.endpoint_url}/v1/workflows/run", json=data, headers=headers)
             return self._handle_response(response)
         except httpx.RequestError as e:
-            raise AgentifymeError(f"Request failed: {str(e)}")
+            raise AgentifymeError(f"Request failed: {e!s}")
 
-    def submit_workflow(self, name: str, input: Union[dict, BaseModel] | None = None, deployment_endpoint: str | None = None) -> dict:
-        """
-        Submit a workflow
+    def submit_workflow(self, name: str, input: dict | BaseModel | None = None, deployment_endpoint: str | None = None) -> dict:
+        """Submit a workflow
 
         Args:
             name: Workflow name
@@ -253,6 +241,7 @@ class Client(BaseClient):
 
         Returns:
             API response data including job ID
+
         """
         data = self._prepare_input(name, input)
         headers = {}
@@ -263,12 +252,10 @@ class Client(BaseClient):
             response = self._http_client.post(f"{self.endpoint_url}/v1/workflows/jobs", json=data, headers=headers)
             return self._handle_response(response)
         except httpx.RequestError as e:
-            raise AgentifymeError(f"Request failed: {str(e)}")
+            raise AgentifymeError(f"Request failed: {e!s}")
 
-    def get_workflow_result(self, job_id: str) -> Union[dict, list, str, None]:
-        """
-        Get the result of a workflow job
-        """
+    def get_workflow_result(self, job_id: str) -> dict | list | str | None:
+        """Get the result of a workflow job"""
         response = self._http_client.get(f"{self.endpoint_url}/v1/workflows/jobs/{job_id}")
         return self._handle_response(response)
 
@@ -284,20 +271,25 @@ class AsyncClient(BaseClient):
             timeout=timeout,
         )
 
-    async def _handle_response(self, response: httpx.Response) -> Union[dict, list, str, None]:
+    async def _handle_response(self, response: httpx.Response) -> dict | list | str | None:
         """Handle API response and errors"""
         try:
             response.raise_for_status()
             json_response = response.json()
 
+            logger.info(f"Response: {json_response}")
+
             if "error" in json_response:
-                error = json_response["error"]
+                error = dict(json_response["error"])
+                for k, v in error.items():
+                    logger.info(f"{k}: {v}")
                 raise AgentifyMeError(
                     message=error.get("message"),
-                    error_code=error.get("error_code"),
+                    error_code=error.get("errorCode"),
                     category=error.get("category"),
                     severity=error.get("severity"),
-                    error_type=error.get("error_type"),
+                    error_type=error.get("errorType"),
+                    tb=error.get("traceback"),
                 )
 
             if "data" not in json_response:
@@ -307,11 +299,12 @@ class AsyncClient(BaseClient):
                     category="API_ERROR",
                     severity="ERROR",
                     error_type=None,
+                    tb=None,
                 )
 
             return json_response["data"]
         except httpx.HTTPStatusError as e:
-            error_msg = f"API request failed: {str(e)}"
+            error_msg = f"API request failed: {e!s}"
             response_data = None
             try:
                 response_data = response.json()
@@ -325,9 +318,11 @@ class AsyncClient(BaseClient):
                 severity="ERROR",
                 error_type=None,
             )
+        except AgentifyMeError:
+            raise
         except Exception as e:
             raise AgentifyMeError(
-                message=f"Unexpected error: {str(e)}",
+                message=f"Unexpected error: {e!s}",
                 error_code="UNEXPECTED_ERROR",
                 category="API_ERROR",
                 severity="ERROR",
@@ -337,12 +332,11 @@ class AsyncClient(BaseClient):
     async def run_workflow(
         self,
         name: str,
-        input: Union[dict, BaseModel] | None = None,
+        input: dict | BaseModel | None = None,
         deployment_endpoint: str | None = None,
         timeout: float = 300.0,
-    ) -> Union[dict, list, str, None]:
-        """
-        Run a workflow
+    ) -> dict | list | str | None:
+        """Run a workflow
 
         Args:
             name: Workflow name
@@ -351,6 +345,7 @@ class AsyncClient(BaseClient):
 
         Returns:
             API response data
+
         """
         data = self._prepare_input(name, input)
         headers = {}
@@ -364,16 +359,15 @@ class AsyncClient(BaseClient):
                 return await self._handle_response(response)
         except httpx.RequestError as e:
             raise AgentifyMeError(
-                message=f"Request failed: {str(e)}",
+                message=f"Request failed: {e!s}",
                 error_code="REQUEST_FAILED",
                 category="API_ERROR",
                 severity="ERROR",
                 error_type=None,
             )
 
-    async def submit_workflow(self, name: str, input: Union[dict, BaseModel] | None = None, deployment_endpoint: str | None = None) -> dict:
-        """
-        Submit a workflow
+    async def submit_workflow(self, name: str, input: dict | BaseModel | None = None, deployment_endpoint: str | None = None) -> dict:
+        """Submit a workflow
 
         Args:
             name: Workflow name
@@ -382,6 +376,7 @@ class AsyncClient(BaseClient):
 
         Returns:
             API response data including job ID
+
         """
         data = self._prepare_input(name, input)
         headers = {}
@@ -394,17 +389,15 @@ class AsyncClient(BaseClient):
                 return await self._handle_response(response)
         except httpx.RequestError as e:
             raise AgentifyMeError(
-                message=f"Request failed: {str(e)}",
+                message=f"Request failed: {e!s}",
                 error_code="REQUEST_FAILED",
                 category="API_ERROR",
                 severity="ERROR",
                 error_type=None,
             )
 
-    async def get_workflow_result(self, job_id: str) -> Union[dict, list, str, None]:
-        """
-        Get the result of a workflow job
-        """
+    async def get_workflow_result(self, job_id: str) -> dict | list | str | None:
+        """Get the result of a workflow job"""
         async with self._http_client as client:
             response = await client.get(f"{self.endpoint_url}/v1/workflows/jobs/{job_id}")
             return await self._handle_response(response)

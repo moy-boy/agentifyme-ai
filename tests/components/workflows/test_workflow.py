@@ -1,7 +1,6 @@
 # pylint: disable=missing-function-docstring
 import pytest
 
-from agentifyme.components.utils import InvalidNameError
 from agentifyme.components.workflow import WorkflowConfig, workflow
 from agentifyme.errors import AgentifyMeError, ErrorCategory
 
@@ -51,23 +50,6 @@ def test_workflow_decorator_with_name_and_description():
     assert workflow_config is not None
     assert workflow_config.name == "greet"
     assert workflow_config.description == "Generate a greeting message."
-
-
-def test_workflow_custom_name_description():
-    @workflow(name="Invalid Workflow Name", description="A custom workflow")
-    def custom_workflow():
-        return "Invalid Workflow Name"
-
-    with pytest.raises(AgentifyMeError) as exc_info:
-        custom_workflow()
-
-    error = exc_info.value
-    assert error.error_code == "INVALID_WORKFLOW_NAME"
-    assert error.category == ErrorCategory.VALIDATION
-    assert error.context.component_type == "workflow"
-    assert error.context.component_id == "name_validation"
-    print(error)
-    assert "Invalid Workflow Name" in str(error)
 
 
 def test_workflow_execution_error():

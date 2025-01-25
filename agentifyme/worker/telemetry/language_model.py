@@ -1,16 +1,20 @@
-import inspect
 import time
+from collections.abc import Callable
 from contextlib import contextmanager
 from datetime import datetime
 from functools import wraps
-from typing import Any, Callable, Dict, TypeVar
+from typing import Any, TypeVar
 
 import orjson
 from opentelemetry import metrics, trace
 from opentelemetry.baggage import get_baggage
 from opentelemetry.trace import SpanKind, Status, StatusCode
 
-from agentifyme.ml.llm import LanguageModel, LanguageModelProvider, LanguageModelResponse, Message, Role
+from agentifyme.ml.llm import (
+    LanguageModel,
+    LanguageModelProvider,
+    LanguageModelResponse,
+)
 from agentifyme.worker.callback import CallbackHandler
 from agentifyme.worker.telemetry.semconv import SemanticAttributes, SpanType
 
@@ -113,7 +117,7 @@ class LLMTelemetryContext:
                     request_duration.record(duration_ms, {"method": self.method_name})
 
 
-def extract_telemetry_attributes(instance: LanguageModel, method_name: str, args: tuple, kwargs: Dict[str, Any]) -> Dict[str, Any]:
+def extract_telemetry_attributes(instance: LanguageModel, method_name: str, args: tuple, kwargs: dict[str, Any]) -> dict[str, Any]:
     """Extract telemetry attributes based on provider and method"""
     attributes = {}
 
@@ -135,7 +139,6 @@ def extract_telemetry_attributes(instance: LanguageModel, method_name: str, args
 
 def record_provider_metrics(provider: LanguageModelProvider, response: LanguageModelResponse, span: trace.Span) -> dict:
     """Record provider-specific metrics"""
-
     metrics = {}
 
     # Record token usage
@@ -274,7 +277,6 @@ def instrument_llm_class(cls: Any, callback_handler: CallbackHandler) -> None:
 
 def auto_instrument_language_models(callback_handler: CallbackHandler) -> None:
     """Automatically instrument all Language Model classes"""
-    pass
     # import agentifyme.ml.llm
 
     # for provider in LanguageModelProvider:

@@ -1,23 +1,19 @@
-from typing import Optional
 
 from opentelemetry.context import Context
 from opentelemetry.trace import SpanContext, TraceFlags, get_current_span
 from opentelemetry.trace.propagation.textmap import CarrierT, TextMapPropagator
-from opentelemetry.util.types import Attributes
 
 
 class OTelTracePropagator(TextMapPropagator):
-    """
-    OpenTelemetry trace context propagator that follows the W3C Trace Context specification.
+    """OpenTelemetry trace context propagator that follows the W3C Trace Context specification.
     Implements extraction and injection of trace context from/to carriers (e.g., HTTP headers).
     """
 
     TRACEPARENT_HEADER = "traceparent"
     TRACESTATE_HEADER = "tracestate"
 
-    def extract(self, carrier: CarrierT, context: Optional[Context] = None) -> Context:
-        """
-        Extract trace context from the carrier.
+    def extract(self, carrier: CarrierT, context: Context | None = None) -> Context:
+        """Extract trace context from the carrier.
 
         Args:
             carrier: Carrier of propagated cross-cutting concerns. Usually HTTP headers.
@@ -25,6 +21,7 @@ class OTelTracePropagator(TextMapPropagator):
 
         Returns:
             New context with extracted trace information.
+
         """
         if context is None:
             context = Context()
@@ -41,7 +38,7 @@ class OTelTracePropagator(TextMapPropagator):
 
             # Create span context
             span_context = SpanContext(
-                trace_id=int(trace_id, 16), span_id=int(span_id, 16), trace_flags=TraceFlags(int(trace_flags, 16)), is_remote=True, trace_state=self._parse_tracestate(tracestate)
+                trace_id=int(trace_id, 16), span_id=int(span_id, 16), trace_flags=TraceFlags(int(trace_flags, 16)), is_remote=True, trace_state=self._parse_tracestate(tracestate),
             )
 
             return context.with_span_context(span_context)
@@ -49,13 +46,13 @@ class OTelTracePropagator(TextMapPropagator):
         except Exception:
             return context
 
-    def inject(self, carrier: CarrierT, context: Optional[Context] = None) -> None:
-        """
-        Inject trace context into the carrier.
+    def inject(self, carrier: CarrierT, context: Context | None = None) -> None:
+        """Inject trace context into the carrier.
 
         Args:
             carrier: Carrier of propagated cross-cutting concerns. Usually HTTP headers.
             context: Context containing the trace context to be injected.
+
         """
         span = get_current_span(context)
         if not span.is_recording():

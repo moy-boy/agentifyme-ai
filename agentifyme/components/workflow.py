@@ -1,20 +1,25 @@
 import asyncio
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import timedelta
-from typing import Any, Callable, Optional, Union
+from typing import Any
 
 import wrapt
 
 from agentifyme.components.base import BaseConfig, RunnableComponent
 from agentifyme.errors import AgentifyMeValidationError, ErrorCategory, ErrorContext
 
-from .utils import InvalidNameError, Param, get_function_metadata, timedelta_to_cron, validate_component_name
+from .utils import (
+    Param,
+    get_function_metadata,
+    timedelta_to_cron,
+    validate_component_name,
+)
 
 
 @dataclass
 class WorkflowConfig(BaseConfig):
-    """
-    Represents a workflow.
+    """Represents a workflow.
 
     Attributes:
         name (str): The name of the workflow.
@@ -25,14 +30,15 @@ class WorkflowConfig(BaseConfig):
         output_parameters (list[Param]): The list of output parameters for the workflow.
         schedule (Optional[Union[str, timedelta]]): The schedule for the workflow.
             Can be either a cron expression string or a timedelta object.
+
     """
 
     input_parameters: dict[str, Param] = field(default_factory=dict)
     output_parameters: list[Param] = field(default_factory=list)
-    schedule: Union[str, timedelta] | None = None
+    schedule: str | timedelta | None = None
 
     @classmethod
-    def normalize_schedule(cls, v: Union[str, timedelta] | None) -> str | None:
+    def normalize_schedule(cls, v: str | timedelta | None) -> str | None:
         if isinstance(v, timedelta):
             try:
                 return timedelta_to_cron(v)
@@ -48,7 +54,7 @@ class Workflow(RunnableComponent):
     def __init__(self, config: WorkflowConfig, **kwargs) -> None:
         super().__init__(component_type=self.component_type, config=config)
         self.config = config
-        self.run_id = kwargs.get("run_id", None)
+        self.run_id = kwargs.get("run_id")
 
     def _validate_workflow(self) -> None:
         """Validate that the workflow function is implemented."""
@@ -73,7 +79,7 @@ class Workflow(RunnableComponent):
             return await self.config.func(**self.current_kwargs)
 
 
-def workflow(wrapped: Optional[Callable] = None, *, name: Optional[str] = None, description: Optional[str] = None, schedule: Optional[Union[str, timedelta]] = None) -> Callable:
+def workflow(wrapped: Callable | None = None, *, name: str | None = None, description: str | None = None, schedule: str | timedelta | None = None) -> Callable:
     def decorator(wrapped_func):
         func_metadata = get_function_metadata(wrapped_func)
         _name = name or func_metadata.name
@@ -96,12 +102,12 @@ def workflow(wrapped: Optional[Callable] = None, *, name: Optional[str] = None, 
             if asyncio.iscoroutinefunction(wrapped_func):
 
                 async def run():
-                    kwargs.update(zip(wrapped_func.__code__.co_varnames, args))
+                    kwargs.update(zip(wrapped_func.__code__.co_varnames, args, strict=False))
                     return await _workflow_instance.arun(**kwargs)
 
                 return run()
 
-            kwargs.update(zip(wrapped_func.__code__.co_varnames, args))
+            kwargs.update(zip(wrapped_func.__code__.co_varnames, args, strict=False))
             return _workflow_instance(**kwargs)
 
         wrapped = wrapper(wrapped_func)

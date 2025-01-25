@@ -1,5 +1,4 @@
 import importlib.util
-from typing import Optional
 
 from pydantic import BaseModel, field_validator
 
@@ -18,20 +17,20 @@ class LanguageModelConfig(BaseModel):
     max_retries: int = 3
     prompt_template: str = ""
     verbose: int = 0
-    system_prompt: Optional[str] = ""
-    api_key: Optional[str] = None
+    system_prompt: str | None = ""
+    api_key: str | None = None
     temparature: float = 0.1
     top_p: float = 0.9
     max_tokens: int = 1024
     json_mode: bool = False
 
-    organization: Optional[str] = None
-    project: Optional[str] = None
+    organization: str | None = None
+    project: str | None = None
 
-    env_file: Optional[str] = None
+    env_file: str | None = None
 
     @property
-    def provider(self) -> Optional[LanguageModelProvider]:
+    def provider(self) -> LanguageModelProvider | None:
         model_prefix = self.model.value.split("/")[0]
         try:
             return LanguageModelProvider(model_prefix)
@@ -52,10 +51,9 @@ class LanguageModelBuilder:
     def create_cache(self) -> Cache:
         if self.config.cache_type == CacheType.MEMORY:
             return MemoryCache()
-        elif self.config.cache_type == CacheType.DISK:
+        if self.config.cache_type == CacheType.DISK:
             return DiskCache()
-        else:
-            return MemoryCache()  # Default to memory cache
+        return MemoryCache()  # Default to memory cache
 
     def create_llm(self) -> LanguageModel:
         cache_strategy = self.create_cache()
@@ -72,10 +70,9 @@ class LanguageModelBuilder:
                     organization=self.config.organization,
                     project=self.config.project,
                 )
-            else:
-                raise ImportError("The 'openai' package is not installed. Please install it to use OpenAI models.")
+            raise ImportError("The 'openai' package is not installed. Please install it to use OpenAI models.")
 
-        elif self.config.provider == LanguageModelProvider.GROQ:
+        if self.config.provider == LanguageModelProvider.GROQ:
             if importlib.util.find_spec("groq") is not None:
                 return GroqLanguageModel(
                     llm_model=self.config.model,
@@ -84,10 +81,9 @@ class LanguageModelBuilder:
                     llm_cache_type=self.config.cache_type,
                     verbose=self.config.verbose,
                 )
-            else:
-                raise ImportError("The 'groq' package is not installed. Please install it to use Groq models.")
+            raise ImportError("The 'groq' package is not installed. Please install it to use Groq models.")
 
-        elif self.config.provider == LanguageModelProvider.ANTHROPIC:
+        if self.config.provider == LanguageModelProvider.ANTHROPIC:
             if importlib.util.find_spec("anthropic") is not None:
                 return AnthropicLanguageModel(
                     llm_model=self.config.model,
@@ -96,10 +92,8 @@ class LanguageModelBuilder:
                     llm_cache_type=self.config.cache_type,
                     verbose=self.config.verbose,
                 )
-            else:
-                raise ImportError("The 'anthropic' package is not installed. Please install it to use Anthropic models.")
-        else:
-            raise ValueError(f"Unsupported provider: {self.config.provider}")
+            raise ImportError("The 'anthropic' package is not installed. Please install it to use Anthropic models.")
+        raise ValueError(f"Unsupported provider: {self.config.provider}")
 
 
 def get_language_model(config: LanguageModelConfig) -> LanguageModel:

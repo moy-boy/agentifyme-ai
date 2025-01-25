@@ -1,15 +1,15 @@
 import re
-from typing import Any, Optional, Union
+from typing import Any
 
 import orjson
 from loguru import logger
 
+from agentifyme.components.task import Task, TaskConfig
 from agentifyme.ml.llm import (
     LanguageModelConfig,
     LanguageModelType,
     get_language_model,
 )
-from agentifyme.tasks.task import Task, TaskConfig
 from agentifyme.utilities.func_utils import Param
 
 
@@ -28,11 +28,11 @@ class LLMResponseError(Exception):
 class JSONDataExtractorTask(Task):
     def __init__(
         self,
-        config: Optional[TaskConfig] = None,
-        output_schema: Optional[Union[str, dict[str, str]]] = None,
-        language_model: Optional[Union[LanguageModelType, str]] = None,
-        language_model_config: Optional[LanguageModelConfig] = None,
-        prompt_template: Optional[str] = None,
+        config: TaskConfig | None = None,
+        output_schema: str | dict[str, str] | None = None,
+        language_model: LanguageModelType | str | None = None,
+        language_model_config: LanguageModelConfig | None = None,
+        prompt_template: str | None = None,
         max_retries: int = 3,
         **kwargs,
     ) -> None:
@@ -46,14 +46,14 @@ class JSONDataExtractorTask(Task):
                         name="text",
                         data_type="str",
                         description="The text to extract JSON from.",
-                    )
+                    ),
                 },
                 output_parameters=[
                     Param(
                         name="json",
                         data_type="str",
                         description="The extracted JSON object.",
-                    )
+                    ),
                 ],
             )
 
@@ -87,14 +87,14 @@ class JSONDataExtractorTask(Task):
             self.prompt_template = self.get_default_prompt()
 
     def extract_json(self, text: str) -> dict[str, Any] | None:
-        """
-        Extracts the first JSON object from the given text.
+        """Extracts the first JSON object from the given text.
 
         Args:
             text (str): The input text containing JSON data.
 
         Returns:
             dict: The parsed JSON object, or None if no JSON object is found.
+
         """
         # Regular expression to match JSON objects
         json_pattern = re.compile(r"\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{[^{}]*\}))*\}))*\}")
@@ -129,8 +129,8 @@ class JSONDataExtractorTask(Task):
     def run(
         self,
         text: str,
-        output_schema: Optional[Union[str, dict[str, Any]]] = None,
-    ) -> Union[str, dict[str, Any]]:
+        output_schema: str | dict[str, Any] | None = None,
+    ) -> str | dict[str, Any]:
         output_schema = output_schema or self.output_schema
         if output_schema is None:
             raise ValueError("output_schema must be provided")
@@ -167,8 +167,8 @@ class JSONDataExtractorTask(Task):
     async def arun(
         self,
         text: str,
-        output_schema: Optional[Union[str, dict[str, Any]]] = None,
-    ) -> Union[str, dict[str, Any]]:
+        output_schema: str | dict[str, Any] | None = None,
+    ) -> str | dict[str, Any]:
         output_schema = output_schema or self.output_schema
         if output_schema is None:
             raise ValueError("output_schema must be provided")

@@ -1,6 +1,6 @@
 import base64
 import uuid
-from datetime import date, datetime, time
+from datetime import date, datetime
 from decimal import Decimal
 from enum import Enum
 
@@ -30,7 +30,6 @@ def get_timestamp():
 
 def convert_for_protobuf(data):
     """Convert Python types to protobuf-compatible types."""
-
     if data is None:
         return None
 

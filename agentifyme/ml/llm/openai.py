@@ -1,7 +1,8 @@
 import hashlib
 import json
 import os
-from typing import Any, Dict, Iterable, Iterator, List, Optional
+from collections.abc import Iterable, Iterator
+from typing import Any
 
 from joblib import Memory
 from openai import (
@@ -63,13 +64,13 @@ class OpenAILanguageModel(LanguageModel):
     def __init__(
         self,
         llm_model: LanguageModelType,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         llm_cache_type: CacheType = CacheType.NONE,
-        system_prompt: Optional[str] = None,
-        api_base_url: Optional[str] = None,
-        organization: Optional[str] = None,
-        project: Optional[str] = None,
-        timeout: Optional[float] = None,
+        system_prompt: str | None = None,
+        api_base_url: str | None = None,
+        organization: str | None = None,
+        project: str | None = None,
+        timeout: float | None = None,
         max_retries: int = 2,
         json_mode: bool = False,
         **kwargs: Any,
@@ -101,14 +102,14 @@ class OpenAILanguageModel(LanguageModel):
         self.model = llm_model
         self.json_mode = json_mode
 
-        self.llm_cache: Optional[LLMCacheJoblib] = None
+        self.llm_cache: LLMCacheJoblib | None = None
 
         if self.llm_cache_type == CacheType.DISK:
             self.llm_cache = LLMCacheJoblib(location="joblib_cache", verbose=0)
         elif self.llm_cache_type == CacheType.MEMORY:
             self.llm_cache = LLMCacheJoblib(location=None, verbose=0)
 
-    def _to_openai_tools(self, tools: Optional[List[ToolCall]] = None) -> Iterable[ChatCompletionToolParam] | NotGiven:
+    def _to_openai_tools(self, tools: list[ToolCall] | None = None) -> Iterable[ChatCompletionToolParam] | NotGiven:
         if tools is None:
             return NotGiven()
 
@@ -119,10 +120,10 @@ class OpenAILanguageModel(LanguageModel):
         openai_tools: Iterable[ChatCompletionToolParam] | NotGiven = NotGiven()
 
         if _tools:
-            _openai_tools: List[ChatCompletionToolParam] = []
+            _openai_tools: list[ChatCompletionToolParam] = []
 
             for tool in _tools:
-                fn_parameters: Dict[str, object] = {}
+                fn_parameters: dict[str, object] = {}
 
                 parameters = tool.get("parameters")
 
@@ -140,7 +141,7 @@ class OpenAILanguageModel(LanguageModel):
                     ChatCompletionToolParam(
                         type="function",
                         function=openai_tool,
-                    )
+                    ),
                 )
 
             openai_tools = _openai_tools
@@ -149,8 +150,8 @@ class OpenAILanguageModel(LanguageModel):
 
     def generate(
         self,
-        messages: List[Message],
-        tools: Optional[List[ToolCall]] = None,
+        messages: list[Message],
+        tools: list[ToolCall] | None = None,
         max_tokens: int = 256,
         temperature: float = 0.5,
         top_p: float = 1.0,
@@ -188,8 +189,8 @@ class OpenAILanguageModel(LanguageModel):
 
     async def agenerate(
         self,
-        messages: List[Message],
-        tools: Optional[List[ToolCall]] = None,
+        messages: list[Message],
+        tools: list[ToolCall] | None = None,
         max_tokens: int = 256,
         temperature: float = 0.5,
         top_p: float = 1.0,
@@ -215,8 +216,8 @@ class OpenAILanguageModel(LanguageModel):
 
     def generate_stream(
         self,
-        messages: List[Message],
-        tools: Optional[List[ToolCall]] = None,
+        messages: list[Message],
+        tools: list[ToolCall] | None = None,
         max_tokens: int = 256,
         temperature: float = 0.5,
         top_p: float = 1.0,
@@ -260,20 +261,20 @@ class OpenAILanguageModel(LanguageModel):
             yield LanguageModelResponse(
                 message=None,
                 cached=False,
-                error=f"OpenAI Error: {str(e)}",
+                error=f"OpenAI Error: {e!s}",
             )
         except Exception as e:
             # As a last resort, catch any other unexpected errors
             yield LanguageModelResponse(
                 message=None,
                 cached=False,
-                error=f"Unexpected error: {str(e)}",
+                error=f"Unexpected error: {e!s}",
             )
 
     def _call_openai(
         self,
         model_name: str,
-        llm_messages: List[ChatCompletionMessageParam],
+        llm_messages: list[ChatCompletionMessageParam],
         tools: Iterable[ChatCompletionToolParam] | NotGiven = NotGiven(),
         max_tokens: int = 256,
         temperature: float = 0.5,
@@ -292,12 +293,12 @@ class OpenAILanguageModel(LanguageModel):
             )
             return response
         except Exception as e:
-            raise ValueError(f"OpenAI API call failed: {str(e)}") from e
+            raise ValueError(f"OpenAI API call failed: {e!s}") from e
 
     async def _call_openai_async(
         self,
         model_name: str,
-        llm_messages: List[ChatCompletionMessageParam],
+        llm_messages: list[ChatCompletionMessageParam],
         tools: Iterable[ChatCompletionToolParam] | NotGiven = NotGiven(),
         max_tokens: int = 256,
         temperature: float = 0.5,
@@ -316,10 +317,10 @@ class OpenAILanguageModel(LanguageModel):
             )
             return response
         except Exception as e:
-            raise ValueError(f"OpenAI API call failed: {str(e)}") from e
+            raise ValueError(f"OpenAI API call failed: {e!s}") from e
 
-    def _prepare_messages(self, messages: List[Message]) -> List[ChatCompletionMessageParam]:
-        llm_messages: List[ChatCompletionMessageParam] = []
+    def _prepare_messages(self, messages: list[Message]) -> list[ChatCompletionMessageParam]:
+        llm_messages: list[ChatCompletionMessageParam] = []
 
         for message in messages:
             if message.content is None:
@@ -344,10 +345,9 @@ class OpenAILanguageModel(LanguageModel):
         # This is a simplified example and should be updated with accurate pricing
         if "gpt-3.5" in model:
             return (prompt_tokens * 0.0015 + completion_tokens * 0.002) / 1000
-        elif "gpt-4" in model:
+        if "gpt-4" in model:
             return (prompt_tokens * 0.03 + completion_tokens * 0.06) / 1000
-        else:
-            return 0.0
+        return 0.0
 
     def _process_response(self, response: ChatCompletion) -> LanguageModelResponse:
         """Process the API response into a LanguageModelResponse"""
@@ -365,7 +365,7 @@ class OpenAILanguageModel(LanguageModel):
                 calls=1,
             )
 
-        tool_calls: List[ToolCall] = []
+        tool_calls: list[ToolCall] = []
         for choice in response.choices:
             if choice.message.tool_calls is not None:
                 for t in choice.message.tool_calls:

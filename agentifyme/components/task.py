@@ -1,6 +1,7 @@
 import asyncio
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, List, Optional
+from typing import Any
 
 import wrapt
 
@@ -12,8 +13,7 @@ from .utils import Param, get_function_metadata, validate_component_name
 
 @dataclass
 class TaskConfig(BaseConfig):
-    """
-    Represents a task configuration.
+    """Represents a task configuration.
 
     Attributes:
         name (str): The name of the task
@@ -22,6 +22,7 @@ class TaskConfig(BaseConfig):
         func (Callable[..., Any]): The function associated with the task
         input_parameters (dict[str, Param]): Input parameters for the task
         output_parameters (list[Param]): Output parameters for the task
+
     """
 
     input_parameters: dict[str, Param] = field(default_factory=dict)
@@ -69,15 +70,15 @@ class Task(RunnableComponent):
             return self._result
 
 
-def task(wrapped: Optional[Callable] = None, *, name: Optional[str] = None, description: Optional[str] = None, dependencies: List[str] = None) -> Callable:
-    """
-    Decorator to create a task.
+def task(wrapped: Callable | None = None, *, name: str | None = None, description: str | None = None, dependencies: list[str] = None) -> Callable:
+    """Decorator to create a task.
 
     Args:
         wrapped: The function to wrap
         name: Optional name for the task
         description: Optional description of the task
         dependencies: Optional list of task names that must complete before this task
+
     """
 
     def decorator(wrapped_func):
@@ -105,12 +106,12 @@ def task(wrapped: Optional[Callable] = None, *, name: Optional[str] = None, desc
             if asyncio.iscoroutinefunction(wrapped_func):
 
                 async def run():
-                    kwargs.update(zip(wrapped_func.__code__.co_varnames, args))
+                    kwargs.update(zip(wrapped_func.__code__.co_varnames, args, strict=False))
                     return await _task_instance.arun(**kwargs)
 
                 return run()
 
-            kwargs.update(zip(wrapped_func.__code__.co_varnames, args))
+            kwargs.update(zip(wrapped_func.__code__.co_varnames, args, strict=False))
             return _task_instance(**kwargs)
 
         wrapped = wrapper(wrapped_func)

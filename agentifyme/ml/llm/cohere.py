@@ -1,5 +1,5 @@
 import os
-from typing import Any, List, Optional
+from typing import Any
 
 from agentifyme.ml.llm import LanguageModel
 
@@ -24,16 +24,15 @@ except ImportError:
 class CohereError(Exception):
     """Custom exception for Cohere-specific errors."""
 
-    pass
 
 
 class CohereLanguageModel(LanguageModel):
     def __init__(
         self,
         llm_model: LanguageModelType,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         llm_cache_type: CacheType = CacheType.NONE,
-        system_prompt: Optional[str] = None,
+        system_prompt: str | None = None,
         **kwargs: Any,
     ) -> None:
         if not COHERE_AVAILABLE:
@@ -51,8 +50,8 @@ class CohereLanguageModel(LanguageModel):
 
     def generate(
         self,
-        messages: List[Message],
-        tools: Optional[List[ToolCall]] = None,
+        messages: list[Message],
+        tools: list[ToolCall] | None = None,
         max_tokens: int = 256,
         temperature: float = 0.5,
         top_p: float = 1.0,

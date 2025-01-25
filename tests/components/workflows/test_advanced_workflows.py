@@ -5,7 +5,7 @@ import pytest
 from loguru import logger
 from pydantic import BaseModel
 
-from agentifyme.components.task import TaskConfig, task
+from agentifyme.components.task import task
 from agentifyme.components.workflow import WorkflowConfig, workflow
 from agentifyme.errors import AgentifyMeError
 

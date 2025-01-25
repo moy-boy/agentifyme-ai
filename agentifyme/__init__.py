@@ -1,21 +1,29 @@
-from agentifyme.client import AsyncClient, Client, WorkflowExecutionError
-from agentifyme.config import AgentifyMeConfig
-from agentifyme.errors import AgentifyMeError, AgentifyMeExecutionError, AgentifyMeTimeoutError, AgentifyMeValidationError
+from agentifyme.client import AsyncClient, Client
+from agentifyme.components.task import task
+from agentifyme.components.workflow import workflow
+from agentifyme.errors import (
+    AgentifyMeError,
+    AgentifyMeExecutionError,
+    AgentifyMeTimeoutError,
+    AgentifyMeValidationError,
+    ErrorCategory,
+    ErrorContext,
+    ErrorSeverity,
+)
 from agentifyme.logger import get_logger
-from agentifyme.tasks import task
-from agentifyme.workflows import workflow
 
-__version__ = "0.1.36"
+__version__ = "0.1.37"
 __all__ = [
-    "get_logger",
-    "AgentifyMeConfig",
     "AgentifyMeError",
     "AgentifyMeExecutionError",
     "AgentifyMeTimeoutError",
     "AgentifyMeValidationError",
+    "AsyncClient",
+    "Client",
+    "ErrorCategory",
+    "ErrorContext",
+    "ErrorSeverity",
+    "get_logger",
     "task",
     "workflow",
-    "Client",
-    "AsyncClient",
-    "WorkflowExecutionError",
 ]

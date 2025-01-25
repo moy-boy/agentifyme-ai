@@ -1,3 +1,11 @@
-from .task import Task, TaskConfig, task
+from .json_data_extractor_task import JSONDataExtractorTask
+from .structured_data_extractor_task import (
+    PydanticDataExtractorTask,
+    StructuredDataExtractorTask,
+)
 
-__all__ = ["Task", "task", "TaskConfig"]
+__all__ = [
+    "JSONDataExtractorTask",
+    "PydanticDataExtractorTask",
+    "StructuredDataExtractorTask",
+]

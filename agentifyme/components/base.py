@@ -1,13 +1,20 @@
 import re
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass
 from inspect import signature
-from typing import Any, Callable, ClassVar
+from typing import Any, ClassVar
 
 from loguru import logger
 
-from agentifyme.errors import AgentifyMeError, AgentifyMeValidationError, ErrorCategory, ErrorContext, ErrorSeverity
+from agentifyme.errors import (
+    AgentifyMeError,
+    AgentifyMeValidationError,
+    ErrorCategory,
+    ErrorContext,
+    ErrorSeverity,
+)
 
 
 @dataclass
@@ -22,8 +29,7 @@ class BaseConfig:
 
     @classmethod
     def register(cls, component: "BaseComponent"):
-        """
-        Register a component in the registry.
+        """Register a component in the registry.
 
         Args:
             component (BaseComponent): The component to register.
@@ -40,16 +46,12 @@ class BaseConfig:
 
     @classmethod
     def reset_registry(cls):
-        """
-        Reset the registry.
-
-        """
+        """Reset the registry."""
         cls._registry = {}
 
     @classmethod
     def get(cls, name: str) -> "BaseComponent":
-        """
-        Get a component from the registry.
+        """Get a component from the registry.
 
         Args:
             name (str): The name of the component to get.
@@ -59,6 +61,7 @@ class BaseConfig:
 
         Raises:
             AgentifyMeError: If the component is not found in the registry.
+
         """
         base_module = cls._registry.get(name)
         if base_module is None:
@@ -67,21 +70,21 @@ class BaseConfig:
 
     @classmethod
     def get_all(cls) -> list[str]:
-        """
-        Get all the components in the registry.
+        """Get all the components in the registry.
 
         Returns:
             list[str]: The names of the components.
+
         """
         return list(cls._registry.keys())
 
     @classmethod
     def get_registry(cls) -> dict[str, "BaseComponent"]:
-        """
-        Get the registry.
+        """Get the registry.
 
         Returns:
             dict[str, BaseComponent]: The registry.
+
         """
         return cls._registry
 
@@ -101,10 +104,12 @@ class BaseComponent(ABC):
     def error_context(self, kwargs):
         try:
             yield
+        except AgentifyMeError:
+            raise
         except Exception as e:
             error_type = type(e).__name__ or "Error"
             raise AgentifyMeError(
-                message=f"{error_type} executing {self.__class__.__name__.lower()} {self.config.name}: {str(e)}",
+                message=str(e),
                 context=ErrorContext(component_type=self.__class__.__name__.lower(), component_id=self.config.name),
                 execution_state=dict(kwargs),
                 category=ErrorCategory.EXECUTION,
@@ -125,7 +130,6 @@ class RunnableComponent(BaseComponent):
 
     async def __aexit__(self, exc_type, exc_value, traceback):
         logger.info(f"Exiting {self.__class__.__name__} context")
-        pass
 
     def __enter__(self):
         logger.info(f"Entering {self.__class__.__name__} context")
@@ -133,7 +137,6 @@ class RunnableComponent(BaseComponent):
 
     def __exit__(self, exc_type, exc_value, traceback):
         logger.info(f"Exiting {self.__class__.__name__} context")
-        pass
 
     @abstractmethod
     def run(self, *args, **kwargs: Any) -> Any:
@@ -153,7 +156,7 @@ class RunnableComponent(BaseComponent):
             sig.bind(**prepared_kwargs)
         except TypeError as e:
             raise AgentifyMeValidationError(
-                message=f"Invalid arguments for workflow {self.config.name}: {str(e)}",
+                message=f"Invalid arguments for workflow {self.config.name}: {e!s}",
                 error_code="INVALID_ARGUMENTS",
                 category=ErrorCategory.VALIDATION,
                 context=ErrorContext(component_type="workflow", component_id=self.config.name),
@@ -163,6 +166,6 @@ class RunnableComponent(BaseComponent):
     def _prepare_kwargs(self, args: tuple, kwargs: dict) -> dict:
         prepared_kwargs = kwargs.copy()
         if self.config.func:
-            prepared_kwargs.update(zip(self.config.func.__code__.co_varnames, args))
+            prepared_kwargs.update(zip(self.config.func.__code__.co_varnames, args, strict=False))
         self._validate_arguments(prepared_kwargs)
         return prepared_kwargs

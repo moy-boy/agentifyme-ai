@@ -1,24 +1,32 @@
 import copy
+from collections.abc import Callable, Collection
 from importlib import import_module
-from typing import Any, Callable, Collection
+from typing import Any
 
-from loguru import logger
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
-from agentifyme.ml.llm import LanguageModel, LanguageModelConfig, LanguageModelResponse, LanguageModelType, Message, OpenAILanguageModel, Role, get_language_model
+from agentifyme.ml.llm import (
+    LanguageModel,
+    LanguageModelConfig,
+    LanguageModelResponse,
+    LanguageModelType,
+    Message,
+    OpenAILanguageModel,
+    Role,
+    get_language_model,
+)
 from agentifyme.worker.callback import CallbackHandler
-from agentifyme.worker.telemetry.semconv import SemanticAttributes
 
 __LLM_MODULE__ = "agentifyme.ml.llm"
 
 
 class LanguageModelInstrumentor(BaseInstrumentor):
     __slots__ = [
-        "_openai_generate",
         "_openai_agenerate",
-        "_openai_generate_stream",
         "_openai_agenerate_stream",
+        "_openai_generate",
+        "_openai_generate_stream",
     ]
 
     def __init__(self, callback_handler: CallbackHandler):
@@ -37,7 +45,6 @@ class LanguageModelInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(llm_module, "OpenAILanguageModel.generate", self._instrument_generate)
         wrap_function_wrapper(llm_module, "OpenAILanguageModel.agenerate", self._instrument_agenerate)
 
-        pass
 
     def _uninstrument(self, **kwargs: Any):
         OpenAILanguageModel.generate = self._openai_generate
@@ -56,7 +63,7 @@ class LanguageModelInstrumentor(BaseInstrumentor):
 
     async def _instrument_agenerate(self, wrapped, instance: LanguageModel, args: tuple[type, Any], kwargs: dict[str, Any]) -> LanguageModelResponse:
         _kwargs = copy.deepcopy(kwargs)
-        _kwargs.update(zip(wrapped.__code__.co_varnames, args))
+        _kwargs.update(zip(wrapped.__code__.co_varnames, args, strict=False))
 
         provider, _ = instance.get_model_name(instance.llm_model)
         print("instrument_agenerate")

@@ -20,17 +20,21 @@ from opentelemetry.trace import StatusCode
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 from pydantic import BaseModel
 
-import agentifyme.worker.pb.api.v1.common_pb2 as common_pb
-
-# Import generated protobuf code (assuming pb directory structure matches Go)
 import agentifyme.worker.pb.api.v1.gateway_pb2 as pb
 import agentifyme.worker.pb.api.v1.gateway_pb2_grpc as pb_grpc
 from agentifyme import __version__
-from agentifyme.config import TaskConfig, WorkflowConfig
-from agentifyme.errors import AgentifyMeError, ErrorContext
-from agentifyme.utilities.grpc import convert_for_protobuf, get_message_id, get_timestamp
+from agentifyme.components.workflow import WorkflowConfig
+from agentifyme.errors import AgentifyMeError
+from agentifyme.utilities.grpc import (
+    convert_for_protobuf,
+    get_message_id,
+    get_timestamp,
+)
 from agentifyme.worker.callback import CallbackHandler
 from agentifyme.worker.helpers import convert_workflow_to_pb, struct_to_dict
+
+# Import generated protobuf code (assuming pb directory structure matches Go)
+from agentifyme.worker.pb.api.v1 import common_pb2
 from agentifyme.worker.workflows import (
     WorkflowCommandHandler,
     WorkflowHandler,
@@ -51,9 +55,7 @@ tracer = trace.get_tracer(__name__)
 
 
 class WorkerService:
-    """
-    Worker service for processing jobs.
-    """
+    """Worker service for processing jobs."""
 
     MAX_RECONNECT_ATTEMPTS = 5  # Maximum number of reconnection attempts
     MAX_BACKOFF_DELAY = 32  # Maximum delay between attempts in seconds
@@ -120,7 +122,6 @@ class WorkerService:
 
     async def start_service(self) -> bool:
         """Start the worker service."""
-
         # initialize workflow handlers
         workflow_handlers = self.initialize_workflow_handlers()
         workflow_names = list(workflow_handlers.keys())
@@ -159,7 +160,7 @@ class WorkerService:
             for task in tasks:
                 if task:
                     task.cancel()
-            logger.error(f"Unexpected error during worker registration: {str(e)}")
+            logger.error(f"Unexpected error during worker registration: {e!s}")
             return False
 
     async def subscribe_to_event_stream(self):
@@ -272,7 +273,6 @@ class WorkerService:
 
     async def _handle_worker_message(self, msg: pb.OutboundWorkerMessage) -> None:
         """Handle incoming worker messages"""
-        pass
         # if msg.HasField("workflow_command"):
         #     await self._handle_workflow_command(msg, msg.workflow_command)
 
@@ -399,10 +399,10 @@ class WorkerService:
             case _:
                 return pb.RuntimeEventStage.RUNTIME_EVENT_STAGE_UNSPECIFIED
 
-    def _get_error(self, event: dict) -> pb.AgentifyMeError | None:
+    def _get_error(self, event: dict) -> common_pb2.AgentifyMeError | None:
         error = event.get("error")
         if error:
-            return pb.AgentifyMeError(
+            return common_pb2.AgentifyMeError(
                 message=error.get("message"),
                 error_code=error.get("error_code"),
                 category=error.get("category"),
@@ -499,7 +499,6 @@ class WorkerService:
 
                 except Exception as e:
                     logger.error(f"Error processing event: {e}")
-                    traceback.print_exc()
                     # For other errors, also requeue
                     # await self.events_queue.put(event)
                     continue
@@ -596,16 +595,13 @@ class WorkerService:
                                 break
 
                         except AgentifyMeError as e:
-                            logger.error(f"ERROR ==> {type(e)} executing workflow: {e}")
                             error = e
                             raise
                         except Exception as e:
-                            logger.error(f"ERROR ==> {type(e)} generic exception executing workflow: {e}")
                             error = e
                             raise
                         finally:
                             if error:
-                                logger.error(f"ERROR ==> {type(error)} error executing workflow: {error}")
                                 self.callback_handler.fire_event(
                                     "workflow.execution",
                                     "finished",
@@ -631,7 +627,7 @@ class WorkerService:
                 logger.info(f"Workflow {job.run_id} cancelled")
                 raise
             except Exception as e:
-                logger.error(f"Workflow execution error: {e}")
+                logger.error(f"Workflow execution error: {e}, {type(e)}")
                 await self.event_queue.put({"workflow_id": job.run_id, "status": "error", "error": str(e)})
 
     @asynccontextmanager
@@ -695,7 +691,6 @@ class WorkerService:
 
     async def cleanup_on_disconnect(self):
         """Cleanup resources on disconnect"""
-
         self.health_file.unlink(missing_ok=True)
         self._last_health_state = False
 
@@ -733,6 +728,7 @@ class WorkerService:
 
     def initialize_workflow_handlers(self) -> dict[str, WorkflowHandler]:
         """Initialize workflow handlers"""
+        logger.info(f"Found workflows - {WorkflowConfig.get_all()}")
         _workflow_handlers = {}
         for workflow_name in WorkflowConfig.get_all():
             _workflow = WorkflowConfig.get(workflow_name)

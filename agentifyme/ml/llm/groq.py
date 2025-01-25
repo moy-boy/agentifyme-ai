@@ -1,5 +1,6 @@
 import os
-from typing import Any, Iterator, List, Optional
+from collections.abc import Iterator
+from typing import Any
 
 from agentifyme.ml.llm import LanguageModel
 
@@ -34,16 +35,15 @@ except ImportError:
 class GroqError(Exception):
     """Custom exception for Groq-specific errors."""
 
-    pass
 
 
 class GroqLanguageModel(LanguageModel):
     def __init__(
         self,
         llm_model: LanguageModelType,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         llm_cache_type: CacheType = CacheType.NONE,
-        system_prompt: Optional[str] = None,
+        system_prompt: str | None = None,
         **kwargs: Any,
     ) -> None:
         if not GROQ_AVAILABLE:
@@ -61,8 +61,8 @@ class GroqLanguageModel(LanguageModel):
 
     def generate(
         self,
-        messages: List[Message],
-        tools: Optional[List[ToolCall]] = None,
+        messages: list[Message],
+        tools: list[ToolCall] | None = None,
         max_tokens: int = 256,
         temperature: float = 0.5,
         top_p: float = 1.0,
@@ -115,13 +115,13 @@ class GroqLanguageModel(LanguageModel):
             return LanguageModelResponse(
                 message=None,
                 cached=False,
-                error=f"Groq API call failed: {str(e)}",
+                error=f"Groq API call failed: {e!s}",
             )
 
     def generate_stream(
         self,
-        messages: List[Message],
-        tools: Optional[List[ToolCall]] = None,
+        messages: list[Message],
+        tools: list[ToolCall] | None = None,
         max_tokens: int = 256,
         temperature: float = 0.5,
         top_p: float = 1.0,
@@ -159,11 +159,11 @@ class GroqLanguageModel(LanguageModel):
             yield LanguageModelResponse(
                 message=None,
                 cached=False,
-                error=f"Groq API Error: {str(e)}",
+                error=f"Groq API Error: {e!s}",
             )
 
-    def _prepare_messages(self, messages: List[Message]):
-        llm_messages: List[ChatCompletionMessageParam] = []
+    def _prepare_messages(self, messages: list[Message]):
+        llm_messages: list[ChatCompletionMessageParam] = []
 
         for message in messages:
             if message.content is None:
