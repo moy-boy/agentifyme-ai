@@ -16,6 +16,7 @@ from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapProp
 from pydantic import BaseModel, ValidationError
 
 import agentifyme.worker.pb.api.v1.gateway_pb2_grpc as pb_grpc
+from agentifyme.errors import AgentifyMeError, ErrorContext
 from agentifyme.workflows import Workflow, WorkflowConfig
 
 Input = TypeVar("Input")
@@ -32,7 +33,7 @@ class WorkflowJob:
     input_parameters: dict
     completed: bool
     success: bool
-    error: str | None
+    error: AgentifyMeError | None
     output: dict | None
     metadata: dict[str, str]  # Metadata for the workflow execution trace.
 
@@ -192,11 +193,14 @@ class WorkflowHandler:
                     attributes={"input": orjson.dumps(job.input_parameters).decode()},
                 )
 
+                logger.info(f"==> Executing workflow {job.run_id} with input: {func_args}")
                 # Execute workflow
                 if asyncio.iscoroutinefunction(_workflow_config.func):
                     result = await self.workflow.arun(**func_args)
                 else:
                     result = self.workflow.run(**func_args)
+
+                logger.info(f"~~~==> Workflow {job.run_id} result: {result}")
 
                 # Get return type and process output
                 return_type = get_type_hints(_workflow_config.func).get("return")
@@ -212,32 +216,28 @@ class WorkflowHandler:
                 span.set_status(Status(StatusCode.OK))
                 span.add_event(name="workflow.complete", attributes={"output_size": len(str(output_data))})
 
-            except ValidationError as e:
-                logger.exception(f"Workflow {job.run_id} validation error: {e}")
-                job.output = None
-                job.error = str(e)
-                span.set_status(Status(StatusCode.ERROR, "Validation Error"))
-                span.record_exception(e)
-                span.add_event(name="workflow.validation_error", attributes={"error": str(e)})
-
-            except TypeError as e:
-                logger.exception(f"Workflow {job.run_id} serialization error: {e}")
-                job.output = None
-                job.error = f"Output serialization failed: {str(e)}"
-                span.set_status(Status(StatusCode.ERROR, "Serialization Error"))
-                span.record_exception(e)
-                span.add_event(name="workflow.serialization_error", attributes={"error": str(e)})
+            except AgentifyMeError as e:
+                logger.error(f"Workflow execution error: {e}")
+                job.success = False
+                job.error = e
+                raise e
 
             except Exception as e:
-                traceback.print_exc()
+                logger.error(f"~~~==> Workflow {job.run_id} result: {result}")
                 logger.exception(f"Workflow {job.run_id} execution error: {e}")
                 job.output = None
-                job.error = str(e)
+                job.error = AgentifyMeError(
+                    message=f"Workflow {job.run_id} execution error: {e}",
+                    context=ErrorContext(component_type="workflow", component_id=job.workflow_name),
+                    execution_state=job.input_parameters,
+                )
                 span.set_status(Status(StatusCode.ERROR, "Execution Error"))
                 span.record_exception(e)
                 span.add_event(name="workflow.execution_error", attributes={"error": str(e)})
+                raise e
 
             finally:
+                logger.info(f"~~~==> JOB COMPLETED {job.run_id} completed")
                 job.completed = True
                 return job
 

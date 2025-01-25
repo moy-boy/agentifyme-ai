@@ -13,7 +13,7 @@ from typing import (
 from loguru import logger
 
 from agentifyme.config import BaseModule, WorkflowConfig
-from agentifyme.errors import AgentifyMeExecutionError, AgentifyMeValidationError, ErrorContext
+from agentifyme.errors import AgentifyMeError, AgentifyMeValidationError, ErrorCategory, ErrorContext, ErrorSeverity
 from agentifyme.utilities.func_utils import (
     execute_function,
     get_function_metadata,
@@ -36,11 +36,15 @@ class Workflow(BaseModule):
             try:
                 return execute_function(self.config.func, kwargs)
             except Exception as e:
-                raise AgentifyMeExecutionError(
-                    message=f"Error executing workflow {self.config.name}: {str(e)}",
+                error_type = type(e).__name__ or "Error"
+                raise AgentifyMeError(
+                    message=f"{error_type} executing workflow {self.config.name}: {str(e)}",
                     context=ErrorContext(component_type="workflow", component_id=self.config.name),
-                    execution_state=kwargs,
-                ) from e
+                    execution_state=dict(kwargs),
+                    category=ErrorCategory.EXECUTION,
+                    severity=ErrorSeverity.ERROR,
+                    error_type=error_type,
+                )
         else:
             raise AgentifyMeValidationError(
                 message="Workflow function not implemented",
@@ -57,11 +61,16 @@ class Workflow(BaseModule):
                 else:
                     return await asyncio.to_thread(self.config.func, **kwargs)
             except Exception as e:
-                raise AgentifyMeExecutionError(
-                    message=f"Error executing workflow {self.config.name}: {str(e)}",
+                error_type = type(e).__name__ or "Error"
+                raise AgentifyMeError(
+                    message=f"{error_type} executing workflow {self.config.name}: {str(e)}",
                     context=ErrorContext(component_type="workflow", component_id=self.config.name),
-                    execution_state=kwargs,
-                ) from e
+                    execution_state=dict(kwargs),
+                    category=ErrorCategory.EXECUTION,
+                    severity=ErrorSeverity.ERROR,
+                    error_type=error_type,
+                )
+
         else:
             raise AgentifyMeValidationError(
                 message="Workflow function not implemented",
@@ -136,5 +145,7 @@ def workflow(
     else:
         raise AgentifyMeValidationError(
             message="Invalid arguments for workflow decorator",
+            error_code="INVALID_ARGUMENTS",
+            category=ErrorCategory.VALIDATION,
             context=ErrorContext(component_type="workflow", component_id="decorator"),
         )

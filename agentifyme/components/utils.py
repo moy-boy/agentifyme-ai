@@ -1,6 +1,7 @@
 import asyncio
 import functools
 import inspect
+import re
 import warnings
 from datetime import timedelta
 from typing import (
@@ -17,6 +18,8 @@ from typing import (
 
 from docstring_parser import Docstring, parse
 from pydantic import BaseModel, ValidationError
+
+from agentifyme.errors import AgentifyMeError, ErrorCategory, ErrorContext, ErrorSeverity
 
 
 class Param(BaseModel):
@@ -426,3 +429,19 @@ def timedelta_to_cron(td: timedelta) -> str:
     day_expr = f"*/{days}" if days else "*"
 
     return f"{minute_expr} {hour_expr} {day_expr} * *"
+
+
+class InvalidNameError(AgentifyMeError):
+    def __init__(self, name: str, component_type: str):
+        super().__init__(
+            message=f"{component_type} name '{name}' must be hyphen-separated or underscore-separated alphanumeric (e.g., 'my-{component_type}-123' or 'my_{component_type}_123')",
+            error_code="INVALID_NAME",
+            category=ErrorCategory.VALIDATION,
+            context=ErrorContext(component_type=component_type, component_id="name_validation"),
+            severity=ErrorSeverity.ERROR,
+        )
+
+
+def validate_component_name(name: str, component_type: str) -> None:
+    if not re.match(r"^[a-zA-Z0-9]+(?:[-_][a-zA-Z0-9]+)*$", name):
+        raise InvalidNameError(name=name, component_type=component_type)

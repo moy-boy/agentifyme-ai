@@ -5,6 +5,7 @@ from typing import Any, Optional, Union
 import httpx
 from pydantic import BaseModel
 
+from agentifyme.errors import AgentifyMeError
 from agentifyme.utilities.json_utils import serialize_value
 
 
@@ -167,8 +168,24 @@ class Client(BaseClient):
             response.raise_for_status()
             json_response = response.json()
 
+            if "error" in json_response:
+                error = json_response["error"]
+                raise AgentifyMeError(
+                    message=error.get("message"),
+                    error_code=error.get("error_code"),
+                    category=error.get("category"),
+                    severity=error.get("severity"),
+                    error_type=error.get("error_type"),
+                )
+
             if "data" not in json_response:
-                raise WorkflowExecutionError(message="No data returned from API", status_code=response.status_code, response=json_response)
+                raise AgentifyMeError(
+                    message="No data returned from API",
+                    error_code="NO_DATA_RETURNED",
+                    category="API_ERROR",
+                    severity="ERROR",
+                    error_type=None,
+                )
 
             return json_response["data"]
         except httpx.HTTPStatusError as e:
@@ -179,9 +196,21 @@ class Client(BaseClient):
                 error_msg = response_data.get("message", error_msg)
             except Exception:
                 pass
-            raise WorkflowExecutionError(message=error_msg, status_code=response.status_code, response=response_data)
+            raise AgentifyMeError(
+                message=error_msg,
+                error_code="API_ERROR",
+                category="API_ERROR",
+                severity="ERROR",
+                error_type=None,
+            )
         except Exception as e:
-            raise AgentifymeError(f"Unexpected error: {str(e)}")
+            raise AgentifyMeError(
+                message=f"Unexpected error: {str(e)}",
+                error_code="UNEXPECTED_ERROR",
+                category="API_ERROR",
+                severity="ERROR",
+                error_type=None,
+            )
 
     def run_workflow(
         self,
@@ -261,8 +290,24 @@ class AsyncClient(BaseClient):
             response.raise_for_status()
             json_response = response.json()
 
+            if "error" in json_response:
+                error = json_response["error"]
+                raise AgentifyMeError(
+                    message=error.get("message"),
+                    error_code=error.get("error_code"),
+                    category=error.get("category"),
+                    severity=error.get("severity"),
+                    error_type=error.get("error_type"),
+                )
+
             if "data" not in json_response:
-                raise WorkflowExecutionError(message="No data returned from API", status_code=response.status_code, response=json_response)
+                raise AgentifyMeError(
+                    message="No data returned from API",
+                    error_code="NO_DATA_RETURNED",
+                    category="API_ERROR",
+                    severity="ERROR",
+                    error_type=None,
+                )
 
             return json_response["data"]
         except httpx.HTTPStatusError as e:
@@ -273,9 +318,21 @@ class AsyncClient(BaseClient):
                 error_msg = response_data.get("message", error_msg)
             except Exception:
                 pass
-            raise WorkflowExecutionError(message=error_msg, status_code=response.status_code, response=response_data)
+            raise AgentifyMeError(
+                message=error_msg,
+                error_code="API_ERROR",
+                category="API_ERROR",
+                severity="ERROR",
+                error_type=None,
+            )
         except Exception as e:
-            raise AgentifymeError(f"Unexpected error: {str(e)}")
+            raise AgentifyMeError(
+                message=f"Unexpected error: {str(e)}",
+                error_code="UNEXPECTED_ERROR",
+                category="API_ERROR",
+                severity="ERROR",
+                error_type=None,
+            )
 
     async def run_workflow(
         self,
@@ -306,7 +363,13 @@ class AsyncClient(BaseClient):
                 response = await client.post(f"{self.endpoint_url}/v1/workflows/run", json=data, headers=headers)
                 return await self._handle_response(response)
         except httpx.RequestError as e:
-            raise AgentifymeError(f"Request failed: {str(e)}")
+            raise AgentifyMeError(
+                message=f"Request failed: {str(e)}",
+                error_code="REQUEST_FAILED",
+                category="API_ERROR",
+                severity="ERROR",
+                error_type=None,
+            )
 
     async def submit_workflow(self, name: str, input: Union[dict, BaseModel] | None = None, deployment_endpoint: str | None = None) -> dict:
         """
@@ -330,7 +393,13 @@ class AsyncClient(BaseClient):
                 response = await client.post(f"{self.endpoint_url}/v1/workflows/jobs", json=data, headers=headers)
                 return await self._handle_response(response)
         except httpx.RequestError as e:
-            raise AgentifymeError(f"Request failed: {str(e)}")
+            raise AgentifyMeError(
+                message=f"Request failed: {str(e)}",
+                error_code="REQUEST_FAILED",
+                category="API_ERROR",
+                severity="ERROR",
+                error_type=None,
+            )
 
     async def get_workflow_result(self, job_id: str) -> Union[dict, list, str, None]:
         """

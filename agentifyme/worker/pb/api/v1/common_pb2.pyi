@@ -150,12 +150,20 @@ class WorkflowExecutionResult(_message.Message):
     def __init__(self, data: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ..., error: _Optional[_Union[WorkflowExecutionError, _Mapping]] = ..., status: _Optional[_Union[WorkflowExecutionStatus, str]] = ...) -> None: ...
 
 class WorkflowExecutionError(_message.Message):
-    __slots__ = ("error_code", "error_message")
+    __slots__ = ("message", "error_code", "category", "severity", "traceback", "error_type")
+    MESSAGE_FIELD_NUMBER: _ClassVar[int]
     ERROR_CODE_FIELD_NUMBER: _ClassVar[int]
-    ERROR_MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    CATEGORY_FIELD_NUMBER: _ClassVar[int]
+    SEVERITY_FIELD_NUMBER: _ClassVar[int]
+    TRACEBACK_FIELD_NUMBER: _ClassVar[int]
+    ERROR_TYPE_FIELD_NUMBER: _ClassVar[int]
+    message: str
     error_code: str
-    error_message: str
-    def __init__(self, error_code: _Optional[str] = ..., error_message: _Optional[str] = ...) -> None: ...
+    category: str
+    severity: str
+    traceback: str
+    error_type: str
+    def __init__(self, message: _Optional[str] = ..., error_code: _Optional[str] = ..., category: _Optional[str] = ..., severity: _Optional[str] = ..., traceback: _Optional[str] = ..., error_type: _Optional[str] = ...) -> None: ...
 
 class MessageAck(_message.Message):
     __slots__ = ("msg_id", "success", "error")
