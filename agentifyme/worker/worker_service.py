@@ -401,7 +401,7 @@ class WorkerService:
 
     def _get_error(self, event: dict) -> common_pb2.AgentifyMeError | None:
         error = event.get("error")
-        if error:
+        if error and isinstance(error, dict):
             return common_pb2.AgentifyMeError(
                 message=error.get("message"),
                 error_code=error.get("error_code"),
@@ -498,9 +498,8 @@ class WorkerService:
                     continue
 
                 except Exception as e:
+                    traceback.print_exc()
                     logger.error(f"Error processing event: {e}")
-                    # For other errors, also requeue
-                    # await self.events_queue.put(event)
                     continue
 
             except queue.Empty:
@@ -628,7 +627,7 @@ class WorkerService:
                 raise
             except Exception as e:
                 logger.error(f"Workflow execution error: {e}, {type(e)}")
-                await self.event_queue.put({"workflow_id": job.run_id, "status": "error", "error": str(e)})
+                await self.events_queue.put({"workflow_id": job.run_id, "status": "error", "error": str(e)})
 
     @asynccontextmanager
     async def _workflow_context(self, run_id: str):

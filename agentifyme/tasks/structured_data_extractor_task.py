@@ -19,8 +19,7 @@ from agentifyme.utilities.func_utils import Param
 
 
 class StructuredDataExtractorTask(Task, ReflectionMixin):
-    """Extracts structured data from text using LLMs with reflection capabilities for error correction.
-    """
+    """Extracts structured data from text using LLMs with reflection capabilities for error correction."""
 
     def __init__(
         self,
@@ -103,9 +102,6 @@ class StructuredDataExtractorTask(Task, ReflectionMixin):
             ) from e
 
         except Exception as e:
-            print(e)
-            print(e.errors())
-
             raise e
 
     async def _extract_with_reflection(self, text: str, output_type: type[BaseModel]) -> BaseModel | ReflectionResult:

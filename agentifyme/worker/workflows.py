@@ -197,8 +197,6 @@ class WorkflowHandler:
                 else:
                     result = self.workflow.run(**func_args)
 
-                logger.info(f"~~~==> Workflow {job.run_id} result: {result}")
-
                 # Get return type and process output
                 return_type = get_type_hints(_workflow_config.func).get("return")
                 output_data = self._process_output(result, return_type)
@@ -214,14 +212,7 @@ class WorkflowHandler:
                 span.add_event(name="workflow.complete", attributes={"output_size": len(str(output_data))})
 
             except AgentifyMeError as e:
-                logger.error(f"AgentifyMeError: {e}")
-                print(e.error_code)
-                print(e.category)
-                print(e.context)
-                print(e.execution_state)
-                print(e.message)
-                print(e.severity)
-                print(e.error_type)
+                logger.error(f"AgentifyMeError: {e.message}")
                 job.success = False
                 job.error = e
                 raise
@@ -241,7 +232,6 @@ class WorkflowHandler:
                 raise
 
             finally:
-                logger.info(f"~~~==> JOB COMPLETED {job.run_id} completed")
                 job.completed = True
 
             return job

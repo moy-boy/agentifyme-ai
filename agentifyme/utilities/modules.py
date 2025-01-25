@@ -51,7 +51,7 @@ def import_module(package_name: str, module_name: str) -> Any:
     try:
         return importlib.import_module(f"{package_name}.{module_name}")
     except ImportError as e:
-        print(f"Error importing module '{module_name}' from package '{package_name}': {e}")
+        logger.error(f"Error importing module '{module_name}' from package '{package_name}': {e}")
         return None
 
 

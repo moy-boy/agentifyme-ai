@@ -33,7 +33,6 @@ class AnthropicError(Exception):
     """Custom exception for Anthropic-specific errors."""
 
 
-
 class AnthropicLanguageModel(LanguageModel):
     def __init__(
         self,
@@ -82,7 +81,6 @@ class AnthropicLanguageModel(LanguageModel):
         for block in response.content:
             if block.type == "tool_use":
                 # pass and do nothing for now:
-                print(block)
                 continue
             if block.type == "text":
                 response_text = block.text

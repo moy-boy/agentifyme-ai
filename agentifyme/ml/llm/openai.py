@@ -112,9 +112,6 @@ class OpenAILanguageModel(LanguageModel):
     def _to_openai_tools(self, tools: list[ToolCall] | None = None) -> Iterable[ChatCompletionToolParam] | NotGiven:
         if tools is None:
             return NotGiven()
-
-        print("Tools", tools)
-
         _tools = [{"name": tool.name, "parameters": tool.parameters} for tool in tools] if tools else None
 
         openai_tools: Iterable[ChatCompletionToolParam] | NotGiven = NotGiven()

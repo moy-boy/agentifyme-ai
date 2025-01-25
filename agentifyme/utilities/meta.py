@@ -60,8 +60,7 @@ class FunctionMetadata(BaseModel):
 
 
 def json_datatype_from_python_type(python_type: Any) -> str:
-    """Converts a Python data type to its corresponding JSON data type.
-    """
+    """Converts a Python data type to its corresponding JSON data type."""
     if python_type in (str, "<class 'str'>", date, datetime, UUID):
         return "string"
     if python_type in (int, float, "<class 'int'>", "<class 'float'>"):
@@ -96,8 +95,7 @@ def json_datatype_from_python_type(python_type: Any) -> str:
 
 
 def process_return_annotation(return_annotation: Any, fn_return_description: str) -> list[Param]:
-    """Process the return annotation and generate appropriate Param objects.
-    """
+    """Process the return annotation and generate appropriate Param objects."""
     output_parameters: list[Param] = []
 
     if return_annotation == inspect.Signature.empty or return_annotation is None:
@@ -165,8 +163,7 @@ def process_return_annotation(return_annotation: Any, fn_return_description: str
 
 
 def process_input_type(param_name: str, param_type: Any, default_value: Any, description: str) -> list[Param]:
-    """Process input type and generate appropriate Param objects.
-    """
+    """Process input type and generate appropriate Param objects."""
     params = []
 
     if inspect.isclass(param_type) and issubclass(param_type, BaseModel):
@@ -258,8 +255,7 @@ def get_function_metadata_with_ast(func: Callable) -> tuple[list[str], list[str]
 
 
 def function_metadata(func: Callable) -> FunctionMetadata:
-    """Get metadata for a function.
-    """
+    """Get metadata for a function."""
     fn_short_description = ""
     fn_parameters = []
     fn_return_description = ""
@@ -288,12 +284,6 @@ def function_metadata(func: Callable) -> FunctionMetadata:
             continue
 
         param_doc = next((p for p in fn_parameters if p.arg_name == param.name), None)
-        print("Param doc:", param_doc)
-
-        print("Param:", param)
-        print("Param annotation:", param.annotation)
-        print("Param default:", param.default)
-
         if param.annotation != inspect.Parameter.empty:
             param_type = param.annotation
         elif param_doc:
