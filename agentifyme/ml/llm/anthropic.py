@@ -1,5 +1,6 @@
 import os
-from typing import Any, Iterator, List, Optional, Union
+from collections.abc import Iterator
+from typing import Any
 
 from .base import (
     CacheType,
@@ -31,16 +32,15 @@ except ImportError:
 class AnthropicError(Exception):
     """Custom exception for Anthropic-specific errors."""
 
-    pass
 
 
 class AnthropicLanguageModel(LanguageModel):
     def __init__(
         self,
         llm_model: LanguageModelType,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         llm_cache_type: CacheType = CacheType.NONE,
-        system_prompt: Optional[str] = None,
+        system_prompt: str | None = None,
         **kwargs: Any,
     ) -> None:
         if not ANTHROPIC_AVAILABLE:
@@ -58,8 +58,8 @@ class AnthropicLanguageModel(LanguageModel):
 
     def generate(
         self,
-        messages: List[Message],
-        tools: Optional[List[ToolCall]] = None,
+        messages: list[Message],
+        tools: list[ToolCall] | None = None,
         max_tokens: int = 256,
         temperature: float = 0.5,
         top_p: float = 1.0,
@@ -84,7 +84,7 @@ class AnthropicLanguageModel(LanguageModel):
                 # pass and do nothing for now:
                 print(block)
                 continue
-            elif block.type == "text":
+            if block.type == "text":
                 response_text = block.text
             else:
                 raise ValueError(f"Unsupported content block type: {block.type}")
@@ -93,8 +93,8 @@ class AnthropicLanguageModel(LanguageModel):
 
     def generate_stream(
         self,
-        messages: List[Message],
-        tools: Optional[List[ToolCall]] = None,
+        messages: list[Message],
+        tools: list[ToolCall] | None = None,
         max_tokens: int = 256,
         temperature: float = 0.5,
         top_p: float = 1.0,
@@ -102,8 +102,8 @@ class AnthropicLanguageModel(LanguageModel):
     ) -> Iterator[LanguageModelResponse]:
         raise NotImplementedError("AgentifyMe does not support Anthropic streaming yet.")
 
-    def convert_messages_to_params(self, messages: List[Message]):
-        anthropic_messages: List[MessageParam] = []
+    def convert_messages_to_params(self, messages: list[Message]):
+        anthropic_messages: list[MessageParam] = []
 
         for message in messages:
             if message.content is None:
@@ -127,23 +127,22 @@ class AnthropicLanguageModel(LanguageModel):
 
         return anthropic_messages
 
-    def convert_content_block(self, block: dict) -> Union[str, dict]:
+    def convert_content_block(self, block: dict) -> str | dict:
         if "type" not in block:
             raise ValueError("Content block is missing 'type' field")
 
         if block["type"] == "text":
             return block["text"]
-        elif block["type"] == "image":
+        if block["type"] == "image":
             return {
                 "type": "image",
                 "source": block.get("source"),
                 "data": block.get("data"),
             }
-        else:
-            raise ValueError(f"Unsupported content block type: {block['type']}")
+        raise ValueError(f"Unsupported content block type: {block['type']}")
 
-    def convert_params_to_messages(self, messages) -> List[Message]:
-        converted_messages: List[Message] = []
+    def convert_params_to_messages(self, messages) -> list[Message]:
+        converted_messages: list[Message] = []
 
         for message in messages:
             role = Role.USER if message["role"] == "user" else Role.ASSISTANT
@@ -162,14 +161,14 @@ class AnthropicLanguageModel(LanguageModel):
 
         return converted_messages
 
-    def prepare_content_block(self, block: Union[str, dict]):
+    def prepare_content_block(self, block: str | dict):
         if isinstance(block, str):
             return {"type": "text", "text": block}
-        elif isinstance(block, dict):
+        if isinstance(block, dict):
             block_type = block.get("type")
             if block_type == "text":
                 return TextBlockParam(type="text", text=block["text"])
-            elif block_type == "image":
+            if block_type == "image":
                 return ImageBlockParam(type="image", source=block["source"])
             # elif block_type == "tool_use":
             #     return ToolUseBlockParam(
@@ -184,8 +183,6 @@ class AnthropicLanguageModel(LanguageModel):
             #         tool_name=block["tool_name"],
             #         tool_output=block["tool_output"],
             #     )
-            else:
-                # return block  # Assuming it's already a valid ContentBlock
-                raise ValueError(f"Unsupported block type: {block_type}")
-        else:
-            raise ValueError(f"Unsupported block type: {type(block)}")
+            # return block  # Assuming it's already a valid ContentBlock
+            raise ValueError(f"Unsupported block type: {block_type}")
+        raise ValueError(f"Unsupported block type: {type(block)}")

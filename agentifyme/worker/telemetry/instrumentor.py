@@ -11,11 +11,11 @@ from opentelemetry.context import attach, detach
 from opentelemetry.trace import SpanKind, Status, StatusCode
 from pydantic import BaseModel
 
-from agentifyme.tasks.task import TaskConfig
+from agentifyme.components.task import TaskConfig
+from agentifyme.components.workflow import WorkflowConfig
 from agentifyme.utilities.modules import load_modules_from_directory
 from agentifyme.worker.callback import CallbackHandler
 from agentifyme.worker.telemetry.semconv import SemanticAttributes
-from agentifyme.workflows.workflow import WorkflowConfig
 
 from .base import get_resource_attributes
 
@@ -78,9 +78,9 @@ def prepare_output(output):
     """Standardize output preparation"""
     if isinstance(output, dict):
         return {k: v for k, v in output.items() if k != "output"}
-    elif isinstance(output, BaseModel):
+    if isinstance(output, BaseModel):
         return output.model_dump()
-    elif isinstance(output, object):
+    if isinstance(output, object):
         return orjson.dumps(output)
     return str(output)
 
@@ -106,7 +106,7 @@ def create_instrumentation_wrapper(callback_handler: CallbackHandler, event_sour
 
                 try:
                     _kwargs = kwargs.copy()
-                    _kwargs.update(zip(wrapped.__code__.co_varnames, args))
+                    _kwargs.update(zip(wrapped.__code__.co_varnames, args, strict=False))
                     await callback_handler.fire_event_async(f"{event_source}.run", "started", {**attributes, "name": name, "input": _kwargs})
                     output = await wrapped(*args, **kwargs)
                     span.set_status(Status(StatusCode.OK))
@@ -139,7 +139,7 @@ def create_instrumentation_wrapper(callback_handler: CallbackHandler, event_sour
 
                 try:
                     _kwargs = kwargs.copy()
-                    _kwargs.update(zip(wrapped.__code__.co_varnames, args))
+                    _kwargs.update(zip(wrapped.__code__.co_varnames, args, strict=False))
                     callback_handler.fire_event(f"{event_source}.run", "started", {**attributes, "name": name, "input": _kwargs})
 
                     output = wrapped(*args, **kwargs)
@@ -169,9 +169,6 @@ def create_instrumentation_wrapper(callback_handler: CallbackHandler, event_sour
 class OTELInstrumentor:
     @staticmethod
     def instrument(project_dir: str, callback_handler: CallbackHandler):
-        WorkflowConfig.reset_registry()
-        TaskConfig.reset_registry()
-
         if os.path.exists(os.path.join(project_dir, "src")):
             project_dir = os.path.join(project_dir, "src")
 
@@ -189,8 +186,6 @@ class OTELInstrumentor:
             for workflow_name, workflow in WorkflowConfig._registry.items():
                 workflow_wrapper = create_instrumentation_wrapper(callback_handler, "workflow", workflow_name)
                 wrapt.wrap_function_wrapper(workflow.config.func.__module__, workflow.config.func.__name__, workflow_wrapper)
-
-            logger.info(f"Found workflows - {WorkflowConfig.get_all()}")
 
         except ValueError as e:
             logger.error(f"Error loading modules from {project_dir}: {e}", exc_info=True)

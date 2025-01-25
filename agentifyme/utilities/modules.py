@@ -2,12 +2,12 @@ import importlib
 import os
 import pkgutil
 import sys
-from typing import Any, Dict, List
+from typing import Any
 
 from loguru import logger
 
 
-def find_package_directories(root_dir: str) -> List[str]:
+def find_package_directories(root_dir: str) -> list[str]:
     """Recursively find all directories that contain Python files, ignoring hidden directories."""
     src_dir = os.path.join(root_dir, "src")
     base_dir = src_dir if os.path.exists(src_dir) else root_dir
@@ -24,7 +24,7 @@ def find_package_directories(root_dir: str) -> List[str]:
     return package_dirs
 
 
-def setup_dynamic_packages(root_dir: str) -> List[str]:
+def setup_dynamic_packages(root_dir: str) -> list[str]:
     """Set up multiple dynamic packages for importing."""
     src_dir = os.path.join(root_dir, "src")
     base_dir = src_dir if os.path.exists(src_dir) else root_dir
@@ -40,7 +40,7 @@ def setup_dynamic_packages(root_dir: str) -> List[str]:
     return package_names
 
 
-def list_modules(package_name: str) -> List[str]:
+def list_modules(package_name: str) -> list[str]:
     """List all modules in a package."""
     package = importlib.import_module(package_name)
     return [name for _, name, _ in pkgutil.iter_modules(package.__path__)]
@@ -55,15 +55,15 @@ def import_module(package_name: str, module_name: str) -> Any:
         return None
 
 
-def load_modules_from_directory(root_dir: str) -> Dict[str, Dict[str, Any]]:
-    """
-    Load Python modules from the root directory or src directory if it exists.
+def load_modules_from_directory(root_dir: str) -> dict[str, dict[str, Any]]:
+    """Load Python modules from the root directory or src directory if it exists.
 
     Args:
         root_dir (str): The root directory of the project.
 
     Returns:
         Dict[str, Dict[str, Any]]: A dictionary of loaded modules, organized by package.
+
     """
     src_dir = os.path.join(root_dir, "src")
     base_dir = src_dir if os.path.exists(src_dir) else root_dir
@@ -71,7 +71,7 @@ def load_modules_from_directory(root_dir: str) -> Dict[str, Dict[str, Any]]:
     try:
         package_names = setup_dynamic_packages(base_dir)
 
-        loaded_modules: Dict[str, Dict[str, Any]] = {}
+        loaded_modules: dict[str, dict[str, Any]] = {}
 
         for package_name in package_names:
             modules = list_modules(package_name)

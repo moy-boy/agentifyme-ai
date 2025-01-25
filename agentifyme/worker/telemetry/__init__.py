@@ -25,4 +25,4 @@ def auto_instrument(project_dir: str, callback_handler: CallbackHandler):
     auto_instrument_language_models(callback_handler)
 
 
-__all__ = ["setup_telemetry", "auto_instrument"]
+__all__ = ["auto_instrument", "setup_telemetry"]

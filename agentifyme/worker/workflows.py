@@ -1,11 +1,11 @@
 import asyncio
 import os
-import traceback
+from collections.abc import Callable
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from inspect import signature
 from numbers import Number
-from typing import Any, Callable, Type, TypeVar, Union, get_type_hints
+from typing import Any, TypeVar, Union, get_type_hints
 
 import orjson
 from grpc.aio import StreamStreamCall
@@ -13,10 +13,11 @@ from loguru import logger
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 
 import agentifyme.worker.pb.api.v1.gateway_pb2_grpc as pb_grpc
-from agentifyme.workflows import Workflow, WorkflowConfig
+from agentifyme.components.workflow import Workflow, WorkflowConfig
+from agentifyme.errors import AgentifyMeError, ErrorContext
 
 Input = TypeVar("Input")
 Output = TypeVar("Output")
@@ -32,7 +33,7 @@ class WorkflowJob:
     input_parameters: dict
     completed: bool
     success: bool
-    error: str | None
+    error: AgentifyMeError | None
     output: dict | None
     metadata: dict[str, str]  # Metadata for the workflow execution trace.
 
@@ -52,8 +53,7 @@ class WorkflowHandler:
         self._propagator = TraceContextTextMapPropagator()
 
     def _build_args_from_signature(self, func: Callable, input_dict: dict[str, Any]) -> dict[str, Any]:
-        """
-        Builds function arguments using signature and type hints with improved numeric type handling
+        """Builds function arguments using signature and type hints with improved numeric type handling
 
         Args:
             func: The function whose signature to use
@@ -61,6 +61,7 @@ class WorkflowHandler:
 
         Returns:
             Dictionary of converted arguments matching the function signature
+
         """
         sig = signature(func)
         type_hints = get_type_hints(func)
@@ -78,12 +79,12 @@ class WorkflowHandler:
                         if float_val.is_integer():
                             return int(float_val)
                         raise ValueError(f"Value {value} is not an integer")
-                    elif isinstance(target_type, type) and issubclass(target_type, float):
+                    if isinstance(target_type, type) and issubclass(target_type, float):
                         return float(value)
-                    elif isinstance(target_type, type) and issubclass(target_type, Decimal):
+                    if isinstance(target_type, type) and issubclass(target_type, Decimal):
                         return Decimal(value)
                 except (ValueError, InvalidOperation) as e:
-                    raise ValueError(f"Cannot convert {value} to {target_type.__name__}: {str(e)}")
+                    raise ValueError(f"Cannot convert {value} to {target_type.__name__}: {e!s}")
 
             # Handle numeric type conversion for non-string values
             if isinstance(value, Number):
@@ -149,14 +150,12 @@ class WorkflowHandler:
                     args[param_name] = param_type(value)
 
             except (ValueError, TypeError) as e:
-                raise ValueError(f"Failed to convert parameter {param_name} to {param_type}: {str(e)}")
+                raise ValueError(f"Failed to convert parameter {param_name} to {param_type}: {e!s}")
 
         return args
 
-    def _process_output(self, result: Any, return_type: Type) -> dict[str, Any]:
-        """
-        Process workflow output to ensure it's a valid JSON-serializable dictionary
-        """
+    def _process_output(self, result: Any, return_type: type) -> dict[str, Any]:
+        """Process workflow output to ensure it's a valid JSON-serializable dictionary"""
         if isinstance(result, BaseModel):
             return result.model_dump()
 
@@ -165,7 +164,7 @@ class WorkflowHandler:
                 validated = return_type.model_validate(result)
                 return validated.model_dump()
             return result
-        elif isinstance(result, str):
+        if isinstance(result, str):
             return result
 
         if hasattr(return_type, "model_validate"):
@@ -176,7 +175,6 @@ class WorkflowHandler:
 
     async def __call__(self, job: WorkflowJob) -> WorkflowJob:
         """Handle workflow execution with serialization/deserialization"""
-
         with tracer.start_as_current_span("workflow_execution") as span:
             try:
                 # Get workflow configuration
@@ -192,11 +190,14 @@ class WorkflowHandler:
                     attributes={"input": orjson.dumps(job.input_parameters).decode()},
                 )
 
+                logger.info(f"==> Executing workflow {job.run_id} with input: {func_args}")
                 # Execute workflow
                 if asyncio.iscoroutinefunction(_workflow_config.func):
                     result = await self.workflow.arun(**func_args)
                 else:
                     result = self.workflow.run(**func_args)
+
+                logger.info(f"~~~==> Workflow {job.run_id} result: {result}")
 
                 # Get return type and process output
                 return_type = get_type_hints(_workflow_config.func).get("return")
@@ -212,34 +213,38 @@ class WorkflowHandler:
                 span.set_status(Status(StatusCode.OK))
                 span.add_event(name="workflow.complete", attributes={"output_size": len(str(output_data))})
 
-            except ValidationError as e:
-                logger.exception(f"Workflow {job.run_id} validation error: {e}")
-                job.output = None
-                job.error = str(e)
-                span.set_status(Status(StatusCode.ERROR, "Validation Error"))
-                span.record_exception(e)
-                span.add_event(name="workflow.validation_error", attributes={"error": str(e)})
-
-            except TypeError as e:
-                logger.exception(f"Workflow {job.run_id} serialization error: {e}")
-                job.output = None
-                job.error = f"Output serialization failed: {str(e)}"
-                span.set_status(Status(StatusCode.ERROR, "Serialization Error"))
-                span.record_exception(e)
-                span.add_event(name="workflow.serialization_error", attributes={"error": str(e)})
+            except AgentifyMeError as e:
+                logger.error(f"AgentifyMeError: {e}")
+                print(e.error_code)
+                print(e.category)
+                print(e.context)
+                print(e.execution_state)
+                print(e.message)
+                print(e.severity)
+                print(e.error_type)
+                job.success = False
+                job.error = e
+                raise
 
             except Exception as e:
-                traceback.print_exc()
-                logger.exception(f"Workflow {job.run_id} execution error: {e}")
+                logger.error(f"Exception {job.run_id} result: {result}")
+                # logger.exception(f"Workflow {job.run_id} execution error: {e}")
                 job.output = None
-                job.error = str(e)
+                job.error = AgentifyMeError(
+                    message=f"Workflow {job.run_id} execution error: {e}",
+                    context=ErrorContext(component_type="workflow", component_id=job.workflow_name),
+                    execution_state=job.input_parameters,
+                )
                 span.set_status(Status(StatusCode.ERROR, "Execution Error"))
                 span.record_exception(e)
                 span.add_event(name="workflow.execution_error", attributes={"error": str(e)})
+                raise
 
             finally:
+                logger.info(f"~~~==> JOB COMPLETED {job.run_id} completed")
                 job.completed = True
-                return job
+
+            return job
 
 
 class WorkflowCommandHandler:

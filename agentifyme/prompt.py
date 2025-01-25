@@ -1,5 +1,5 @@
 import os
-from typing import Any, List, Optional, Union
+from typing import Any
 
 import jinja2
 import yaml
@@ -13,16 +13,16 @@ class PromptTemplateConfig(BaseModel):
 class PromptMessage(BaseModel):
     role: str
     content: str
-    tags: Optional[List[str]] = None
+    tags: list[str] | None = None
 
 
 class Prompt(BaseModel):
     name: str
-    description: Optional[str] = None
-    tags: Optional[List[str]] = None
-    version: Optional[str] = None
-    system_message: Optional[str] = None
-    content: Union[str, List[PromptMessage]]
+    description: str | None = None
+    tags: list[str] | None = None
+    version: str | None = None
+    system_message: str | None = None
+    content: str | list[PromptMessage]
 
 
 class PromptTemplate:
@@ -38,7 +38,7 @@ class PromptTemplate:
         assert os.path.exists(file_path), f"File {file_path} does not exist"
 
         template_content = ""
-        with open(file_path, "r", encoding="utf-8") as file:
+        with open(file_path, encoding="utf-8") as file:
             template_content = yaml.safe_load(file)
 
         return PromptTemplate(template_content=template_content)

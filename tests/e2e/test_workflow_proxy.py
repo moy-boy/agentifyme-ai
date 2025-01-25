@@ -4,8 +4,8 @@ import datetime
 import wrapt
 
 from agentifyme import task, workflow
-from agentifyme.tasks import TaskConfig
-from agentifyme.workflows import WorkflowConfig
+from agentifyme.components.task import TaskConfig
+from agentifyme.components.workflow import WorkflowConfig
 
 
 class CustomProxy(wrapt.ObjectProxy):

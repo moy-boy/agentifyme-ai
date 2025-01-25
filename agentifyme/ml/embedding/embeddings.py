@@ -1,24 +1,24 @@
 import os
 from abc import ABC, abstractmethod
-from typing import Any, List, Dict, Optional, Union
+from typing import Any
 
 import openai
 from openai import OpenAI
-
 from pydantic import BaseModel
+
 from .providers import EmbeddingModelType
 
 
 class Embedding(BaseModel):
-    embedding: List[float]
-    metadata: Dict[str, Any]
+    embedding: list[float]
+    metadata: dict[str, Any]
 
 
 class EmbeddingModel(ABC):
     def __init__(
         self,
         embedding_model_type: EmbeddingModelType,
-        dimensions: Optional[int] = None,
+        dimensions: int | None = None,
     ) -> None:
         self.embedding_model_type = embedding_model_type
         self.dimensions = dimensions
@@ -29,7 +29,7 @@ class EmbeddingModel(ABC):
             return self.embedding_model_type.split("/")[-1]
         return self.embedding_model_type
 
-    def __call__(self, text: Union[str, List[str]]) -> Union[Embedding, List[Embedding]]:
+    def __call__(self, text: str | list[str]) -> Embedding | list[Embedding]:
         if isinstance(text, list):
             return self.run_batch(text)
 
@@ -40,7 +40,7 @@ class EmbeddingModel(ABC):
         return embeddings[0]
 
     @abstractmethod
-    def run_batch(self, texts: List[str]) -> List[Embedding]:
+    def run_batch(self, texts: list[str]) -> list[Embedding]:
         pass
 
 
@@ -48,11 +48,11 @@ class OpenAIEmbeddingModel(EmbeddingModel):
     def __init__(
         self,
         embedding_model_type: EmbeddingModelType,
-        dimensions: Optional[int] = None,
-        api_key: Optional[str] = None,
-        api_base_url: Optional[str] = None,
-        organization: Optional[str] = None,
-        timeout: Optional[float] = None,
+        dimensions: int | None = None,
+        api_key: str | None = None,
+        api_base_url: str | None = None,
+        organization: str | None = None,
+        timeout: float | None = None,
         max_retries: int = 5,
         **kwargs,
     ) -> None:
@@ -80,7 +80,7 @@ class OpenAIEmbeddingModel(EmbeddingModel):
         )
 
     # @cache(CacheType.DISK)
-    def run_batch(self, texts: List[str]) -> List[Embedding]:
+    def run_batch(self, texts: list[str]) -> list[Embedding]:
         # Reference: https://platform.openai.com/docs/guides/embeddings/use-cases
         _texts = []
         for text in texts:
@@ -99,7 +99,7 @@ class OpenAIEmbeddingModel(EmbeddingModel):
                 Embedding(
                     embedding=embedding.embedding,
                     metadata={"index": i, "object": "embedding"},
-                )
+                ),
             )
 
         return embeddings

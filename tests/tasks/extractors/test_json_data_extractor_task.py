@@ -9,7 +9,7 @@ from agentifyme.ml.llm import (
     LanguageModelConfig,
     LanguageModelType,
 )
-from agentifyme.tasks.extractors import JSONDataExtractorTask
+from agentifyme.tasks import JSONDataExtractorTask
 from agentifyme.utilities.env import load_env_file
 
 
@@ -107,7 +107,7 @@ def test_json_data_extractor_with_str_schema(
             ],
             "total_amount": "$2248",
             "shipping_address": "456 Elm St, Metropolis"
-        }  
+        }
     """
 
     data = json_extractor_task(text=text, output_schema=output_schema)
@@ -249,7 +249,7 @@ async def test_json_data_extractor_with_str_schema_async(
             ],
             "total_amount": "$2248",
             "shipping_address": "456 Elm St, Metropolis"
-        }  
+        }
     """
 
     data = await json_extractor_task.arun(text=text, output_schema=output_schema)

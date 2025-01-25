@@ -1,12 +1,11 @@
 import json
 import re
 from datetime import date, datetime
-from typing import Any, Dict
+from typing import Any
 
 
-def extract_json(text: str) -> Dict[str, Any] | None:
-    """
-    Extracts the first JSON object from the given text, handling Markdown-style code blocks,
+def extract_json(text: str) -> dict[str, Any] | None:
+    """Extracts the first JSON object from the given text, handling Markdown-style code blocks,
     single-quoted JSON, and escaped quotes.
 
     Args:
@@ -14,6 +13,7 @@ def extract_json(text: str) -> Dict[str, Any] | None:
 
     Returns:
         dict: The parsed JSON object, or None if no JSON object is found.
+
     """
     # Remove Markdown code block delimiters if present
     text = re.sub(r"```(?:json)?\n?(.*?)\n?```", r"\1", text, flags=re.DOTALL)
@@ -49,12 +49,12 @@ def serialize_value(value: Any) -> Any:
     """Recursively serialize values in data structures"""
     if isinstance(value, (datetime, date)):
         return value.isoformat()
-    elif isinstance(value, dict):
+    if isinstance(value, dict):
         return {k: serialize_value(v) for k, v in value.items()}
-    elif isinstance(value, list):
+    if isinstance(value, list):
         return [serialize_value(item) for item in value]
-    elif isinstance(value, tuple):
+    if isinstance(value, tuple):
         return tuple(serialize_value(item) for item in value)
-    elif isinstance(value, set):
+    if isinstance(value, set):
         return {serialize_value(item) for item in value}
     return value

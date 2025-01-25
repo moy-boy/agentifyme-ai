@@ -1,9 +1,10 @@
-import os
 import functools
 import hashlib
-from enum import Enum
-from typing import TypeVar, Callable, Any, ParamSpec, Optional, Generic, Dict
+import os
 from abc import ABC, abstractmethod
+from collections.abc import Callable
+from enum import Enum
+from typing import Any, Generic, ParamSpec, TypeVar
 
 import joblib
 
@@ -21,8 +22,7 @@ class CacheType(str, Enum):
 
 
 class Cache(ABC, Generic[T]):
-    """
-    Abstract base class for cache implementations.
+    """Abstract base class for cache implementations.
 
     Args:
         T: The type of values stored in the cache.
@@ -33,24 +33,24 @@ class Cache(ABC, Generic[T]):
     Methods:
         get: Retrieve a value from the cache.
         set: Set a value in the cache.
+
     """
 
     @abstractmethod
-    def get(self, key: str) -> Optional[T]:
-        """
-        Retrieve a value from the cache.
+    def get(self, key: str) -> T | None:
+        """Retrieve a value from the cache.
 
         Args:
             key: The key associated with the value to retrieve.
 
         Returns:
             The value associated with the given key, or None if the key is not found.
+
         """
 
     @abstractmethod
     def set(self, key: str, value: T) -> None:
-        """
-        Set a value in the cache.
+        """Set a value in the cache.
 
         Args:
             key: The key to associate with the value.
@@ -58,12 +58,12 @@ class Cache(ABC, Generic[T]):
 
         Returns:
             None
+
         """
 
 
 class MemoryCache(Cache[T]):
-    """
-    A simple in-memory cache implementation.
+    """A simple in-memory cache implementation.
 
     This cache stores key-value pairs in memory and provides methods to get and set values.
 
@@ -73,11 +73,10 @@ class MemoryCache(Cache[T]):
     """
 
     def __init__(self):
-        self.cache: Dict[str, T] = {}
+        self.cache: dict[str, T] = {}
 
-    def get(self, key: str) -> Optional[T]:
-        """
-        Get the value associated with the given key.
+    def get(self, key: str) -> T | None:
+        """Get the value associated with the given key.
 
         Args:
             key (str): The key to retrieve the value for.
@@ -89,8 +88,7 @@ class MemoryCache(Cache[T]):
         return self.cache.get(key, None)
 
     def set(self, key: str, value: T) -> None:
-        """
-        Set the value for the given key.
+        """Set the value for the given key.
 
         Args:
             key (str): The key to set the value for.
@@ -104,8 +102,7 @@ class MemoryCache(Cache[T]):
 
 
 class DiskCache(Cache[T]):
-    """
-    A disk-based cache implementation that stores objects using joblib.
+    """A disk-based cache implementation that stores objects using joblib.
 
     Args:
         cache_dir (str, optional): The directory path where the cache files will be stored.
@@ -120,9 +117,8 @@ class DiskCache(Cache[T]):
         self.cache_dir = cache_dir
         os.makedirs(self.cache_dir, exist_ok=True)
 
-    def get(self, key: str) -> Optional[T]:
-        """
-        Retrieve the value associated with the given key from the cache.
+    def get(self, key: str) -> T | None:
+        """Retrieve the value associated with the given key from the cache.
 
         Args:
             key (str): The key used to identify the value in the cache.
@@ -137,8 +133,7 @@ class DiskCache(Cache[T]):
         return None
 
     def set(self, key: str, value: T) -> None:
-        """
-        Store the given value in the cache with the specified key.
+        """Store the given value in the cache with the specified key.
 
         Args:
             key (str): The key used to identify the value in the cache.
@@ -150,8 +145,7 @@ class DiskCache(Cache[T]):
 
 
 class NoCache(Cache[T]):
-    """
-    A cache implementation that does not store any values.
+    """A cache implementation that does not store any values.
 
     This cache implementation always returns `None` when `get` is called,
     and does nothing when `set` is called.
@@ -162,9 +156,10 @@ class NoCache(Cache[T]):
     Methods:
         get(key: str) -> Optional[T]: Returns `None` for any given key.
         set(key: str, value: T) -> None: Does nothing.
+
     """
 
-    def get(self, key: str) -> Optional[T]:
+    def get(self, key: str) -> T | None:
         return None
 
     def set(self, key: str, value: T) -> None:
@@ -172,8 +167,7 @@ class NoCache(Cache[T]):
 
 
 def cache_factory(cache_type: CacheType) -> Cache[T]:
-    """
-    Factory function to create a cache based on the given cache_type.
+    """Factory function to create a cache based on the given cache_type.
 
     Args:
         cache_type (CacheType): The type of cache to create.
@@ -184,7 +178,7 @@ def cache_factory(cache_type: CacheType) -> Cache[T]:
     """
     if cache_type == CacheType.MEMORY:
         return MemoryCache()
-    elif cache_type == CacheType.DISK:
+    if cache_type == CacheType.DISK:
         return DiskCache()
 
     # default to no cache
@@ -195,8 +189,7 @@ F = TypeVar("F", bound=Callable[..., Any])
 
 
 def cache(cache_type: CacheType = CacheType.NONE) -> Callable[[F], F]:
-    """
-    Decorator that caches the result of a function based on its arguments.
+    """Decorator that caches the result of a function based on its arguments.
 
     Args:
         cache_type (CacheType, optional): The type of cache to use. Defaults to CacheType.NONE.

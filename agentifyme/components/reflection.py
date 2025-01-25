@@ -1,7 +1,7 @@
 import time
 from datetime import datetime
 from enum import Enum
-from typing import Any, Generic, Optional, TypeVar
+from typing import Any, Generic, TypeVar
 
 import orjson
 from pydantic import BaseModel, Field, field_validator
@@ -22,8 +22,8 @@ class ReflectionConfig(BaseModel):
     """Configuration for reflection behavior"""
 
     max_attempts: int = Field(default=2, ge=1, le=5, description="Maximum number of reflection attempts")
-    prompt_template: Optional[str] = Field(default=None, description="Custom prompt template for reflection")
-    error_formatter: Optional[str] = Field(default=None, description="Custom error formatting template")
+    prompt_template: str | None = Field(default=None, description="Custom prompt template for reflection")
+    error_formatter: str | None = Field(default=None, description="Custom error formatting template")
     success_threshold: float = Field(
         default=0.95,
         ge=0.0,
@@ -39,7 +39,7 @@ class ReflectionLog(BaseModel):
     timestamp: str = Field(default_factory=lambda: datetime.now().isoformat())
     attempt: int
     message: str
-    error: Optional[str] = None
+    error: str | None = None
     status: ReflectionStatus
 
     class Config:
@@ -50,9 +50,9 @@ class ReflectionResult(BaseModel, Generic[T]):
     """Generic result type for reflection operations"""
 
     status: ReflectionStatus
-    original_error: Optional[str] = Field(default=None, description="Original error that triggered reflection")
+    original_error: str | None = Field(default=None, description="Original error that triggered reflection")
     reflection_logs: list[ReflectionLog] = Field(default_factory=list, description="Detailed log of reflection process")
-    final_result: Optional[T] = Field(default=None, description="Final result after reflection")
+    final_result: T | None = Field(default=None, description="Final result after reflection")
     confidence: float = Field(default=0.0, ge=0.0, le=1.0, description="Confidence score of the result")
     execution_time: float = Field(default=0.0, ge=0.0, description="Total execution time in seconds")
 
@@ -67,14 +67,14 @@ class ReflectionResult(BaseModel, Generic[T]):
         self,
         attempt: int,
         message: str,
-        error: Optional[str] = None,
+        error: str | None = None,
         status: ReflectionStatus = ReflectionStatus.PARTIAL,
     ) -> None:
         """Add a new log entry"""
         self.reflection_logs.append(ReflectionLog(attempt=attempt, message=message, error=error, status=status))
 
     @property
-    def latest_log(self) -> Optional[ReflectionLog]:
+    def latest_log(self) -> ReflectionLog | None:
         """Get the most recent log entry"""
         return self.reflection_logs[-1] if self.reflection_logs else None
 
@@ -85,10 +85,10 @@ class ReflectionResult(BaseModel, Generic[T]):
 class ReflectionMixin:
     """Mixin providing reflection capabilities"""
 
-    def __init__(self, reflection_config: Optional[ReflectionConfig] = None):
+    def __init__(self, reflection_config: ReflectionConfig | None = None):
         self.reflection_config = reflection_config or ReflectionConfig()
-        self._result: Optional[ReflectionResult] = None
-        self._start_time: Optional[float] = None
+        self._result: ReflectionResult | None = None
+        self._start_time: float | None = None
 
     def _get_reflection_prompt(self) -> str:
         """Default reflection prompt template"""

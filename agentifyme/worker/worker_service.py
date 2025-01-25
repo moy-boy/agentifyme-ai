@@ -1,6 +1,7 @@
 import asyncio
 import queue
 import random
+import traceback
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -19,17 +20,21 @@ from opentelemetry.trace import StatusCode
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 from pydantic import BaseModel
 
-import agentifyme.worker.pb.api.v1.common_pb2 as common_pb
-
-# Import generated protobuf code (assuming pb directory structure matches Go)
 import agentifyme.worker.pb.api.v1.gateway_pb2 as pb
 import agentifyme.worker.pb.api.v1.gateway_pb2_grpc as pb_grpc
 from agentifyme import __version__
-from agentifyme.config import TaskConfig, WorkflowConfig
-from agentifyme.errors import AgentifyMeExecutionError, ErrorContext
-from agentifyme.utilities.grpc import get_message_id, get_timestamp
+from agentifyme.components.workflow import WorkflowConfig
+from agentifyme.errors import AgentifyMeError
+from agentifyme.utilities.grpc import (
+    convert_for_protobuf,
+    get_message_id,
+    get_timestamp,
+)
 from agentifyme.worker.callback import CallbackHandler
 from agentifyme.worker.helpers import convert_workflow_to_pb, struct_to_dict
+
+# Import generated protobuf code (assuming pb directory structure matches Go)
+from agentifyme.worker.pb.api.v1 import common_pb2
 from agentifyme.worker.workflows import (
     WorkflowCommandHandler,
     WorkflowHandler,
@@ -50,9 +55,7 @@ tracer = trace.get_tracer(__name__)
 
 
 class WorkerService:
-    """
-    Worker service for processing jobs.
-    """
+    """Worker service for processing jobs."""
 
     MAX_RECONNECT_ATTEMPTS = 5  # Maximum number of reconnection attempts
     MAX_BACKOFF_DELAY = 32  # Maximum delay between attempts in seconds
@@ -119,7 +122,6 @@ class WorkerService:
 
     async def start_service(self) -> bool:
         """Start the worker service."""
-
         # initialize workflow handlers
         workflow_handlers = self.initialize_workflow_handlers()
         workflow_names = list(workflow_handlers.keys())
@@ -158,7 +160,7 @@ class WorkerService:
             for task in tasks:
                 if task:
                     task.cancel()
-            logger.error(f"Unexpected error during worker registration: {str(e)}")
+            logger.error(f"Unexpected error during worker registration: {e!s}")
             return False
 
     async def subscribe_to_event_stream(self):
@@ -271,7 +273,6 @@ class WorkerService:
 
     async def _handle_worker_message(self, msg: pb.OutboundWorkerMessage) -> None:
         """Handle incoming worker messages"""
-        pass
         # if msg.HasField("workflow_command"):
         #     await self._handle_workflow_command(msg, msg.workflow_command)
 
@@ -398,6 +399,18 @@ class WorkerService:
             case _:
                 return pb.RuntimeEventStage.RUNTIME_EVENT_STAGE_UNSPECIFIED
 
+    def _get_error(self, event: dict) -> common_pb2.AgentifyMeError | None:
+        error = event.get("error")
+        if error:
+            return common_pb2.AgentifyMeError(
+                message=error.get("message"),
+                error_code=error.get("error_code"),
+                category=error.get("category"),
+                severity=error.get("severity"),
+                traceback=error.get("traceback"),
+                error_type=error.get("error_type"),
+            )
+
     async def _send_events(self) -> None:
         while not self.shutdown_event.is_set():
             try:
@@ -407,15 +420,14 @@ class WorkerService:
 
                 event = await self.events_queue.get()
                 try:
-                    logger.info(f"Sending event: {event}")
                     if isinstance(event, dict):
                         metadata = {}
                         metadata["project.id"] = self.project_id
                         metadata["deployment.id"] = self.deployment_id
                         metadata["worker.id"] = self.worker_id
-                        logger.info(f"Sending event: {event}")
 
                         event_stage = event.get("event_stage")
+
                         runtime_event = pb.RuntimeEvent(
                             event_type=self.get_event_type(event.get("event_type")),
                             event_stage=self.get_event_stage(event_stage),
@@ -428,21 +440,15 @@ class WorkerService:
                             idempotency_key=event.get("idempotency_key", "UNKNOWN"),
                             status=pb.RuntimeEventStatus.RUNTIME_EVENT_STATUS_SUCCESS,
                             retry_attempt=event.get("retry_attempt", 0),
-                            error_message=event.get("error", ""),
-                            error_code=event.get("error_code", ""),
                             metadata=metadata,
+                            error=self._get_error(event),
                         )
 
                         if "input" in event:
                             input_data = event.get("input")
-                            if isinstance(input_data, dict):
+                            if isinstance(input_data, dict) or isinstance(input_data, BaseModel):
                                 struct = struct_pb2.Struct()
-                                struct.update(input_data)
-                                runtime_event.input_data_format = pb.DATA_FORMAT_STRUCT
-                                runtime_event.struct_input = struct
-                            elif isinstance(input_data, BaseModel):
-                                struct = struct_pb2.Struct()
-                                struct.update(input_data.model_dump())
+                                struct.update(convert_for_protobuf(input_data))
                                 runtime_event.input_data_format = pb.DATA_FORMAT_STRUCT
                                 runtime_event.struct_input = struct
                             elif isinstance(input_data, bytes):
@@ -456,15 +462,10 @@ class WorkerService:
 
                         if "output" in event:
                             output_data = event.get("output")
-                            if isinstance(output_data, dict):
+                            if isinstance(output_data, dict) or isinstance(output_data, BaseModel):
                                 struct = struct_pb2.Struct()
-                                struct.update(output_data)
+                                struct.update(convert_for_protobuf(output_data))
                                 runtime_event.output_data_format = pb.DATA_FORMAT_STRUCT
-                                runtime_event.struct_output = struct
-                            elif isinstance(output_data, BaseModel):
-                                runtime_event.output_data_format = pb.DATA_FORMAT_STRUCT
-                                struct = struct_pb2.Struct()
-                                struct.update(output_data.model_dump())
                                 runtime_event.struct_output = struct
                             elif isinstance(output_data, bytes):
                                 runtime_event.output_data_format = pb.DATA_FORMAT_BINARY
@@ -487,7 +488,7 @@ class WorkerService:
                         await self._stream.write(msg)
 
                     else:
-                        logger.error(f"Received unexpected event type: {type(event)}")
+                        logger.debug(f"Received unexpected event type: {type(event)}")
 
                 except grpc.aio.AioRpcError as e:
                     logger.error(f"Stream error in send_events: {e}")
@@ -550,6 +551,8 @@ class WorkerService:
                     self.active_jobs[job.run_id] = workflow_task
                     span.add_event("job_started", attributes={"request.id": job.run_id})
 
+                    logger.info(f"Workflow {job.run_id} started")
+
                     while not self.shutdown_event.is_set():
                         error = None
                         try:
@@ -563,9 +566,10 @@ class WorkerService:
                             if _workflow_handler is None:
                                 raise Exception(f"Workflow handler not found for {job.workflow_name}")
 
+                            logger.info(f"Workflow {job.run_id} executing")
                             job = await _workflow_handler(job)
 
-                            logger.info(f"Workflow {job.run_id} result: {job.output}, job.success: {job.success}")
+                            logger.info(f"SUCCESS ==> Workflow {job.run_id} result: {job.output}, job.success: {job.success}")
 
                             span.add_event(
                                 "job_completed",
@@ -583,21 +587,19 @@ class WorkerService:
                                 error = job.error
 
                             # Send event
-                            await self.events_queue.put(job)
+                            # await self.events_queue.put(job)
 
                             # If the job is completed, break out of the loop.
                             # TODO: Handle errors and retry scenario.
                             if job.completed:
                                 break
 
+                        except AgentifyMeError as e:
+                            error = e
+                            raise
                         except Exception as e:
                             error = e
-                            logger.error(f"{type(e)} executing workflow: {e}")
-                            raise AgentifyMeExecutionError(
-                                message=f"Error executing workflow: {e}",
-                                context=ErrorContext(component_type="workflow", component_id=job.workflow_name),
-                                execution_state=job.input_parameters,
-                            ) from e
+                            raise
                         finally:
                             if error:
                                 self.callback_handler.fire_event(
@@ -605,7 +607,7 @@ class WorkerService:
                                     "finished",
                                     {
                                         **attributes,
-                                        "error": str(error),
+                                        "error": error.as_dict,
                                         "input": job.input_parameters,
                                     },
                                 )
@@ -625,7 +627,7 @@ class WorkerService:
                 logger.info(f"Workflow {job.run_id} cancelled")
                 raise
             except Exception as e:
-                logger.error(f"Workflow execution error: {e}")
+                logger.error(f"Workflow execution error: {e}, {type(e)}")
                 await self.event_queue.put({"workflow_id": job.run_id, "status": "error", "error": str(e)})
 
     @asynccontextmanager
@@ -689,7 +691,6 @@ class WorkerService:
 
     async def cleanup_on_disconnect(self):
         """Cleanup resources on disconnect"""
-
         self.health_file.unlink(missing_ok=True)
         self._last_health_state = False
 
@@ -727,6 +728,7 @@ class WorkerService:
 
     def initialize_workflow_handlers(self) -> dict[str, WorkflowHandler]:
         """Initialize workflow handlers"""
+        logger.info(f"Found workflows - {WorkflowConfig.get_all()}")
         _workflow_handlers = {}
         for workflow_name in WorkflowConfig.get_all():
             _workflow = WorkflowConfig.get(workflow_name)

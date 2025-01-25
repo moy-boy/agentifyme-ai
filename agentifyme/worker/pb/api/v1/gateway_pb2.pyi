@@ -196,7 +196,7 @@ class LLMEventData(_message.Message):
     def __init__(self, model: _Optional[str] = ..., vendor: _Optional[str] = ..., total_tokens: _Optional[int] = ..., prompt_tokens: _Optional[int] = ..., completion_tokens: _Optional[int] = ..., total_cost: _Optional[str] = ..., prompt_cost: _Optional[str] = ..., completion_cost: _Optional[str] = ..., latency_ms: _Optional[int] = ..., temperature: _Optional[float] = ..., max_tokens: _Optional[int] = ..., messages: _Optional[_Iterable[str]] = ..., response: _Optional[str] = ...) -> None: ...
 
 class RuntimeEvent(_message.Message):
-    __slots__ = ("event_type", "event_stage", "event_name", "timestamp", "event_id", "parent_event_id", "run_id", "request_id", "idempotency_key", "status", "retry_attempt", "error_message", "error_code", "max_retries", "retry_delay", "metadata", "input_data_format", "json_input", "binary_input", "struct_input", "string_input", "output_data_format", "json_output", "binary_output", "struct_output", "string_output", "llm_output")
+    __slots__ = ("event_type", "event_stage", "event_name", "timestamp", "event_id", "parent_event_id", "run_id", "request_id", "idempotency_key", "status", "retry_attempt", "error", "max_retries", "retry_delay", "metadata", "input_data_format", "json_input", "binary_input", "struct_input", "string_input", "output_data_format", "json_output", "binary_output", "struct_output", "string_output", "llm_output")
     class MetadataEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -215,8 +215,7 @@ class RuntimeEvent(_message.Message):
     IDEMPOTENCY_KEY_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
     RETRY_ATTEMPT_FIELD_NUMBER: _ClassVar[int]
-    ERROR_MESSAGE_FIELD_NUMBER: _ClassVar[int]
-    ERROR_CODE_FIELD_NUMBER: _ClassVar[int]
+    ERROR_FIELD_NUMBER: _ClassVar[int]
     MAX_RETRIES_FIELD_NUMBER: _ClassVar[int]
     RETRY_DELAY_FIELD_NUMBER: _ClassVar[int]
     METADATA_FIELD_NUMBER: _ClassVar[int]
@@ -242,8 +241,7 @@ class RuntimeEvent(_message.Message):
     idempotency_key: str
     status: RuntimeEventStatus
     retry_attempt: int
-    error_message: str
-    error_code: str
+    error: _common_pb2.AgentifyMeError
     max_retries: int
     retry_delay: int
     metadata: _containers.ScalarMap[str, str]
@@ -258,7 +256,7 @@ class RuntimeEvent(_message.Message):
     struct_output: _struct_pb2.Struct
     string_output: str
     llm_output: LLMEventData
-    def __init__(self, event_type: _Optional[_Union[RuntimeEventType, str]] = ..., event_stage: _Optional[_Union[RuntimeEventStage, str]] = ..., event_name: _Optional[str] = ..., timestamp: _Optional[int] = ..., event_id: _Optional[str] = ..., parent_event_id: _Optional[str] = ..., run_id: _Optional[str] = ..., request_id: _Optional[str] = ..., idempotency_key: _Optional[str] = ..., status: _Optional[_Union[RuntimeEventStatus, str]] = ..., retry_attempt: _Optional[int] = ..., error_message: _Optional[str] = ..., error_code: _Optional[str] = ..., max_retries: _Optional[int] = ..., retry_delay: _Optional[int] = ..., metadata: _Optional[_Mapping[str, str]] = ..., input_data_format: _Optional[_Union[DataFormat, str]] = ..., json_input: _Optional[str] = ..., binary_input: _Optional[bytes] = ..., struct_input: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., string_input: _Optional[str] = ..., output_data_format: _Optional[_Union[DataFormat, str]] = ..., json_output: _Optional[str] = ..., binary_output: _Optional[bytes] = ..., struct_output: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., string_output: _Optional[str] = ..., llm_output: _Optional[_Union[LLMEventData, _Mapping]] = ...) -> None: ...
+    def __init__(self, event_type: _Optional[_Union[RuntimeEventType, str]] = ..., event_stage: _Optional[_Union[RuntimeEventStage, str]] = ..., event_name: _Optional[str] = ..., timestamp: _Optional[int] = ..., event_id: _Optional[str] = ..., parent_event_id: _Optional[str] = ..., run_id: _Optional[str] = ..., request_id: _Optional[str] = ..., idempotency_key: _Optional[str] = ..., status: _Optional[_Union[RuntimeEventStatus, str]] = ..., retry_attempt: _Optional[int] = ..., error: _Optional[_Union[_common_pb2.AgentifyMeError, _Mapping]] = ..., max_retries: _Optional[int] = ..., retry_delay: _Optional[int] = ..., metadata: _Optional[_Mapping[str, str]] = ..., input_data_format: _Optional[_Union[DataFormat, str]] = ..., json_input: _Optional[str] = ..., binary_input: _Optional[bytes] = ..., struct_input: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., string_input: _Optional[str] = ..., output_data_format: _Optional[_Union[DataFormat, str]] = ..., json_output: _Optional[str] = ..., binary_output: _Optional[bytes] = ..., struct_output: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., string_output: _Optional[str] = ..., llm_output: _Optional[_Union[LLMEventData, _Mapping]] = ...) -> None: ...
 
 class WorkerStatus(_message.Message):
     __slots__ = ("cpu_usage", "memory_usage", "active_tasks", "state")

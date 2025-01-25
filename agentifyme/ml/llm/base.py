@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from enum import Enum
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import Any
 
 from openai import BaseModel
 
@@ -16,10 +17,10 @@ class Role(str, Enum):
 
 class ToolCall(BaseModel):
     name: str
-    description: Optional[str] = None
-    parameters: Optional[Dict[str, Any]] = None
-    arguments: Optional[Dict[str, Any]] = None
-    tool_call_id: Optional[str] = None
+    description: str | None = None
+    parameters: dict[str, Any] | None = None
+    arguments: dict[str, Any] | None = None
+    tool_call_id: str | None = None
 
 
 class TokenUsage(BaseModel):
@@ -31,22 +32,21 @@ class TokenUsage(BaseModel):
 
 class Message(BaseModel):
     role: Role
-    content: Optional[str] = None
-    tools: Optional[List[ToolCall]] = None
+    content: str | None = None
+    tools: list[ToolCall] | None = None
 
 
 class LanguageModelResponse(BaseModel):
-    """
-    Class representing response from LLM.
+    """Class representing response from LLM.
     """
 
-    message: Optional[str] = None
+    message: str | None = None
     role: Role = Role.ASSISTANT
     tool_id: str = ""  # used by OpenAIAssistant
-    tool_calls: Optional[List[ToolCall]] = None
-    usage: Optional[TokenUsage] = None
+    tool_calls: list[ToolCall] | None = None
+    usage: TokenUsage | None = None
     cached: bool = False
-    error: Optional[str] = None
+    error: str | None = None
 
 
 class LLMResponseError(Exception):
@@ -100,7 +100,7 @@ class LanguageModel(ABC):
         self,
         llm_model: LanguageModelType,
         llm_cache_type: CacheType = CacheType.NONE,
-        system_prompt: Optional[str] = None,
+        system_prompt: str | None = None,
         **kwargs: Any,
     ):
         self.llm_model = llm_model
@@ -110,8 +110,8 @@ class LanguageModel(ABC):
     @abstractmethod
     def generate(
         self,
-        messages: List[Message],
-        tools: Optional[List[ToolCall]] = None,
+        messages: list[Message],
+        tools: list[ToolCall] | None = None,
         max_tokens: int = 256,
         temperature: float = 0.5,
         top_p: float = 1.0,
@@ -122,8 +122,8 @@ class LanguageModel(ABC):
     @abstractmethod
     async def agenerate(
         self,
-        messages: List[Message],
-        tools: Optional[List[ToolCall]] = None,
+        messages: list[Message],
+        tools: list[ToolCall] | None = None,
         max_tokens: int = 256,
         temperature: float = 0.5,
         top_p: float = 1.0,
@@ -134,8 +134,8 @@ class LanguageModel(ABC):
     @abstractmethod
     def generate_stream(
         self,
-        messages: List[Message],
-        tools: Optional[List[ToolCall]] = None,
+        messages: list[Message],
+        tools: list[ToolCall] | None = None,
         max_tokens: int = 256,
         temperature: float = 0.5,
         top_p: float = 1.0,
@@ -146,8 +146,8 @@ class LanguageModel(ABC):
     def generate_stream_from_prompt(
         self,
         prompt: str,
-        system_prompt: Optional[str] = None,
-        tools: Optional[List[ToolCall]] = None,
+        system_prompt: str | None = None,
+        tools: list[ToolCall] | None = None,
         max_tokens: int = 256,
         temperature: float = 0.5,
         top_p: float = 1.0,
@@ -160,7 +160,7 @@ class LanguageModel(ABC):
                     role=Role.SYSTEM,
                     content=system_prompt,
                     tools=tools,
-                )
+                ),
             )
 
         messages.append(
@@ -168,7 +168,7 @@ class LanguageModel(ABC):
                 role=Role.USER,
                 content=prompt,
                 tools=tools,
-            )
+            ),
         )
         return self.generate_stream(
             messages,
@@ -181,8 +181,8 @@ class LanguageModel(ABC):
     def generate_from_prompt(
         self,
         prompt: str,
-        system_prompt: Optional[str] = None,
-        tools: Optional[List[ToolCall]] = None,
+        system_prompt: str | None = None,
+        tools: list[ToolCall] | None = None,
         max_tokens: int = 256,
         temperature: float = 0.5,
         top_p: float = 1.0,
@@ -194,7 +194,7 @@ class LanguageModel(ABC):
                     role=Role.SYSTEM,
                     content=system_prompt,
                     tools=None,
-                )
+                ),
             )
 
         messages.append(
@@ -202,7 +202,7 @@ class LanguageModel(ABC):
                 role=Role.USER,
                 content=prompt,
                 tools=None,
-            )
+            ),
         )
         return self.generate(
             messages,
@@ -215,8 +215,8 @@ class LanguageModel(ABC):
     async def generate_from_prompt_async(
         self,
         prompt: str,
-        system_prompt: Optional[str] = None,
-        tools: Optional[List[ToolCall]] = None,
+        system_prompt: str | None = None,
+        tools: list[ToolCall] | None = None,
         max_tokens: int = 256,
         temperature: float = 0.5,
         top_p: float = 1.0,
@@ -228,7 +228,7 @@ class LanguageModel(ABC):
                     role=Role.SYSTEM,
                     content=system_prompt,
                     tools=None,
-                )
+                ),
             )
 
         messages.append(
@@ -236,7 +236,7 @@ class LanguageModel(ABC):
                 role=Role.USER,
                 content=prompt,
                 tools=None,
-            )
+            ),
         )
         return await self.agenerate(
             messages,
@@ -246,11 +246,11 @@ class LanguageModel(ABC):
             top_p=top_p,
         )
 
-    def generate_from_messages(self, messages: List[Message]) -> LanguageModelResponse:
+    def generate_from_messages(self, messages: list[Message]) -> LanguageModelResponse:
         return self.generate(messages, [])
 
     @staticmethod
-    def get_model_name(model: LanguageModelType) -> Tuple[LanguageModelProvider, str]:
+    def get_model_name(model: LanguageModelType) -> tuple[LanguageModelProvider, str]:
         try:
             provider_name, *model_parts = model.value.split("/")
             provider = LanguageModelProvider(provider_name)
