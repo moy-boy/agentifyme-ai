@@ -45,7 +45,6 @@ class LanguageModelInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(llm_module, "OpenAILanguageModel.generate", self._instrument_generate)
         wrap_function_wrapper(llm_module, "OpenAILanguageModel.agenerate", self._instrument_agenerate)
 
-
     def _uninstrument(self, **kwargs: Any):
         OpenAILanguageModel.generate = self._openai_generate
         OpenAILanguageModel.agenerate = self._openai_agenerate
@@ -53,69 +52,12 @@ class LanguageModelInstrumentor(BaseInstrumentor):
 
     def _instrument_generate(self, wrapped: Callable[..., Any], instance: LanguageModel, args: tuple[type, Any], kwargs: dict[str, Any]) -> LanguageModelResponse:
         provider, _ = instance.get_model_name(instance.llm_model)
-        print("instrument_generate")
         result = wrapped(*args, **kwargs)
-
-        print(provider)
-        print(type(instance))
-        print(type(wrapped))
         return result
 
     async def _instrument_agenerate(self, wrapped, instance: LanguageModel, args: tuple[type, Any], kwargs: dict[str, Any]) -> LanguageModelResponse:
         _kwargs = copy.deepcopy(kwargs)
         _kwargs.update(zip(wrapped.__code__.co_varnames, args, strict=False))
-
         provider, _ = instance.get_model_name(instance.llm_model)
-        print("instrument_agenerate")
-
         result = await wrapped(*args, **kwargs)
-
         return result
-
-
-def main():
-    config = LanguageModelConfig(model=LanguageModelType.OPENAI_GPT4o_MINI, json_mode=False)
-    llm = get_language_model(config)
-
-    messages = [
-        Message(role=Role.SYSTEM, content="You are a helpful assistant."),
-        Message(role=Role.USER, content="What is the capital of France?"),
-    ]
-
-    response = llm.generate(
-        messages,
-        max_tokens=1024,
-    )
-
-    print("=========")
-    print(type(response))
-    print(response)
-
-
-async def amain():
-    config = LanguageModelConfig(model=LanguageModelType.OPENAI_GPT4o_MINI, json_mode=False)
-    llm = get_language_model(config)
-
-    prompt = "What is the capital of France?"
-
-    response = await llm.agenerate(
-        messages=[
-            Message(role=Role.SYSTEM, content="You are a helpful assistant."),
-            Message(role=Role.USER, content=prompt),
-        ],
-        max_tokens=1024,
-    )
-    print("=========")
-    print(type(response))
-    print(response)
-
-
-if __name__ == "__main__":
-    callback_handler = CallbackHandler()
-    instrumentor = LanguageModelInstrumentor(callback_handler)
-    instrumentor.instrument()
-    main()
-
-    import asyncio
-
-    asyncio.run(amain())

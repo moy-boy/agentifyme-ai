@@ -104,14 +104,14 @@ def bootstrap():
         agentifyme_version = version("agentifyme")
         logger.info(f"Agentifyme version: {agentifyme_version}")
     except PackageNotFoundError:
-        print("Package version not found", file=sys.stderr)
+        logger.error("Package version not found")
         sys.exit(1)
 
     try:
         agentifyme_worker_version = version("agentifyme-worker")
         logger.info(f"Agentifyme-worker version: {agentifyme_worker_version}")
     except PackageNotFoundError:
-        print("Package version not found", file=sys.stderr)
+        logger.error("Package version not found")
         sys.exit(1)
 
     _env = os.getenv("AGENTIFYME_ENV", "unknown")

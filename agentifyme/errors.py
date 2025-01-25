@@ -46,7 +46,7 @@ class AgentifyMeError(Exception):
         context: ErrorContext | None = None,
         severity: ErrorSeverity = ErrorSeverity.ERROR,
         execution_state: dict[str, Any] | None = None,
-        error_type: type[Exception] | str | None = None,
+        error_type: type[Exception] | str = "AgentifyMeError",
         tb: str | None = None,
     ):
         self.message = message
@@ -91,7 +91,7 @@ class AgentifyMeError(Exception):
 
     def __dict__(self) -> dict:
         return {
-            "message": str(self.message) + " " + str(self.error_type),
+            "message": str(self.message),
             "error_code": str(self.error_code) if self.error_code else None,
             "category": str(self.category.value) if self.category else None,
             "component_type": str(self.context.component_type) if self.context else None,
@@ -105,7 +105,7 @@ class AgentifyMeError(Exception):
     @property
     def as_dict(self) -> dict:
         return {
-            "message": str(self.message) + " " + str(self.error_type),
+            "message": str(self.message),
             "error_code": str(self.error_code) if self.error_code else None,
             "category": str(self.category.value) if self.category else None,
             "severity": str(self.severity.value) if self.severity else None,

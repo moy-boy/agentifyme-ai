@@ -157,13 +157,14 @@ class Client(BaseClient):
             json_response = response.json()
 
             if "error" in json_response:
-                error = json_response["error"]
+                error = dict(json_response["error"])
                 raise AgentifyMeError(
                     message=error.get("message"),
-                    error_code=error.get("error_code"),
+                    error_code=error.get("errorCode"),
                     category=error.get("category"),
                     severity=error.get("severity"),
-                    error_type=error.get("error_type"),
+                    error_type=error.get("errorType"),
+                    tb=error.get("traceback"),
                 )
 
             if "data" not in json_response:
@@ -276,13 +277,8 @@ class AsyncClient(BaseClient):
         try:
             response.raise_for_status()
             json_response = response.json()
-
-            logger.info(f"Response: {json_response}")
-
             if "error" in json_response:
                 error = dict(json_response["error"])
-                for k, v in error.items():
-                    logger.info(f"{k}: {v}")
                 raise AgentifyMeError(
                     message=error.get("message"),
                     error_code=error.get("errorCode"),
