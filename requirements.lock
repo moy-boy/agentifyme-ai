@@ -165,6 +165,8 @@ protobuf==5.28.3
     # via googleapis-common-protos
     # via grpcio-tools
     # via opentelemetry-proto
+psutil==6.1.1
+    # via agentifyme
 pyarrow==17.0.0
     # via together
 pydantic==2.9.2

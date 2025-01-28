@@ -208,7 +208,8 @@ protobuf==5.28.3
     # via googleapis-common-protos
     # via grpcio-tools
     # via opentelemetry-proto
-psutil==6.0.0
+psutil==6.1.1
+    # via agentifyme
     # via ipykernel
 ptyprocess==0.7.0
     # via pexpect

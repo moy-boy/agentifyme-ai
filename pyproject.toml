@@ -34,6 +34,7 @@ dependencies = [
     "opentelemetry-instrumentation>=0.50b0",
     "openinference-instrumentation-openai>=0.1.18",
     "groq>=0.15.0",
+    "psutil>=6.1.1",
 ]
 readme = "README.md"
 requires-python = ">= 3.11"

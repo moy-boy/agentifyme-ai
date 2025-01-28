@@ -125,18 +125,16 @@ class RunnableComponent(BaseComponent):
         super().__init__(component_type=component_type, config=config, *args, **kwargs)
 
     async def __aenter__(self):
-        logger.info(f"Entering {self.__class__.__name__} context")
         return self
 
     async def __aexit__(self, exc_type, exc_value, traceback):
-        logger.info(f"Exiting {self.__class__.__name__} context")
+        pass
 
     def __enter__(self):
-        logger.info(f"Entering {self.__class__.__name__} context")
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        logger.info(f"Exiting {self.__class__.__name__} context")
+        pass
 
     @abstractmethod
     def run(self, *args, **kwargs: Any) -> Any:
