@@ -190,3 +190,27 @@ class MessageAck(_message.Message):
     success: bool
     error: str
     def __init__(self, msg_id: _Optional[str] = ..., success: bool = ..., error: _Optional[str] = ...) -> None: ...
+
+class LivenessCheckRequest(_message.Message):
+    __slots__ = ("id",)
+    ID_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
+
+class LivenessCheckResponse(_message.Message):
+    __slots__ = ("success",)
+    SUCCESS_FIELD_NUMBER: _ClassVar[int]
+    success: bool
+    def __init__(self, success: bool = ...) -> None: ...
+
+class ReadinessCheckRequest(_message.Message):
+    __slots__ = ("id",)
+    ID_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
+
+class ReadinessCheckResponse(_message.Message):
+    __slots__ = ("success",)
+    SUCCESS_FIELD_NUMBER: _ClassVar[int]
+    success: bool
+    def __init__(self, success: bool = ...) -> None: ...
