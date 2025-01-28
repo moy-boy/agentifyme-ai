@@ -10,6 +10,7 @@ from typing import Any
 
 import grpc
 import orjson
+import psutil
 from google.protobuf import struct_pb2
 from grpc.aio import StreamStreamCall
 from loguru import logger
@@ -198,6 +199,9 @@ class WorkerService:
                     if msg.HasField("workflow_request"):
                         await self._handle_workflow_request(msg)
 
+                    if msg.HasField("health_check"):
+                        await self._handle_health_check(msg)
+
             except grpc.RpcError as e:
                 self.connected = False
                 logger.error(f"Stream error on attempt {self.retry_attempt+1}/{self.MAX_RECONNECT_ATTEMPTS}: {e}")
@@ -271,10 +275,27 @@ class WorkerService:
             logger.exception(f"Unexpected error in receive_commands: {e}")
             raise
 
-    async def _handle_worker_message(self, msg: pb.OutboundWorkerMessage) -> None:
+    async def _handle_health_check(self, msg: pb.OutboundWorkerMessage) -> None:
         """Handle incoming worker messages"""
-        # if msg.HasField("workflow_command"):
-        #     await self._handle_workflow_command(msg, msg.workflow_command)
+
+        cpu_usage = psutil.cpu_percent(interval=1)
+        memory_usage = psutil.virtual_memory().percent
+        disk_usage = psutil.disk_usage("/").percent
+        if self.connected:
+            _msg = pb.InboundWorkerMessage(
+                msg_id=get_message_id(),
+                worker_id=self.worker_id,
+                deployment_id=self.deployment_id,
+                type=pb.INBOUND_WORKER_MESSAGE_TYPE_WORKER_STATUS,
+                worker_status=pb.WorkerStatus(
+                    status=pb.WORKER_STATE_READY,
+                    timestamp=get_timestamp(),
+                    cpu_usage=cpu_usage,
+                    memory_usage=memory_usage,
+                    disk_usage=disk_usage,
+                ),
+            )
+            self._stream.write(_msg)
 
     async def _handle_workflow_request(self, msg: pb.OutboundWorkerMessage) -> None:
         """Handle workflow requests"""

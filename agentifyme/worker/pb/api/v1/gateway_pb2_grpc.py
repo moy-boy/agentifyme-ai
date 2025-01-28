@@ -238,3 +238,118 @@ class GatewayService(object):
             timeout,
             metadata,
             _registered_method=True)
+
+
+class WorkerHealthServiceStub(object):
+    """Missing associated documentation comment in .proto file."""
+
+    def __init__(self, channel):
+        """Constructor.
+
+        Args:
+            channel: A grpc.Channel.
+        """
+        self.LivenessCheck = channel.unary_unary(
+                '/api.v1.WorkerHealthService/LivenessCheck',
+                request_serializer=api_dot_v1_dot_common__pb2.LivenessCheckRequest.SerializeToString,
+                response_deserializer=api_dot_v1_dot_common__pb2.LivenessCheckResponse.FromString,
+                _registered_method=True)
+        self.ReadinessCheck = channel.unary_unary(
+                '/api.v1.WorkerHealthService/ReadinessCheck',
+                request_serializer=api_dot_v1_dot_common__pb2.ReadinessCheckRequest.SerializeToString,
+                response_deserializer=api_dot_v1_dot_common__pb2.ReadinessCheckResponse.FromString,
+                _registered_method=True)
+
+
+class WorkerHealthServiceServicer(object):
+    """Missing associated documentation comment in .proto file."""
+
+    def LivenessCheck(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ReadinessCheck(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+
+def add_WorkerHealthServiceServicer_to_server(servicer, server):
+    rpc_method_handlers = {
+            'LivenessCheck': grpc.unary_unary_rpc_method_handler(
+                    servicer.LivenessCheck,
+                    request_deserializer=api_dot_v1_dot_common__pb2.LivenessCheckRequest.FromString,
+                    response_serializer=api_dot_v1_dot_common__pb2.LivenessCheckResponse.SerializeToString,
+            ),
+            'ReadinessCheck': grpc.unary_unary_rpc_method_handler(
+                    servicer.ReadinessCheck,
+                    request_deserializer=api_dot_v1_dot_common__pb2.ReadinessCheckRequest.FromString,
+                    response_serializer=api_dot_v1_dot_common__pb2.ReadinessCheckResponse.SerializeToString,
+            ),
+    }
+    generic_handler = grpc.method_handlers_generic_handler(
+            'api.v1.WorkerHealthService', rpc_method_handlers)
+    server.add_generic_rpc_handlers((generic_handler,))
+    server.add_registered_method_handlers('api.v1.WorkerHealthService', rpc_method_handlers)
+
+
+ # This class is part of an EXPERIMENTAL API.
+class WorkerHealthService(object):
+    """Missing associated documentation comment in .proto file."""
+
+    @staticmethod
+    def LivenessCheck(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/api.v1.WorkerHealthService/LivenessCheck',
+            api_dot_v1_dot_common__pb2.LivenessCheckRequest.SerializeToString,
+            api_dot_v1_dot_common__pb2.LivenessCheckResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ReadinessCheck(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/api.v1.WorkerHealthService/ReadinessCheck',
+            api_dot_v1_dot_common__pb2.ReadinessCheckRequest.SerializeToString,
+            api_dot_v1_dot_common__pb2.ReadinessCheckResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
