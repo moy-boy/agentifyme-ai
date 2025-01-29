@@ -289,10 +289,10 @@ class WorkerService:
                 type=pb.INBOUND_WORKER_MESSAGE_TYPE_WORKER_STATUS,
                 worker_status=pb.WorkerStatus(
                     state=pb.WORKER_STATE_READY,
-                    timestamp=get_timestamp(),
                     cpu_usage=cpu_usage,
                     memory_usage=memory_usage,
                     disk_usage=disk_usage,
+                    active_tasks=len(self.active_jobs),
                 ),
             )
             self._stream.write(_msg)

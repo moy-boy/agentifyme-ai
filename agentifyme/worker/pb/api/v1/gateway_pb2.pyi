@@ -260,16 +260,18 @@ class RuntimeEvent(_message.Message):
     def __init__(self, event_type: _Optional[_Union[RuntimeEventType, str]] = ..., event_stage: _Optional[_Union[RuntimeEventStage, str]] = ..., event_name: _Optional[str] = ..., timestamp: _Optional[int] = ..., event_id: _Optional[str] = ..., parent_event_id: _Optional[str] = ..., run_id: _Optional[str] = ..., request_id: _Optional[str] = ..., idempotency_key: _Optional[str] = ..., status: _Optional[_Union[RuntimeEventStatus, str]] = ..., retry_attempt: _Optional[int] = ..., error: _Optional[_Union[_common_pb2.AgentifyMeError, _Mapping]] = ..., max_retries: _Optional[int] = ..., retry_delay: _Optional[int] = ..., metadata: _Optional[_Mapping[str, str]] = ..., input_data_format: _Optional[_Union[DataFormat, str]] = ..., json_input: _Optional[str] = ..., binary_input: _Optional[bytes] = ..., struct_input: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., string_input: _Optional[str] = ..., output_data_format: _Optional[_Union[DataFormat, str]] = ..., json_output: _Optional[str] = ..., binary_output: _Optional[bytes] = ..., struct_output: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., string_output: _Optional[str] = ..., llm_output: _Optional[_Union[LLMEventData, _Mapping]] = ...) -> None: ...
 
 class WorkerStatus(_message.Message):
-    __slots__ = ("cpu_usage", "memory_usage", "active_tasks", "state")
+    __slots__ = ("cpu_usage", "memory_usage", "disk_usage", "active_tasks", "state")
     CPU_USAGE_FIELD_NUMBER: _ClassVar[int]
     MEMORY_USAGE_FIELD_NUMBER: _ClassVar[int]
+    DISK_USAGE_FIELD_NUMBER: _ClassVar[int]
     ACTIVE_TASKS_FIELD_NUMBER: _ClassVar[int]
     STATE_FIELD_NUMBER: _ClassVar[int]
     cpu_usage: float
     memory_usage: float
+    disk_usage: float
     active_tasks: int
     state: WorkerState
-    def __init__(self, cpu_usage: _Optional[float] = ..., memory_usage: _Optional[float] = ..., active_tasks: _Optional[int] = ..., state: _Optional[_Union[WorkerState, str]] = ...) -> None: ...
+    def __init__(self, cpu_usage: _Optional[float] = ..., memory_usage: _Optional[float] = ..., disk_usage: _Optional[float] = ..., active_tasks: _Optional[int] = ..., state: _Optional[_Union[WorkerState, str]] = ...) -> None: ...
 
 class OutboundWorkerMessage(_message.Message):
     __slots__ = ("msg_id", "timestamp", "metadata", "type", "workflow_request", "control_command", "health_check", "ack")

@@ -12,7 +12,7 @@ from agentifyme.errors import (
 )
 from agentifyme.logger import get_logger
 
-__version__ = "0.1.45"
+__version__ = "0.1.46"
 __all__ = [
     "AgentifyMeError",
     "AgentifyMeExecutionError",

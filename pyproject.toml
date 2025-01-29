@@ -95,4 +95,4 @@ dev-dependencies = [
 [tool.pyright]
 
 include = ["agentifyme"]
-exclude = ["agentifyme/worker/"]
+exclude = ["agentifyme/worker/pb/"]

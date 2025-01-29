@@ -6,7 +6,7 @@ import warnings
 from agentifyme.worker.pb.api.v1 import common_pb2 as api_dot_v1_dot_common__pb2
 from agentifyme.worker.pb.api.v1 import gateway_pb2 as api_dot_v1_dot_gateway__pb2
 
-GRPC_GENERATED_VERSION = '1.68.0'
+GRPC_GENERATED_VERSION = '1.70.0'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
