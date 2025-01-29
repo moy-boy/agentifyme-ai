@@ -3,8 +3,11 @@ name = "agentifyme"
 dynamic = ["version"]
 description = "Framework for building agentic workflows"
 authors = [
-    { name = "Arun Reddy", email = "arun@agentifyme.ai" }
+    { name = "AgentifyMe Team", email = "dev@agentifyme.ai" }
 ]
+readme = "README.md"
+keywords = ["agentic workflows", "llm applications", "workflow orchestration"]
+requires-python = ">= 3.11"
 dependencies = [
     "openai>=1.60",
     "tenacity>=8.5",
@@ -18,16 +21,17 @@ dependencies = [
     "orjson>=3.10.11",
     "sentry-sdk>=2.18.0",
     "pyyaml>=6.0.2",
+    "websockets~=14.0",
+    "joblib~=1.4",
 ]
-readme = "README.md"
-requires-python = ">= 3.11"
+
 
 [project.optional-dependencies]
  grpc = [
     "grpcio~=1.66",
-    "protobuf>=4.25",
+    "protobuf~=5.29",
     "grpcio-tools~=1.66",
-    "googleapis-common-protos>=1.66.0",
+    "googleapis-common-protos~=1.66",
 ]
  worker = [
     "opentelemetry-api>=1.28.1",

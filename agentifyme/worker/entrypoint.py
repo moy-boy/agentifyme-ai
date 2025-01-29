@@ -4,7 +4,6 @@ import sys
 from pathlib import Path
 
 import grpc
-from dotenv import load_dotenv
 from importlib_metadata import PackageNotFoundError, version
 from loguru import logger
 
@@ -49,14 +48,6 @@ def main():
 async def run():
     """Entry point for the worker service"""
     try:
-        if Path(".env").exists():
-            logger.info("Loading environment variables")
-            load_dotenv(Path(".env"))
-
-        if Path(".env.worker").exists():
-            logger.info("Loading worker environment variables")
-            load_dotenv(Path(".env.worker"))
-
         api_gateway_url = get_env("AGENTIFYME_API_GATEWAY_URL")
         api_key = get_env("AGENTIFYME_API_KEY")
         agentifyme_env = get_env("AGENTIFYME_ENV")
