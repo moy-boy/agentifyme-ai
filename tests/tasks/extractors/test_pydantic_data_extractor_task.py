@@ -48,6 +48,7 @@ def test_pydantic_data_extractor_simple(
 
     output = pydantic_extractor_task(input_data=text, output_type=WeatherData)
 
+    assert isinstance(output, WeatherData)
     assert output is not None
 
     # validate the fields
@@ -74,7 +75,7 @@ def test_json_data_extractor_nested(
       for $299 and a 'Dell XPS 13 Laptop' for $999. The total amount is $1298,
       shipped to 123 Main St, Springfield."""
 
-    output = pydantic_extractor_task(input_data=text, output_type=Order)
+    output: Order = pydantic_extractor_task(input_data=text, output_type=Order)
 
     assert output is not None
 
@@ -111,6 +112,7 @@ async def test_pydantic_data_extractor_simple_async(
 
     output = await pydantic_extractor_task.arun(input_data=text, output_type=WeatherData)
 
+    assert isinstance(output, WeatherData)
     assert output is not None
 
     # validate the fields
@@ -139,6 +141,7 @@ async def test_json_data_extractor_nested_async(
       shipped to 123 Main St, Springfield."""
 
     output = await pydantic_extractor_task.arun(input_data=text, output_type=Order)
+    assert isinstance(output, Order)
 
     assert output is not None
 
@@ -179,6 +182,7 @@ async def test_pydantic_data_extractor_complex_async(
 
     output = await pydantic_extractor_task.arun(input_data=text, output_type=Book)
 
+    assert isinstance(output, Book)
     assert output is not None
 
     assert output.title == "To Kill a Mockingbird"
@@ -206,6 +210,7 @@ async def test_pydantic_data_extractor_with_missing_data_async(
     """
 
     output = await pydantic_extractor_task.arun(input_data=text, output_type=MovieReview)
+    assert isinstance(output, MovieReview)
 
     assert output is not None
 

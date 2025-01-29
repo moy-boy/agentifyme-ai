@@ -3,7 +3,7 @@ requires-python = ">=3.11"
 
 [[distribution]]
 name = "agentifyme"
-version = "0.1.43"
+version = "0.1.44"
 source = { editable = "." }
 dependencies = [
     { name = "docstring-parser" },
@@ -54,7 +54,12 @@ worker = [
 [distribution.dev-dependencies]
 dev = [
     { name = "coverage" },
+    { name = "googleapis-common-protos" },
+    { name = "grpcio" },
+    { name = "grpcio-tools" },
     { name = "ipykernel" },
+    { name = "opentelemetry-sdk" },
+    { name = "protobuf" },
     { name = "pyright" },
     { name = "pytest" },
     { name = "pytest-asyncio" },

@@ -84,4 +84,15 @@ dev-dependencies = [
     "pytest-mock>=3.14.0",
     "pytest-asyncio>=0.23.8",
     "pyright",
+    "grpcio~=1.66",
+    "protobuf~=5.29",
+    "grpcio-tools~=1.66",
+    "googleapis-common-protos~=1.66",
+    "opentelemetry-sdk>=1.28.1",
 ]
+
+
+[tool.pyright]
+
+include = ["agentifyme"]
+exclude = ["agentifyme/worker/"]

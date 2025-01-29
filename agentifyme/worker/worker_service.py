@@ -48,7 +48,7 @@ async def exponential_backoff(attempt: int, max_delay: int = 32) -> None:
     delay = min(3**attempt, max_delay)
     jitter = random.uniform(0, 0.1) * delay
     total_delay = delay + jitter
-    logger.info(f"Reconnection attempt {attempt+1}, waiting {total_delay:.1f} seconds")
+    logger.info(f"Reconnection attempt {attempt + 1}, waiting {total_delay:.1f} seconds")
     await asyncio.sleep(total_delay)
 
 
@@ -204,7 +204,7 @@ class WorkerService:
 
             except grpc.RpcError as e:
                 self.connected = False
-                logger.error(f"Stream error on attempt {self.retry_attempt+1}/{self.MAX_RECONNECT_ATTEMPTS}: {e}")
+                logger.error(f"Stream error on attempt {self.retry_attempt + 1}/{self.MAX_RECONNECT_ATTEMPTS}: {e}")
 
             except Exception as e:
                 self.connected = False
@@ -288,7 +288,7 @@ class WorkerService:
                 deployment_id=self.deployment_id,
                 type=pb.INBOUND_WORKER_MESSAGE_TYPE_WORKER_STATUS,
                 worker_status=pb.WorkerStatus(
-                    status=pb.WORKER_STATE_READY,
+                    state=pb.WORKER_STATE_READY,
                     timestamp=get_timestamp(),
                     cpu_usage=cpu_usage,
                     memory_usage=memory_usage,

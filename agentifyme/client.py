@@ -51,7 +51,8 @@ class BaseClient(ABC):
             # If no endpoint is specified, use appropriate default based on local_mode
             if endpoint_url is None:
                 endpoint_url = DEFAULT_LOCAL_ENDPOINT if local_mode else DEFAULT_CLOUD_ENDPOINT
-        self.endpoint_url = endpoint_url.rstrip("/")
+
+        self.endpoint_url = str(endpoint_url).rstrip("/")
 
         # Determine if we're in local mode
         self.is_local_mode = local_mode if local_mode is not None else self._is_local_endpoint(self.endpoint_url)

@@ -24,7 +24,7 @@ def write_config_file(config, file_path):
 
     """
     with open(file_path, "w", encoding="utf-8") as f:
-        f.write(orjson.dumps(config, indent=2))
+        f.write(orjson.dumps(config, default=str))
 
 
 def signal_steady_state():

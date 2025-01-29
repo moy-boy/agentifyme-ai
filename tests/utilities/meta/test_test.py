@@ -50,29 +50,32 @@ def extract_function_params(func):
     # Parse docstring for detailed parameter information
     detailed_params = {}
     current_section = None
-    for line in docstring.split("\n"):
-        line = line.strip()
-        if line.startswith("Args:"):
-            current_section = "args"
-        elif line.startswith("Returns:"):
-            current_section = "returns"
-        elif current_section == "args" and ":" in line:
-            param, description = line.split(":", 1)
-            detailed_params[param.strip()] = description.strip()
-        elif current_section == "returns" and ":" in line:
-            param, description = line.split(":", 1)
-            detailed_params["return"] = description.strip()
+    if docstring:
+        for line in docstring.split("\n"):
+            line = line.strip()
+            if line.startswith("Args:"):
+                current_section = "args"
+            elif line.startswith("Returns:"):
+                current_section = "returns"
+            elif current_section == "args" and ":" in line:
+                param, description = line.split(":", 1)
+                detailed_params[param.strip()] = description.strip()
+            elif current_section == "returns" and ":" in line:
+                param, description = line.split(":", 1)
+                detailed_params["return"] = description.strip()
 
-    return {
-        "input_params": input_params,
-        "output_param": output_param,
-        "detailed_params": detailed_params,
-    }
+        return {
+            "input_params": input_params,
+            "output_param": output_param,
+            "detailed_params": detailed_params,
+        }
 
 
 def test_simple_function():
     # Example usage
     result = extract_function_params(pydantic_function)
-    print("Input parameters:", result["input_params"])
-    print("Output parameter:", result["output_param"])
-    print("Detailed parameters:", result["detailed_params"])
+    assert result is not None
+    assert isinstance(result, dict)
+    assert "input_params" in result
+    assert "output_param" in result
+    assert "detailed_params" in result

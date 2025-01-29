@@ -253,25 +253,35 @@ async def test_json_data_extractor_with_str_schema_async(
     """
 
     data = await json_extractor_task.arun(text=text, output_schema=output_schema)
-
+    assert isinstance(data, dict)
     assert data is not None
 
     # Asserting top-level keys and their values
-    assert data["order_number"] == "12345"
-    assert data["order_date"] == "2024-07-28"
-    assert data["total_amount"] == "$1298"
-    assert data["shipping_address"] == "123 Main St, Springfield"
+    assert "order_number" in data
+    assert data.get("order_number") == "12345"
+    assert "order_date" in data
+    assert data.get("order_date") == "2024-07-28"
+    assert "total_amount" in data
+    assert data.get("total_amount") == "$1298"
+    assert "shipping_address" in data
+    assert data.get("shipping_address") == "123 Main St, Springfield"
 
     # Asserting the items list
-    assert len(data["items"]) == 2
+    assert "items" in data
+    items = data.get("items", [])
+    assert len(items) == 2
 
     # Asserting the first item details
-    assert data["items"][0]["name"] == "Sony WH-1000XM4 Headphones"
-    assert data["items"][0]["price"] == "$299"
+    assert "name" in items[0]
+    assert items[0].get("name") == "Sony WH-1000XM4 Headphones"
+    assert "price" in items[0]
+    assert items[0].get("price") == "$299"
 
     # Asserting the second item details
-    assert data["items"][1]["name"] == "Dell XPS 13 Laptop"
-    assert data["items"][1]["price"] == "$999"
+    assert "name" in items[1]
+    assert items[1].get("name") == "Dell XPS 13 Laptop"
+    assert "price" in items[1]
+    assert items[1].get("price") == "$999"
 
 
 @pytest.mark.asyncio
