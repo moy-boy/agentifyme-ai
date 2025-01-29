@@ -295,7 +295,7 @@ class WorkerService:
                     active_tasks=len(self.active_jobs),
                 ),
             )
-            self._stream.write(_msg)
+            await self._stream.write(_msg)
 
     async def _handle_workflow_request(self, msg: pb.OutboundWorkerMessage) -> None:
         """Handle workflow requests"""
