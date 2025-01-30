@@ -27,13 +27,12 @@ dependencies = [
 
 
 [project.optional-dependencies]
- grpc = [
-    "grpcio~=1.66",
+ grpc = ["grpcio~=1.66"]
+ worker = [
+   "grpcio~=1.66",    
     "protobuf~=5.29",
     "grpcio-tools~=1.66",
     "googleapis-common-protos~=1.66",
-]
- worker = [
     "opentelemetry-api>=1.28.1",
     "opentelemetry-sdk>=1.28.1",
     "opentelemetry-exporter-otlp-proto-grpc>=1.28.1",
@@ -41,10 +40,9 @@ dependencies = [
     "opentelemetry-instrumentation>=0.50b0",
     "openinference-instrumentation-openai>=0.1.18",
     "psutil>=6.1.1",
+    "sentry-sdk>=2.20.0"
  ]
- together = [
-    "together>=1.2.4",
- ]
+ together = ["together>=1.2.4"]
  groq = [
     "groq>=0.15.0",
  ]

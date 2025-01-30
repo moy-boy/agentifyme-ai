@@ -3,7 +3,7 @@ requires-python = ">=3.11"
 
 [[distribution]]
 name = "agentifyme"
-version = "0.1.44"
+version = "0.1.48"
 source = { editable = "." }
 dependencies = [
     { name = "docstring-parser" },
@@ -49,6 +49,7 @@ worker = [
     { name = "opentelemetry-processor-baggage" },
     { name = "opentelemetry-sdk" },
     { name = "psutil" },
+    { name = "sentry-sdk" },
 ]
 
 [distribution.dev-dependencies]

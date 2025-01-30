@@ -10,7 +10,6 @@ from typing import Any
 
 import grpc
 import orjson
-import psutil
 from google.protobuf import struct_pb2
 from grpc.aio import StreamStreamCall
 from loguru import logger
@@ -277,10 +276,18 @@ class WorkerService:
 
     async def _handle_health_check(self, msg: pb.OutboundWorkerMessage) -> None:
         """Handle incoming worker messages"""
+        try:
+            import psutil
 
-        cpu_usage = psutil.cpu_percent(interval=1)
-        memory_usage = psutil.virtual_memory().percent
-        disk_usage = psutil.disk_usage("/").percent
+            cpu_usage = psutil.cpu_percent(interval=1)
+            memory_usage = psutil.virtual_memory().percent
+            disk_usage = psutil.disk_usage("/").percent
+        except ImportError:
+            logger.error("Error getting health check metrics: psutil not installed")
+            cpu_usage = 0
+            memory_usage = 0
+            disk_usage = 0
+
         if self.connected:
             _msg = pb.InboundWorkerMessage(
                 msg_id=get_message_id(),

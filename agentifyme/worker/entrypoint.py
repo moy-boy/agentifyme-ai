@@ -8,6 +8,7 @@ from importlib_metadata import PackageNotFoundError, version
 from loguru import logger
 
 import agentifyme.worker.pb.api.v1.gateway_pb2_grpc as pb_grpc
+from agentifyme import __version__
 from agentifyme.utilities.modules import (
     load_modules_from_directory,
 )
@@ -23,6 +24,7 @@ from agentifyme.worker.worker_service import WorkerService
 def main():
     exit_code = 1
     try:
+        initialize_sentry()
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         exit_code = loop.run_until_complete(run())
@@ -43,6 +45,27 @@ def main():
             logger.error("Failed to close logger", exc_info=True, error=str(e))
 
     sys.exit(exit_code)
+
+
+def initialize_sentry():
+    """Initialize Sentry for error tracking"""
+    enable_telemetry = os.getenv("AGENTIFYME_ENABLE_TELEMETRY")
+    sentry_dsn = os.getenv("AGENTIFYME_SENTRY_DSN")
+    environment = os.getenv("AGENTIFYME_ENV")
+    if enable_telemetry and sentry_dsn:
+        import sentry_sdk
+
+        sentry_sdk.init(
+            dsn=sentry_dsn,
+            traces_sample_rate=1.0,
+            profiles_sample_rate=1.0,
+            release=__version__,
+            environment=environment,
+            send_default_pii=False,
+            attach_stacktrace=True,
+            enable_tracing=True,
+            propagate_traces=True,
+        )
 
 
 async def run():
