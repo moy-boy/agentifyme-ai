@@ -24,7 +24,7 @@ import agentifyme.worker.pb.api.v1.gateway_pb2 as pb
 import agentifyme.worker.pb.api.v1.gateway_pb2_grpc as pb_grpc
 from agentifyme import __version__
 from agentifyme.components.workflow import WorkflowConfig
-from agentifyme.errors import AgentifyMeError
+from agentifyme.errors import AgentifyMeError, ErrorCategory, ErrorSeverity
 from agentifyme.utilities.grpc import (
     convert_for_protobuf,
     get_message_id,
@@ -625,7 +625,12 @@ class WorkerService:
                             error = e
                             raise
                         except Exception as e:
-                            error = e
+                            error = AgentifyMeError(
+                                message=str(e),
+                                category=ErrorCategory.EXECUTION,
+                                severity=ErrorSeverity.ERROR,
+                                error_type=type(e).__name__,
+                            )
                             raise
                         finally:
                             if error:

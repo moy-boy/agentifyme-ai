@@ -59,7 +59,7 @@ def initialize_sentry():
             dsn=sentry_dsn,
             traces_sample_rate=1.0,
             profiles_sample_rate=1.0,
-            release=__version__,
+            release=str(__version__),
             environment=environment,
             send_default_pii=False,
             attach_stacktrace=True,
