@@ -228,7 +228,7 @@ class Client(BaseClient):
 
         try:
             http_client = self._create_http_client(timeout)
-            response = http_client.post(f"{self.endpoint_url}/v1/workflows/run", json=data, headers=headers)
+            response = http_client.post(f"{self.endpoint_url}/api/workflows/run", json=data, headers=headers)
             return self._handle_response(response)
         except httpx.RequestError as e:
             raise AgentifymeError(f"Request failed: {e!s}")
@@ -251,14 +251,14 @@ class Client(BaseClient):
             headers["x-wf-endpoint"] = deployment_endpoint
 
         try:
-            response = self._http_client.post(f"{self.endpoint_url}/v1/workflows/jobs", json=data, headers=headers)
+            response = self._http_client.post(f"{self.endpoint_url}/api/workflows/jobs", json=data, headers=headers)
             return self._handle_response(response)
         except httpx.RequestError as e:
             raise AgentifymeError(f"Request failed: {e!s}")
 
     def get_workflow_result(self, job_id: str) -> dict | list | str | None:
         """Get the result of a workflow job"""
-        response = self._http_client.get(f"{self.endpoint_url}/v1/workflows/jobs/{job_id}")
+        response = self._http_client.get(f"{self.endpoint_url}/api/workflows/jobs/{job_id}")
         return self._handle_response(response)
 
 
@@ -352,7 +352,7 @@ class AsyncClient(BaseClient):
         try:
             async_http_client = self._create_http_client(timeout)
             async with async_http_client as client:
-                response = await client.post(f"{self.endpoint_url}/v1/workflows/run", json=data, headers=headers)
+                response = await client.post(f"{self.endpoint_url}/api/workflows/run", json=data, headers=headers)
                 return await self._handle_response(response)
         except httpx.RequestError as e:
             raise AgentifyMeError(
@@ -382,7 +382,7 @@ class AsyncClient(BaseClient):
 
         try:
             async with self._http_client as client:
-                response = await client.post(f"{self.endpoint_url}/v1/workflows/jobs", json=data, headers=headers)
+                response = await client.post(f"{self.endpoint_url}/api/workflows/jobs", json=data, headers=headers)
                 return await self._handle_response(response)
         except httpx.RequestError as e:
             raise AgentifyMeError(
@@ -396,5 +396,5 @@ class AsyncClient(BaseClient):
     async def get_workflow_result(self, job_id: str) -> dict | list | str | None:
         """Get the result of a workflow job"""
         async with self._http_client as client:
-            response = await client.get(f"{self.endpoint_url}/v1/workflows/jobs/{job_id}")
+            response = await client.get(f"{self.endpoint_url}/api/workflows/jobs/{job_id}")
             return await self._handle_response(response)
