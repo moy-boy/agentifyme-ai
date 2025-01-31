@@ -630,6 +630,7 @@ class WorkerService:
                                 category=ErrorCategory.EXECUTION,
                                 severity=ErrorSeverity.ERROR,
                                 error_type=type(e).__name__,
+                                traceback=traceback.format_exc(),
                             )
                             raise
                         finally:
