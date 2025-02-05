@@ -1,11 +1,7 @@
 import asyncio
 import os
-from collections.abc import Callable
-from datetime import datetime
-from decimal import Decimal, InvalidOperation
-from inspect import signature
-from numbers import Number
-from typing import Any, TypeVar, Union, get_type_hints
+from contextvars import ContextVar
+from typing import Any, TypeVar, get_type_hints
 
 import orjson
 from grpc.aio import StreamStreamCall
@@ -19,11 +15,29 @@ import agentifyme.worker.pb.api.v1.gateway_pb2_grpc as pb_grpc
 from agentifyme.components.workflow import Workflow, WorkflowConfig
 from agentifyme.errors import AgentifyMeError, ErrorContext
 from agentifyme.worker.helpers import build_args_from_signature
+from agentifyme.worker.telemetry.semconv import SemanticAttributes
 
 Input = TypeVar("Input")
 Output = TypeVar("Output")
 
 tracer = trace.get_tracer(__name__)
+
+workflow_run_id = ContextVar[str]("workflow_run_id")
+workflow_name = ContextVar[str]("workflow_name")
+trace_id = ContextVar[str]("trace_id")
+
+
+def context_injector(record):
+    """Inject workflow run ID into the record"""
+    if workflow_run_id.get():
+        record["extra"][SemanticAttributes.WORKFLOW_RUN_ID] = workflow_run_id.get()
+    if workflow_name.get():
+        record["extra"][SemanticAttributes.WORKFLOW_NAME] = workflow_name.get()
+    if trace_id.get():
+        record["extra"]["trace_id"] = trace_id.get()
+
+
+logger.configure(patcher=context_injector)
 
 
 class WorkflowJob:
@@ -81,6 +95,10 @@ class WorkflowHandler:
                 _workflow_config = _workflow.config
 
                 # Build input arguments
+                workflow_run_id.set(job.run_id)
+                workflow_name.set(job.workflow_name)
+                trace_id.set(span.get_span_context().trace_id)
+
                 func_args = build_args_from_signature(_workflow_config.func, job.input_parameters)
 
                 # Log input
@@ -89,7 +107,7 @@ class WorkflowHandler:
                     attributes={"input": orjson.dumps(job.input_parameters).decode()},
                 )
 
-                logger.info(f"==> Executing workflow {job.run_id} with input: {func_args}")
+                logger.info(f"Executing workflow {job.run_id} with input: {func_args}")
                 # Execute workflow
                 if asyncio.iscoroutinefunction(_workflow_config.func):
                     result = await self.workflow.arun(**func_args)
