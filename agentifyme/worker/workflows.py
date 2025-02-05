@@ -22,19 +22,24 @@ Output = TypeVar("Output")
 
 tracer = trace.get_tracer(__name__)
 
-workflow_run_id = ContextVar[str]("workflow_run_id")
-workflow_name = ContextVar[str]("workflow_name")
-trace_id = ContextVar[str]("trace_id")
+workflow_run_id = ContextVar[str | None]("workflow_run_id", default=None)
+workflow_name = ContextVar[str | None]("workflow_name", default=None)
+trace_id = ContextVar[str | None]("trace_id", default=None)
 
 
 def context_injector(record):
     """Inject workflow run ID into the record"""
-    if workflow_run_id.get():
-        record["extra"][SemanticAttributes.WORKFLOW_RUN_ID] = workflow_run_id.get()
-    if workflow_name.get():
-        record["extra"][SemanticAttributes.WORKFLOW_NAME] = workflow_name.get()
-    if trace_id.get():
-        record["extra"]["trace_id"] = trace_id.get()
+    run_id = workflow_run_id.get()
+    if run_id is not None:
+        record["extra"][SemanticAttributes.WORKFLOW_RUN_ID] = run_id
+
+    name = workflow_name.get()
+    if name is not None:
+        record["extra"][SemanticAttributes.WORKFLOW_NAME] = name
+
+    tid = trace_id.get()
+    if tid is not None:
+        record["extra"]["trace_id"] = tid
 
 
 logger.configure(patcher=context_injector)
