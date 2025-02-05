@@ -17,6 +17,7 @@ from opentelemetry.semconv.trace import SpanAttributes
 from opentelemetry.trace import get_current_span
 from opentelemetry.util.types import Attributes
 
+from agentifyme.worker.context import trace_id, workflow_name, workflow_run_id
 from agentifyme.worker.telemetry.semconv import SemanticAttributes
 
 _STD_TO_OTEL = {
@@ -109,6 +110,18 @@ class LoguruHandler:
         attributes["thread_name"] = (record["thread"]).name
         attributes["thread_id"] = (record["thread"]).id
         attributes["file"] = record["file"].name
+
+        run_id = workflow_run_id.get()
+        if run_id is not None:
+            attributes[SemanticAttributes.WORKFLOW_RUN_ID] = run_id
+
+        name = workflow_name.get()
+        if name is not None:
+            attributes[SemanticAttributes.WORKFLOW_NAME] = name
+
+        tid = trace_id.get()
+        if tid is not None:
+            attributes["trace_id"] = tid
 
         if os.getenv("AGENTIFYME_WORKER_ENDPOINT") is not None:
             attributes["endpoint"] = os.getenv("AGENTIFYME_WORKER_ENDPOINT")
