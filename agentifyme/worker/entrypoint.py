@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 import grpc
+from dotenv import load_dotenv
 from importlib_metadata import PackageNotFoundError, version
 from loguru import logger
 
@@ -24,6 +25,11 @@ from agentifyme.worker.worker_service import WorkerService
 def main():
     exit_code = 1
     try:
+        # Initialize environment variables
+        if Path(".env.worker").exists():
+            logger.info("Loading environment variables from .env.worker")
+            load_dotenv(Path(".env.worker"))
+
         initialize_sentry()
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)

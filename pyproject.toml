@@ -40,6 +40,7 @@ dependencies = [
     "opentelemetry-instrumentation>=0.50b0",
     "openinference-instrumentation-openai>=0.1.18",
     "psutil>=6.1.1",
+    "python-dotenv>=1.0.1",
     "sentry-sdk>=2.20.0"
  ]
  together = ["together>=1.2.4"]
