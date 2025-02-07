@@ -72,6 +72,7 @@ class WorkflowHandler:
     async def __call__(self, job: WorkflowJob) -> WorkflowJob:
         """Handle workflow execution with serialization/deserialization"""
         with tracer.start_as_current_span("workflow_execution") as span:
+            trace_id = format(span.get_span_context().trace_id, "032x")
             try:
                 # Get workflow configuration
                 _workflow = WorkflowConfig.get(job.workflow_name)
@@ -80,7 +81,7 @@ class WorkflowHandler:
                 # Build input arguments
                 workflow_run_id.set(job.run_id)
                 workflow_name.set(job.workflow_name)
-                trace_id.set(span.get_span_context().trace_id)
+                trace_id.set(trace_id)
 
                 func_args = build_args_from_signature(_workflow_config.func, job.input_parameters)
 
