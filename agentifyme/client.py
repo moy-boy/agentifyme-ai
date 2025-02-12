@@ -28,6 +28,8 @@ class BaseClient(ABC):
         api_key: str | None = None,
         organization: str | None = None,
         project: str | None = None,
+        environment: str | None = None,
+        deployment: str | None = None,
         local_mode: bool | None = None,
         timeout: float = 300.0,
     ):
@@ -37,7 +39,10 @@ class BaseClient(ABC):
             endpoint_url: Optional API endpoint override. Use http://localhost:PORT for local mode
             api_key: API key for authentication (not required for local mode)
             organization: Organization ID (not required for local mode)
-            project: Optional project ID
+            project: Project ID
+            environment: Environment ID
+            deployment: Deployment ID
+            local_mode: Whether to use local mode
             timeout: Timeout for API requests, defaults to 300 seconds (5 minutes)
 
         """
@@ -59,23 +64,34 @@ class BaseClient(ABC):
 
         # Handle API key
         if not self.is_local_mode:
-            if api_key is None:
-                api_key = os.getenv("AGENTIFYME_API_KEY")
-            if api_key is None:
+            _api_key = api_key or os.getenv("AGENTIFYME_API_KEY")
+            if _api_key is None:
                 raise AgentifymeError("API key is required for cloud endpoints. Please set the AGENTIFYME_API_KEY environment variable or pass it directly.")
-            self.api_key = api_key
+            self.api_key = _api_key
 
             # Handle organization
-            if organization is None:
-                organization = os.getenv("AGENTIFYME_ORG_ID")
-            if organization is None:
+            _organization = organization or os.getenv("AGENTIFYME_ORG_ID")
+            if _organization is None:
                 raise AgentifymeError("Organization is required for cloud endpoints. Please set the AGENTIFYME_ORG_ID environment variable or pass it directly.")
-            self.organization = organization
+            self.organization = _organization
+
+            # Handle project
+            _project = project or os.getenv("AGENTIFYME_PROJECT_ID")
+            if _project is None:
+                raise AgentifymeError("Project is required for cloud endpoints. Please set the AGENTIFYME_PROJECT_ID environment variable or pass it directly.")
+            self.project = _project
+
+            # Handle environment
+            self.environment = environment or os.getenv("AGENTIFYME_ENV_ID")
+
+            # Handle deployment
+            self.deployment = deployment or os.getenv("AGENTIFYME_DEPLOYMENT_ID")
+
         else:
             self.api_key = None
             self.organization = None
-
-        self.project = project
+            self.project = None
+            self.environment = None
 
         # Initialize HTTP client with appropriate headers
         self._http_client = self._create_http_client(timeout)
@@ -104,9 +120,16 @@ class BaseClient(ABC):
         """
         headers = {"Content-Type": "application/json"}
         if not self.is_local_mode:
-            headers["X-API-KEY"] = self.api_key
+            headers["x-api-key"] = self.api_key
             if self.organization:
-                headers["X-ORG-ID"] = self.organization
+                headers["x-org-id"] = self.organization
+            if self.project:
+                headers["x-wf-project"] = self.project
+            if self.environment:
+                headers["x-wf-env"] = self.environment
+            if self.deployment:
+                headers["x-wf-deployment"] = self.deployment
+                headers["x-wf-endpoint"] = self.deployment
         return headers
 
     def _prepare_input(self, name: str, input_data: dict[str, Any] | BaseModel) -> dict:
@@ -206,7 +229,7 @@ class Client(BaseClient):
         self,
         name: str,
         input: dict | BaseModel | None = None,
-        deployment_endpoint: str | None = None,
+        deployment: str | None = None,
         timeout: float = 300.0,
     ) -> dict | list | str | None:
         """Run a workflow
@@ -214,7 +237,7 @@ class Client(BaseClient):
         Args:
             name: Workflow name
             input: Workflow input parameters as dict or Pydantic model
-            deployment_endpoint: Workflow deployment endpoint identifier
+            deployment: Workflow deployment identifier
             timeout: Timeout for API requests, defaults to 300 seconds (5 minutes)
 
         Returns:
@@ -223,8 +246,8 @@ class Client(BaseClient):
         """
         data = self._prepare_input(name, input)
         headers = {}
-        if deployment_endpoint:
-            headers["x-wf-endpoint"] = deployment_endpoint
+        if deployment:
+            headers["x-wf-endpoint"] = deployment
 
         try:
             http_client = self._create_http_client(timeout)
@@ -233,13 +256,18 @@ class Client(BaseClient):
         except httpx.RequestError as e:
             raise AgentifymeError(f"Request failed: {e!s}")
 
-    def submit_workflow(self, name: str, input: dict | BaseModel | None = None, deployment_endpoint: str | None = None) -> dict:
+    def submit_workflow(
+        self,
+        name: str,
+        input: dict | BaseModel | None = None,
+        deployment: str | None = None,
+    ) -> dict:
         """Submit a workflow
 
         Args:
             name: Workflow name
-            input: Workflow input parameters as dict or Pydantic model
-            deployment_endpoint: Workflow deployment endpoint identifier
+            input: Workflow input parameters as dict or Pydantic model (optional)
+            deployment: Workflow deployment identifier (optional)
 
         Returns:
             API response data including job ID
@@ -247,8 +275,8 @@ class Client(BaseClient):
         """
         data = self._prepare_input(name, input)
         headers = {}
-        if deployment_endpoint:
-            headers["x-wf-endpoint"] = deployment_endpoint
+        if deployment:
+            headers["x-wf-endpoint"] = deployment
 
         try:
             response = self._http_client.post(f"{self.endpoint_url}/api/workflows/jobs", json=data, headers=headers)
@@ -330,7 +358,7 @@ class AsyncClient(BaseClient):
         self,
         name: str,
         input: dict | BaseModel | None = None,
-        deployment_endpoint: str | None = None,
+        deployment: str | None = None,
         timeout: float = 300.0,
     ) -> dict | list | str | None:
         """Run a workflow
@@ -338,7 +366,8 @@ class AsyncClient(BaseClient):
         Args:
             name: Workflow name
             input: Workflow input parameters as dict or Pydantic model
-            deployment_endpoint: Workflow deployment endpoint identifier
+            deployment: Workflow deployment identifier
+            timeout: Timeout for API requests, defaults to 300 seconds (5 minutes)
 
         Returns:
             API response data
@@ -346,8 +375,8 @@ class AsyncClient(BaseClient):
         """
         data = self._prepare_input(name, input)
         headers = {}
-        if deployment_endpoint:
-            headers["x-wf-endpoint"] = deployment_endpoint
+        if deployment:
+            headers["x-wf-endpoint"] = deployment
 
         try:
             async_http_client = self._create_http_client(timeout)
@@ -363,13 +392,13 @@ class AsyncClient(BaseClient):
                 error_type=None,
             )
 
-    async def submit_workflow(self, name: str, input: dict | BaseModel | None = None, deployment_endpoint: str | None = None) -> dict:
+    async def submit_workflow(self, name: str, input: dict | BaseModel | None = None, deployment: str | None = None) -> dict:
         """Submit a workflow
 
         Args:
             name: Workflow name
             input: Workflow input parameters as dict or Pydantic model
-            deployment_endpoint: Workflow deployment endpoint identifier
+            deployment: Workflow deployment identifier
 
         Returns:
             API response data including job ID
@@ -377,8 +406,8 @@ class AsyncClient(BaseClient):
         """
         data = self._prepare_input(name, input)
         headers = {}
-        if deployment_endpoint:
-            headers["x-wf-endpoint"] = deployment_endpoint
+        if deployment:
+            headers["x-wf-endpoint"] = deployment
 
         try:
             async with self._http_client as client:
