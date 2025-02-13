@@ -77,14 +77,16 @@ def initialize_sentry():
 async def run():
     """Entry point for the worker service"""
     try:
-        api_gateway_url = get_env("AGENTIFYME_API_GATEWAY_URL")
+        api_gateway_url = get_env("AGENTIFYME_API_GATEWAY_URL", "gw.agentifyme.ai:3418")
         api_key = get_env("AGENTIFYME_API_KEY")
         agentifyme_env = get_env("AGENTIFYME_ENV")
         project_id = get_env("AGENTIFYME_PROJECT_ID")
         deployment_id = get_env("AGENTIFYME_DEPLOYMENT_ID")
         worker_id = get_env("AGENTIFYME_WORKER_ID")
-        otel_endpoint = get_env("AGENTIFYME_OTEL_ENDPOINT")
-        agentifyme_project_dir = get_env("AGENTIFYME_PROJECT_DIR", Path.cwd().as_posix())
+        otel_endpoint = get_env("AGENTIFYME_OTEL_ENDPOINT", "5.78.99.34:4317")
+        agentifyme_project_dir = get_env(
+            "AGENTIFYME_PROJECT_DIR", Path.cwd().as_posix()
+        )
         agentifyme_version = get_package_version("agentifyme")
 
         callback_handler = CallbackHandler()
@@ -99,7 +101,9 @@ async def run():
         # Add instrumentation to workflows and tasks
         auto_instrument(agentifyme_project_dir, callback_handler)
 
-        logger.info(f"Starting Agentifyme service with worker {worker_id} and deployment {deployment_id}")
+        logger.info(
+            f"Starting Agentifyme service with worker {worker_id} and deployment {deployment_id}"
+        )
 
         await init_worker_service(
             api_gateway_url,
@@ -185,7 +189,9 @@ def load_modules(project_dir: str):
     # TaskConfig.reset_registry()
 
     if not os.path.exists(project_dir):
-        logger.warning(f"Project directory not found. Defaulting to working directory: {project_dir}")
+        logger.warning(
+            f"Project directory not found. Defaulting to working directory: {project_dir}"
+        )
 
     # # if ./src exists, load modules from there
     if os.path.exists(os.path.join(project_dir, "src")):
