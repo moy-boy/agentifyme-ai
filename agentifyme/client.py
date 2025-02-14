@@ -69,11 +69,8 @@ class BaseClient(ABC):
                 raise AgentifymeError("API key is required for cloud endpoints. Please set the AGENTIFYME_API_KEY environment variable or pass it directly.")
             self.api_key = _api_key
 
-            # Handle organization
-            _organization = organization or os.getenv("AGENTIFYME_ORG_ID")
-            if _organization is None:
-                raise AgentifymeError("Organization is required for cloud endpoints. Please set the AGENTIFYME_ORG_ID environment variable or pass it directly.")
-            self.organization = _organization
+            # Org ID is optional
+            self.organization = organization or os.getenv("AGENTIFYME_ORG_ID")
 
             # Handle project
             _project = project or os.getenv("AGENTIFYME_PROJECT_ID")
