@@ -47,7 +47,7 @@ class BaseClient(ABC):
 
         """
         # Set default endpoints
-        DEFAULT_CLOUD_ENDPOINT = "https://run.agentifyme.ai"
+        DEFAULT_CLOUD_ENDPOINT = "https://run.agnt5.me"
         DEFAULT_LOCAL_ENDPOINT = "http://localhost:63419"
 
         # Set endpoint URL
@@ -73,10 +73,7 @@ class BaseClient(ABC):
             self.organization = organization or os.getenv("AGENTIFYME_ORG_ID")
 
             # Handle project
-            _project = project or os.getenv("AGENTIFYME_PROJECT_ID")
-            if _project is None:
-                raise AgentifymeError("Project is required for cloud endpoints. Please set the AGENTIFYME_PROJECT_ID environment variable or pass it directly.")
-            self.project = _project
+            self.project = project or os.getenv("AGENTIFYME_PROJECT_ID")
 
             # Handle environment
             self.environment = environment or os.getenv("AGENTIFYME_ENV_ID")
