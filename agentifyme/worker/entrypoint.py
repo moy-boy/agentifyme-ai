@@ -4,7 +4,6 @@ import sys
 from pathlib import Path
 
 import grpc
-from dotenv import load_dotenv
 from importlib_metadata import PackageNotFoundError, version
 from loguru import logger
 
@@ -13,8 +12,8 @@ from agentifyme import __version__
 from agentifyme.utilities.modules import (
     load_modules_from_directory,
 )
-from agentifyme.worker.auth_interceptor import APIKeyInterceptor
 from agentifyme.worker.callback import CallbackHandler
+from agentifyme.worker.interceptor import CustomInterceptor
 from agentifyme.worker.telemetry import (
     auto_instrument,
     setup_telemetry,
@@ -25,11 +24,6 @@ from agentifyme.worker.worker_service import WorkerService
 def main():
     exit_code = 1
     try:
-        # Initialize environment variables
-        if Path(".env.worker").exists():
-            logger.info("Loading environment variables from .env.worker")
-            load_dotenv(Path(".env.worker"))
-
         initialize_sentry()
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
@@ -84,9 +78,7 @@ async def run():
         deployment_id = get_env("AGENTIFYME_DEPLOYMENT_ID")
         worker_id = get_env("AGENTIFYME_WORKER_ID")
         otel_endpoint = get_env("AGENTIFYME_OTEL_ENDPOINT", "5.78.99.34:4317")
-        agentifyme_project_dir = get_env(
-            "AGENTIFYME_PROJECT_DIR", Path.cwd().as_posix()
-        )
+        agentifyme_project_dir = get_env("AGENTIFYME_PROJECT_DIR", Path.cwd().as_posix())
         agentifyme_version = get_package_version("agentifyme")
 
         callback_handler = CallbackHandler()
@@ -101,9 +93,7 @@ async def run():
         # Add instrumentation to workflows and tasks
         auto_instrument(agentifyme_project_dir, callback_handler)
 
-        logger.info(
-            f"Starting Agentifyme service with worker {worker_id} and deployment {deployment_id}"
-        )
+        logger.info(f"Starting Agentifyme service with worker {worker_id} and deployment {deployment_id}")
 
         await init_worker_service(
             api_gateway_url,
@@ -140,11 +130,11 @@ async def init_worker_service(
     ]
 
     try:
-        api_key_interceptor = APIKeyInterceptor(api_key)
+        custom_interceptor = CustomInterceptor(api_key, worker_id)
         async with grpc.aio.insecure_channel(
             target=api_gateway_url,
             options=grpc_options,
-            interceptors=[api_key_interceptor],
+            interceptors=[custom_interceptor],
         ) as channel:
             stub = pb_grpc.GatewayServiceStub(channel)
             worker_service = WorkerService(
@@ -185,13 +175,8 @@ def get_package_version(package_name: str):
 
 
 def load_modules(project_dir: str):
-    # WorkflowConfig.reset_registry()
-    # TaskConfig.reset_registry()
-
     if not os.path.exists(project_dir):
-        logger.warning(
-            f"Project directory not found. Defaulting to working directory: {project_dir}"
-        )
+        logger.warning(f"Project directory not found. Defaulting to working directory: {project_dir}")
 
     # # if ./src exists, load modules from there
     if os.path.exists(os.path.join(project_dir, "src")):
