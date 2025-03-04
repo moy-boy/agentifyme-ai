@@ -1,11 +1,13 @@
 import os
-from typing import Any, TypeVar, get_type_hints
+import traceback
+from typing import Any, get_type_hints
 
 import orjson
 from pydantic import BaseModel
 
 from agentifyme import __version__
 from agentifyme.components.workflow import WorkflowConfig
+from agentifyme.errors import AgentifyMeError
 from agentifyme.worker.callback import CallbackHandler
 from agentifyme.worker.helpers import build_args_from_signature
 from agentifyme.worker.telemetry import (
@@ -53,45 +55,64 @@ def initialize_sentry():
         )
 
 
-def execute_fn(name: str, input: dict) -> dict[str, Any]:
+def execute_fn(name: str, input: str) -> bytes:
     """Execute a workflow"""
-    _workflow = WorkflowConfig.get(name)
-    _workflow_config = _workflow.config
-    func_args = build_args_from_signature(_workflow_config.func, input)
+    try:
+        input = orjson.loads(input)
+        _workflow = WorkflowConfig.get(name)
+        _workflow_config = _workflow.config
+        func_args = build_args_from_signature(_workflow_config.func, input)
 
-    output = _workflow_config.func(**func_args)
+        output = _workflow_config.func(**func_args)
 
-    return_type = get_type_hints(_workflow_config.func).get("return")
-    output_data = _process_output(output, return_type)
+        return_type = get_type_hints(_workflow_config.func).get("return")
+        output_data = _process_output(output, return_type)
+        data_info = {"status": "success", "data": output_data}
 
-    return output_data
+        return orjson.dumps(data_info)
+
+    except AgentifyMeError as e:
+        error_info = {"status": "error", "error": e.__dict__()}
+        return orjson.dumps(error_info)
+
+    except Exception as e:
+        agentifyme_error = AgentifyMeError(
+            message=f"Error executing workflow {name}: {e}",
+            error_type=type(e),
+            tb=traceback.format_exc(),
+        )
+        error_info = {"status": "error", "error": agentifyme_error.__dict__()}
+        return orjson.dumps(error_info)
 
 
-def execute_fn_json(name: str, input_json: str) -> str:
-    """Execute a workflow and return the output as a JSON string"""
-    input = orjson.loads(input_json)
-    output = execute_fn(name, input)
-    return orjson.dumps(output)
-
-
-async def execute_fn_async(name: str, input: dict) -> dict[str, Any]:
+async def execute_fn_async(name: str, input: str) -> bytes:
     """Execute a workflow asynchronously"""
-    _workflow = WorkflowConfig.get(name)
-    _workflow_config = _workflow.config
-    func_args = build_args_from_signature(_workflow_config.func, input)
-    output = await _workflow_config.func(**func_args)
+    try:
+        input = orjson.loads(input)
+        _workflow = WorkflowConfig.get(name)
+        _workflow_config = _workflow.config
+        func_args = build_args_from_signature(_workflow_config.func, input)
+        output = await _workflow_config.func(**func_args)
 
-    return_type = get_type_hints(_workflow_config.func).get("return")
-    output_data = _process_output(output, return_type)
+        return_type = get_type_hints(_workflow_config.func).get("return")
+        output_data = _process_output(output, return_type)
 
-    return output_data
+        data_info = {"status": "success", "data": output_data}
+        output_data_json = orjson.dumps(data_info)
+        return output_data_json
 
+    except AgentifyMeError as e:
+        error_info = {"status": "error", "error": e.__dict__()}
+        return orjson.dumps(error_info)
 
-async def execute_fn_async_json(name: str, input_json: str) -> str:
-    """Execute a workflow asynchronously and return the output as a JSON string"""
-    input = orjson.loads(input_json)
-    output = await execute_fn_async(name, input)
-    return orjson.dumps(output)
+    except Exception as e:
+        agentifyme_error = AgentifyMeError(
+            message=f"Error executing workflow {name}: {e}",
+            error_type=type(e),
+            tb=traceback.format_exc(),
+        )
+        error_info = {"status": "error", "error": agentifyme_error.__dict__()}
+        return orjson.dumps(error_info)
 
 
 def _process_output(result: Any, return_type: type) -> dict[str, Any]:
