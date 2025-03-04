@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Any
 
+import orjson
 import wrapt
 
 from agentifyme.components.base import BaseConfig, RunnableComponent
@@ -45,6 +46,20 @@ class WorkflowConfig(BaseConfig):
             except ValueError as e:
                 raise ValueError(f"Cannot convert this timedelta to a cron expression: {e}")
         return v  # Return as-is if it's already a string or None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "slug": self.slug,
+            "description": self.description,
+            "is_async": self.is_async,
+            "input_parameters": {name: param.to_dict() for name, param in self.input_parameters.items()},
+            "output_parameters": [param.to_dict() for param in self.output_parameters],
+            "schedule": self.schedule,
+        }
+
+    def to_json(self) -> str:
+        return orjson.dumps(self.to_dict())
 
 
 class Workflow(RunnableComponent):
@@ -93,6 +108,7 @@ def workflow(wrapped: Callable | None = None, *, name: str | None = None, descri
             input_parameters=func_metadata.input_parameters,
             output_parameters=func_metadata.output_parameters,
             schedule=schedule,
+            is_async=asyncio.iscoroutinefunction(wrapped_func),
         )
         _workflow_instance = Workflow(_workflow)
         WorkflowConfig.register(_workflow_instance)

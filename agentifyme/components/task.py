@@ -3,6 +3,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+import orjson
 import wrapt
 
 from agentifyme.components.base import BaseConfig, RunnableComponent
@@ -27,6 +28,19 @@ class TaskConfig(BaseConfig):
 
     input_parameters: dict[str, Param] = field(default_factory=dict)
     output_parameters: list[Param] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "slug": self.slug,
+            "description": self.description,
+            "is_async": self.is_async,
+            "input_parameters": {name: param.to_dict() for name, param in self.input_parameters.items()},
+            "output_parameters": [param.to_dict() for param in self.output_parameters],
+        }
+
+    def to_json(self) -> str:
+        return orjson.dumps(self.to_dict())
 
 
 class Task(RunnableComponent):
@@ -96,6 +110,7 @@ def task(wrapped: Callable | None = None, *, name: str | None = None, descriptio
             func=wrapped_func,
             input_parameters=func_metadata.input_parameters,
             output_parameters=func_metadata.output_parameters,
+            is_async=asyncio.iscoroutinefunction(wrapped_func),
         )
 
         _task_instance = Task(_task)

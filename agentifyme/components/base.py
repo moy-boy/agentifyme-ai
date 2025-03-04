@@ -24,6 +24,7 @@ class BaseConfig:
     name: str | None = None
     slug: str | None = None
     description: str | None = None
+    is_async: bool = False
     func: Callable[..., Any] | None = None
     _registry: ClassVar[dict[str, "BaseComponent"]] = {}
 
@@ -87,6 +88,10 @@ class BaseConfig:
 
         """
         return cls._registry
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert the component to a dictionary."""
+        return {"name": self.config.name, "slug": self.config.slug, "description": self.config.description, "is_async": self.config.is_async}
 
 
 @dataclass

@@ -43,6 +43,17 @@ class Param(BaseModel):
     class_name: str | None = None
     nested_fields: dict[str, "Param"] = {}
 
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "description": self.description,
+            "data_type": self.data_type,
+            "default_value": self.default_value,
+            "required": self.required,
+            "class_name": self.class_name,
+            "nested_fields": {name: param.to_dict() for name, param in self.nested_fields.items()},
+        }
+
 
 class FunctionMetadata(BaseModel):
     """Represents metadata for a function.
@@ -228,8 +239,7 @@ def get_output_parameters(func: Callable, parsed_docstring: Docstring | None) ->
 
 
 def get_function_metadata(func: Callable) -> FunctionMetadata:
-    """Get metadata for a function.
-    """
+    """Get metadata for a function."""
     # Get function name
     name = func.__name__
 
