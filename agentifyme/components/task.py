@@ -42,7 +42,8 @@ class TaskConfig(BaseConfig):
     def to_json(self) -> str:
         return orjson.dumps(self.to_dict())
 
-    def get_tasks(self) -> bytes:
+    @classmethod
+    def get_tasks(cls) -> bytes:
         tasks = {}
         for name, task in TaskConfig.get_registry().items():
             if task.component_type == "task":

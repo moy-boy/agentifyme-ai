@@ -62,7 +62,8 @@ class WorkflowConfig(BaseConfig):
     def to_json(self) -> str:
         return orjson.dumps(self.to_dict())
 
-    def get_workflows(self) -> bytes:
+    @classmethod
+    def get_workflows(cls) -> bytes:
         workflows = {}
         for name, workflow in WorkflowConfig.get_registry().items():
             if workflow.component_type == "workflow":
