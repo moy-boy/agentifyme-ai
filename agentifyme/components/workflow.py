@@ -67,7 +67,7 @@ class WorkflowConfig(BaseConfig):
         workflows = {}
         for name, workflow in WorkflowConfig.get_registry().items():
             if workflow.component_type == "workflow":
-                workflows[name] = workflow.to_dict()
+                workflows[name] = workflow.config.to_dict()
 
         workflows_json = orjson.dumps(workflows)
         return workflows_json
@@ -120,7 +120,6 @@ def workflow(wrapped: Callable | None = None, *, name: str | None = None, descri
             output_parameters=func_metadata.output_parameters,
             schedule=schedule,
             is_async=asyncio.iscoroutinefunction(wrapped_func),
-            component_type="workflow",
         )
         _workflow_instance = Workflow(_workflow)
         WorkflowConfig.register(_workflow_instance)

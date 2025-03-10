@@ -26,7 +26,6 @@ class BaseConfig:
     description: str | None = None
     is_async: bool = False
     func: Callable[..., Any] | None = None
-    component_type: str | None = None
     _registry: ClassVar[dict[str, "BaseComponent"]] = {}
 
     @classmethod
