@@ -42,14 +42,14 @@ class TaskConfig(BaseConfig):
     def to_json(self) -> str:
         return orjson.dumps(self.to_dict())
 
-    def get_tasks(self) -> str:
+    def get_tasks(self) -> bytes:
         tasks = {}
         for name, task in TaskConfig.get_registry().items():
             if task.component_type == "task":
                 tasks[name] = task.to_dict()
 
         tasks_json = orjson.dumps(tasks)
-        return tasks_json.decode("utf-8")
+        return tasks_json
 
 
 class Task(RunnableComponent):
