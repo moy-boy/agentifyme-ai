@@ -56,7 +56,6 @@ class WorkflowConfig(BaseConfig):
             "input_parameters": {name: param.to_dict() for name, param in self.input_parameters.items()},
             "output_parameters": [param.to_dict() for param in self.output_parameters],
             "schedule": self.schedule,
-            "component_type": self.component_type,
         }
 
     def to_json(self) -> str:
