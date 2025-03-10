@@ -56,10 +56,20 @@ class WorkflowConfig(BaseConfig):
             "input_parameters": {name: param.to_dict() for name, param in self.input_parameters.items()},
             "output_parameters": [param.to_dict() for param in self.output_parameters],
             "schedule": self.schedule,
+            "component_type": self.component_type,
         }
 
     def to_json(self) -> str:
         return orjson.dumps(self.to_dict())
+
+    def get_workflows(self) -> str:
+        workflows = {}
+        for name, workflow in WorkflowConfig.get_registry().items():
+            if workflow.component_type == "workflow":
+                workflows[name] = workflow.to_dict()
+
+        workflows_json = orjson.dumps(workflows)
+        return workflows_json.decode("utf-8")
 
 
 class Workflow(RunnableComponent):
@@ -109,6 +119,7 @@ def workflow(wrapped: Callable | None = None, *, name: str | None = None, descri
             output_parameters=func_metadata.output_parameters,
             schedule=schedule,
             is_async=asyncio.iscoroutinefunction(wrapped_func),
+            component_type="workflow",
         )
         _workflow_instance = Workflow(_workflow)
         WorkflowConfig.register(_workflow_instance)

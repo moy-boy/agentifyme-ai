@@ -42,6 +42,15 @@ class TaskConfig(BaseConfig):
     def to_json(self) -> str:
         return orjson.dumps(self.to_dict())
 
+    def get_tasks(self) -> str:
+        tasks = {}
+        for name, task in TaskConfig.get_registry().items():
+            if task.component_type == "task":
+                tasks[name] = task.to_dict()
+
+        tasks_json = orjson.dumps(tasks)
+        return tasks_json.decode("utf-8")
+
 
 class Task(RunnableComponent):
     """A task component that can be run independently or as part of a workflow."""
@@ -111,6 +120,7 @@ def task(wrapped: Callable | None = None, *, name: str | None = None, descriptio
             input_parameters=func_metadata.input_parameters,
             output_parameters=func_metadata.output_parameters,
             is_async=asyncio.iscoroutinefunction(wrapped_func),
+            component_type="task",
         )
 
         _task_instance = Task(_task)
