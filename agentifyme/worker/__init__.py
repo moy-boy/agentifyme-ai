@@ -1,8 +1,12 @@
+import json
 import os
+import time
 import traceback
 from typing import Any, get_type_hints
 
 import orjson
+from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
 from pydantic import BaseModel
 
 from agentifyme import __version__
@@ -14,6 +18,8 @@ from agentifyme.worker.telemetry import (
     auto_instrument,
     setup_telemetry,
 )
+
+tracer = trace.get_tracer(__name__)
 
 
 def initialize():
@@ -55,64 +61,138 @@ def initialize_sentry():
         )
 
 
-def execute_fn(name: str, input: str) -> bytes:
+def execute_fn(name: str, input: str, trace_context: str) -> bytes:
     """Execute a workflow"""
+
+    # Parse the trace context
     try:
-        input = orjson.loads(input)
-        _workflow = WorkflowConfig.get(name)
-        _workflow_config = _workflow.config
-        func_args = build_args_from_signature(_workflow_config.func, input)
+        context_data = json.loads(trace_context)
+        traceparent = context_data.get("traceparent", "")
+        baggage = context_data.get("baggage", "")
 
-        output = _workflow_config.func(**func_args)
+        # Create carrier for OpenTelemetry
+        carrier = {}
+        if traceparent:
+            carrier["traceparent"] = traceparent
+        if baggage:
+            carrier["baggage"] = baggage
+    except:
+        carrier = {}
 
-        return_type = get_type_hints(_workflow_config.func).get("return")
-        output_data = _process_output(output, return_type)
-        data_info = {"status": "success", "data": output_data}
+    # Extract context
+    from opentelemetry.propagate import extract
 
-        return orjson.dumps(data_info)
+    ctx = extract(carrier)
 
-    except AgentifyMeError as e:
-        error_info = {"status": "error", "error": e.__dict__()}
-        return orjson.dumps(error_info)
+    with tracer.start_as_current_span("workflow.run", context=ctx) as span:
+        start_time = time.perf_counter()
+        try:
+            parsed_input = orjson.loads(input)
 
-    except Exception as e:
-        agentifyme_error = AgentifyMeError(
-            message=f"Error executing workflow {name}: {e}",
-            error_type=type(e),
-            tb=traceback.format_exc(),
-        )
-        error_info = {"status": "error", "error": agentifyme_error.__dict__()}
-        return orjson.dumps(error_info)
+            _workflow = WorkflowConfig.get(name)
+            _workflow_config = _workflow.config
+
+            func_args = build_args_from_signature(_workflow_config.func, parsed_input)
+            output = _workflow_config.func(**func_args)
+            return_type = get_type_hints(_workflow_config.func).get("return")
+            return_type_str = str(return_type.__name__) if return_type else None
+
+            output_data = _process_output(output, return_type)
+            output_data_json = orjson.dumps({"status": "success", "data": output_data, "return_type": return_type_str})
+            span.set_attribute("output", str(output_data_json))
+            span.set_status(Status(StatusCode.OK))
+            end_time = time.perf_counter()
+            span.set_attribute("execution_time", end_time - start_time)
+            return output_data_json
+
+        except Exception as e:
+            is_agentify_error = isinstance(e, AgentifyMeError)
+
+            if not is_agentify_error:
+                e = AgentifyMeError(
+                    message=f"Error executing workflow {name}: {e}",
+                    error_type=str(type(e).__name__),
+                    tb=traceback.format_exc(),
+                )
+
+            if is_agentify_error:
+                error_dict = {k: v for k, v in e.__dict__.items() if not callable(v) and not k.startswith("__")}
+            else:
+                error_dict = {"message": str(e), "type": type(e).__name__}
+
+            error_data = orjson.dumps({"status": "error", "error": error_dict})
+            error_message = str(e)
+
+            span.set_attribute("error", str(error_data))
+            span.set_status(Status(StatusCode.ERROR, error_message))
+            return error_data
 
 
-async def execute_fn_async(name: str, input: str) -> bytes:
+async def execute_fn_async(name: str, input: str, trace_context: str) -> bytes:
     """Execute a workflow asynchronously"""
+
+    # Parse the trace context
     try:
-        input = orjson.loads(input)
-        _workflow = WorkflowConfig.get(name)
-        _workflow_config = _workflow.config
-        func_args = build_args_from_signature(_workflow_config.func, input)
-        output = await _workflow_config.func(**func_args)
+        context_data = json.loads(trace_context)
+        traceparent = context_data.get("traceparent", "")
+        baggage = context_data.get("baggage", "")
 
-        return_type = get_type_hints(_workflow_config.func).get("return")
-        output_data = _process_output(output, return_type)
+        # Create carrier for OpenTelemetry
+        carrier = {}
+        if traceparent:
+            carrier["traceparent"] = traceparent
+        if baggage:
+            carrier["baggage"] = baggage
+    except:
+        carrier = {}
 
-        data_info = {"status": "success", "data": output_data}
-        output_data_json = orjson.dumps(data_info)
-        return output_data_json
+    # Extract context
+    from opentelemetry.propagate import extract
 
-    except AgentifyMeError as e:
-        error_info = {"status": "error", "error": e.__dict__()}
-        return orjson.dumps(error_info)
+    ctx = extract(carrier)
 
-    except Exception as e:
-        agentifyme_error = AgentifyMeError(
-            message=f"Error executing workflow {name}: {e}",
-            error_type=type(e),
-            tb=traceback.format_exc(),
-        )
-        error_info = {"status": "error", "error": agentifyme_error.__dict__()}
-        return orjson.dumps(error_info)
+    with tracer.start_as_current_span("workflow.run", context=ctx) as span:
+        start_time = time.perf_counter()
+        try:
+            parsed_input = orjson.loads(input)
+
+            _workflow = WorkflowConfig.get(name)
+            _workflow_config = _workflow.config
+
+            func_args = build_args_from_signature(_workflow_config.func, parsed_input)
+            output = await _workflow_config.func(**func_args)
+            return_type = get_type_hints(_workflow_config.func).get("return")
+            return_type_str = str(return_type.__name__) if return_type else None
+
+            output_data = _process_output(output, return_type)
+            output_data_json = orjson.dumps({"status": "success", "data": output_data, "return_type": return_type_str})
+            span.set_attribute("output", str(output_data_json))
+            span.set_status(Status(StatusCode.OK))
+            end_time = time.perf_counter()
+            span.set_attribute("execution_time", end_time - start_time)
+            return output_data_json
+
+        except Exception as e:
+            is_agentify_error = isinstance(e, AgentifyMeError)
+
+            if not is_agentify_error:
+                e = AgentifyMeError(
+                    message=f"Error executing workflow {name}: {e}",
+                    error_type=str(type(e).__name__),
+                    tb=traceback.format_exc(),
+                )
+
+            if is_agentify_error:
+                error_dict = {k: v for k, v in e.__dict__.items() if not callable(v) and not k.startswith("__")}
+            else:
+                error_dict = {"message": str(e), "type": type(e).__name__}
+
+            error_data = orjson.dumps({"status": "error", "error": error_dict})
+            error_message = str(e)
+
+            span.set_attribute("error", str(error_data))
+            span.set_status(Status(StatusCode.ERROR, error_message))
+            return error_data
 
 
 def _process_output(result: Any, return_type: type) -> dict[str, Any]:
