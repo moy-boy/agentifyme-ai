@@ -98,6 +98,10 @@ def execute_fn(name: str, input: str, trace_context: str) -> bytes:
             return_type_str = str(return_type.__name__) if return_type else None
 
             output_data = _process_output(output, return_type)
+
+            if return_type_str is None:
+                return_type_str = type(output_data).__name__
+
             output_data_json = orjson.dumps({"status": "success", "data": output_data, "return_type": return_type_str})
             span.set_attribute("output", str(output_data_json))
             span.set_status(Status(StatusCode.OK))
@@ -114,9 +118,9 @@ def execute_fn(name: str, input: str, trace_context: str) -> bytes:
                     error_type=str(type(e).__name__),
                     tb=traceback.format_exc(),
                 )
-
             if is_agentify_error:
-                error_dict = {k: v for k, v in e.__dict__.items() if not callable(v) and not k.startswith("__")}
+                error_dict = e.__dict__() if hasattr(e, "__dict__") else {}
+                error_dict = {k: v for k, v in error_dict.items() if not callable(v) and not k.startswith("__")}
             else:
                 error_dict = {"message": str(e), "type": type(e).__name__}
 
