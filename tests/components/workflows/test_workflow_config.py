@@ -22,6 +22,7 @@ def create_valid_config(**kwargs):
         "input_parameters": {"param1": Param(name="param1", data_type="int", description="A parameter")},
         "output_parameters": [Param(name="output1", data_type="str", description="An output parameter")],
         "schedule": "* * * * *",  # Default schedule
+        "async_fn": "false",
     }
     default_config.update(kwargs)
     return WorkflowConfig(**default_config)
