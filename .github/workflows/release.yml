@@ -25,6 +25,9 @@ jobs:
       id-token: write
       packages: write
     runs-on: ubuntu-latest
+    strategy:
+        matrix:
+          python_version: ['3.11', '3.12', '3.13']
     steps:
       - uses: actions/checkout@v4
         name: Checkout
@@ -63,14 +66,13 @@ jobs:
         run: |
           # Use input values if provided through workflow_dispatch
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            PYTHON_VERSION="${{ github.event.inputs.python_version }}"
             AGENTIFYME_VERSION="${{ github.event.inputs.agentifyme_version }}"
           else
             # Default values from Dockerfile or repository
-            PYTHON_VERSION="3.13"
             AGENTIFYME_VERSION="0.2"
           fi
           
+          PYTHON_VERSION="${{ matrix.python_version }}"
           echo "PYTHON_VERSION=${PYTHON_VERSION}" >> $GITHUB_OUTPUT
           echo "AGENTIFYME_VERSION=${AGENTIFYME_VERSION}" >> $GITHUB_OUTPUT
           
@@ -92,5 +94,5 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.versions.outputs.CUSTOM_TAG }}
             ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=${{ matrix.python_version }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.python_version }}
