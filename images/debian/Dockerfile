@@ -1,12 +1,19 @@
 FROM debian:bookworm-slim
 
-LABEL maintainer="AgentifyMe Devs <devs@agentifyme.ai>"
-LABEL description="AgentifyMe docker image for python runtime"
-LABEL org.opencontainers.image.source="https://github.com/agentifyme/agentifyme-py"
-LABEL version=0.2
-
 ARG PYTHON_VERSION=3.13
 ARG AGENTIFYME_VERSION=0.2
+
+LABEL maintainer="AgentifyMe Devs <devs@agentifyme.ai>"
+LABEL description="AgentifyMe docker image for python runtime"
+LABEL version=${AGENTIFYME_VERSION}-py${PYTHON_VERSION}
+
+LABEL org.opencontainers.image.source="https://github.com/agentifyme/agentifyme-py"
+LABEL org.opencontainers.image.url="https://agentifyme.ai"
+LABEL org.opencontainers.image.created=${BUILD_DATE}
+LABEL org.opencontainers.image.authors="AgentifyMe Devs <devs@agentifyme.ai>"
+LABEL org.opencontainers.image.version=${AGENTIFYME_VERSION}-py${PYTHON_VERSION}
+LABEL org.opencontainers.image.title="AgentifyMe Python Runtime"
+LABEL org.opencontainers.image.description="AgentifyMe docker image for python runtime"
 
 ENV DEBIAN_FRONTEND=noninteractive
 
