@@ -5,6 +5,7 @@ import traceback
 from typing import Any, get_type_hints
 
 import orjson
+from loguru import logger
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 from pydantic import BaseModel
@@ -26,7 +27,9 @@ def initialize():
     initialize_sentry()
     agentifyme_env = os.getenv("AGENTIFYME_ENV")
     agentifyme_project_dir = os.getenv("AGENTIFYME_PROJECT_DIR")
-    otel_endpoint = os.getenv("AGENTIFYME_OTEL_ENDPOINT", "5.78.99.34:4317")
+    otel_endpoint = os.getenv("AGENTIFYME_OTEL_ENDPOINT", "gw.agentifyme.ai:3418")
+    logger.info(f"OTEL Endpoint: {otel_endpoint}")
+
     callback_handler = CallbackHandler()
 
     # Setup telemetry
@@ -63,6 +66,16 @@ def initialize_sentry():
 
 def execute_fn(name: str, input: str, trace_context: str) -> bytes:
     """Execute a workflow"""
+
+    logger.info(f"Executing workflow {name} with input {input}")
+    worker_id = os.getenv("AGENTIFYME_WORKER_ID")
+    logger.info(f"Worker ID: {worker_id}")
+    deployment_id = os.getenv("AGENTIFYME_DEPLOYMENT_ID")
+    logger.info(f"Deployment ID: {deployment_id}")
+    project_id = os.getenv("AGENTIFYME_PROJECT_ID")
+    logger.info(f"Project ID: {project_id}")
+    organization_id = os.getenv("AGENTIFYME_ORGANIZATION_ID")
+    logger.info(f"Organization ID: {organization_id}")
 
     # Parse the trace context
     try:
@@ -110,19 +123,21 @@ def execute_fn(name: str, input: str, trace_context: str) -> bytes:
             return output_data_json
 
         except Exception as e:
-            is_agentify_error = isinstance(e, AgentifyMeError)
+            traceback.print_exc()
 
+            is_agentify_error = isinstance(e, AgentifyMeError)
+            tb = traceback.format_exc()
             if not is_agentify_error:
                 e = AgentifyMeError(
                     message=f"Error executing workflow {name}: {e}",
                     error_type=str(type(e).__name__),
-                    tb=traceback.format_exc(),
+                    tb=tb,
                 )
             if is_agentify_error:
                 error_dict = e.__dict__() if hasattr(e, "__dict__") else {}
                 error_dict = {k: v for k, v in error_dict.items() if not callable(v) and not k.startswith("__")}
             else:
-                error_dict = {"message": str(e), "type": type(e).__name__}
+                error_dict = {"message": str(e), "error_type": type(e).__name__, "traceback": tb}
 
             error_data = orjson.dumps({"status": "error", "error": error_dict})
             error_message = str(e)
@@ -181,20 +196,24 @@ async def execute_fn_async(name: str, input: str, trace_context: str) -> bytes:
             return output_data_json
 
         except Exception as e:
+            traceback.print_exc()
+
             is_agentify_error = isinstance(e, AgentifyMeError)
+
+            tb = traceback.format_exc()
 
             if not is_agentify_error:
                 e = AgentifyMeError(
                     message=f"Error executing workflow {name}: {e}",
                     error_type=str(type(e).__name__),
-                    tb=traceback.format_exc(),
+                    tb=tb,
                 )
 
             if is_agentify_error:
                 error_dict = e.__dict__() if hasattr(e, "__dict__") else {}
                 error_dict = {k: v for k, v in error_dict.items() if not callable(v) and not k.startswith("__")}
             else:
-                error_dict = {"message": str(e), "type": type(e).__name__}
+                error_dict = {"message": str(e), "error_type": type(e).__name__, "traceback": tb}
 
             error_data = orjson.dumps({"status": "error", "error": error_dict})
             error_message = str(e)

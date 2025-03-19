@@ -114,9 +114,13 @@ class CallbackHandler:
             event_stage = EventStage(event_stage)
 
         event = Event(type=event_type, stage=event_stage, event_name=event_name, data=data)
-
         # Create task for async notification
-        asyncio.create_task(self.notify(event))
+        try:
+            loop = asyncio.get_running_loop()
+            asyncio.create_task(self.notify(event))
+        except RuntimeError:
+            # No event loop running, run sync version
+            asyncio.run(self.notify(event))
 
     async def fire_event_async(self, event_type: EventType | str, event_stage: EventStage | str, data: dict) -> None:
         """Fire an event asynchronously.

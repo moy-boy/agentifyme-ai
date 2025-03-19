@@ -1,3 +1,4 @@
+import orjson
 from loguru import logger as llogger
 
 from agentifyme.worker.callback import CallbackHandler
@@ -11,7 +12,7 @@ from .tracer import configure_tracer
 
 def setup_telemetry(otel_endpoint: str, agentifyme_env: str, agentifyme_worker_version: str):
     resource = get_resource_attributes()
-    llogger.info(f"Setting up telemetry with resource: {resource}")
+    llogger.info(f"Setting up telemetry with resource:")
     try:
         configure_sentry(agentifyme_env, agentifyme_worker_version)
         configure_logger(otel_endpoint, resource)
