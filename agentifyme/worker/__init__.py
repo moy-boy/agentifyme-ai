@@ -108,7 +108,7 @@ def execute_fn(name: str, input: str, trace_context: str) -> bytes:
             func_args = build_args_from_signature(_workflow_config.func, parsed_input)
             output = _workflow_config.func(**func_args)
             return_type = get_type_hints(_workflow_config.func).get("return")
-            return_type_str = str(return_type.__name__) if return_type else None
+            return_type_str = str(return_type.__name__) if return_type and hasattr(return_type, "__name__") else None
 
             output_data = _process_output(output, return_type)
 
@@ -181,7 +181,7 @@ async def execute_fn_async(name: str, input: str, trace_context: str) -> bytes:
             func_args = build_args_from_signature(_workflow_config.func, parsed_input)
             output = await _workflow_config.func(**func_args)
             return_type = get_type_hints(_workflow_config.func).get("return")
-            return_type_str = str(return_type.__name__) if return_type else None
+            return_type_str = str(return_type.__name__) if return_type and hasattr(return_type, "__name__") else None
 
             output_data = _process_output(output, return_type)
 
