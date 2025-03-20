@@ -52,9 +52,11 @@ RUN ARCH=$(uname -m) && \
     curl -L https://storage.botifyme.dev/supervisor/supervisor-linux-${ARCH_NAME}-${AGENTIFYME_INIT_VERSION}-py${PYTHON_VERSION} -o /home/agnt5/.local/bin/agnt5-init && \
     chmod +x /home/agnt5/.local/bin/agnt5-init
 
-ENV PATH="${PATH}:/home/agnt5/.local/bin:/home/agnt5/.venv/bin"
+ENV PATH="${PATH}:/home/agnt5/.local/bin:/home/agnt5/app/.venv/bin"
 
-RUN uv venv --python ${PYTHON_VERSION} ${HOME}/.venv
+ENV VIRTUAL_ENV="/home/agnt5/app/.venv"
+
+RUN uv venv --python ${PYTHON_VERSION} /home/agnt5/app/.venv
 
 RUN uv pip install --upgrade pip && \
     uv pip install agentifyme[grpc,worker]~=${AGENTIFYME_VERSION}
