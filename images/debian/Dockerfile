@@ -59,5 +59,5 @@ RUN uv venv --python ${PYTHON_VERSION} ${HOME}/.venv
 RUN uv pip install --upgrade pip && \
     uv pip install agentifyme~=${AGENTIFYME_VERSION}
 
-ENTRYPOINT ["agnt5-init"]
+CMD ["agnt5-init"]
 
