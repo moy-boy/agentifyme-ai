@@ -59,12 +59,7 @@ RUN uv venv --python ${PYTHON_VERSION} ${HOME}/.venv
 RUN uv pip install --upgrade pip && \
     uv pip install agentifyme~=${AGENTIFYME_VERSION}
 
-# Find the Python library path and set it in LD_LIBRARY_PATH
-RUN PYTHON_LIB_PATH=$(find ${HOME}/.local/share/uv/python -name "libpython${PYTHON_VERSION}*.so*" -exec dirname {} \; | head -n 1) && \
-    echo "export LD_LIBRARY_PATH=${PYTHON_LIB_PATH}:\$LD_LIBRARY_PATH" >> ${HOME}/.bashrc && \
-    echo "LD_LIBRARY_PATH=${PYTHON_LIB_PATH}" > /tmp/ldpath
-
-ENV LD_LIBRARY_PATH="$(cat /tmp/ldpath):${LD_LIBRARY_PATH}"
-
+COPY entrypoint.sh /home/agnt5/entrypoint.sh
+RUN chmod +x /home/agnt5/entrypoint.sh
+ENTRYPOINT ["/home/agnt5/entrypoint.sh"]
 CMD ["agnt5-init"]
-
