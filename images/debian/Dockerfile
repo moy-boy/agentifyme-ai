@@ -59,7 +59,7 @@ RUN uv venv --python ${PYTHON_VERSION} ${HOME}/.venv
 RUN uv pip install --upgrade pip && \
     uv pip install agentifyme~=${AGENTIFYME_VERSION}
 
-COPY entrypoint.sh /home/agnt5/entrypoint.sh
+COPY images/debian/entrypoint.sh /home/agnt5/entrypoint.sh
 RUN chmod +x /home/agnt5/entrypoint.sh
 ENTRYPOINT ["/home/agnt5/entrypoint.sh"]
 CMD ["agnt5-init"]
