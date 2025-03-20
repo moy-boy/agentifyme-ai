@@ -57,7 +57,7 @@ ENV PATH="${PATH}:/home/agnt5/.local/bin:/home/agnt5/.venv/bin"
 RUN uv venv --python ${PYTHON_VERSION} ${HOME}/.venv
 
 RUN uv pip install --upgrade pip && \
-    uv pip install agentifyme~=${AGENTIFYME_VERSION}
+    uv pip install agentifyme[grpc,worker]~=${AGENTIFYME_VERSION}
 
 COPY --chown=agnt5:agnt5  images/debian/entrypoint.sh /home/agnt5/entrypoint.sh
 RUN chmod +x /home/agnt5/entrypoint.sh
