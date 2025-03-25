@@ -2,7 +2,7 @@ FROM debian:bookworm-slim
 
 ARG PYTHON_VERSION=3.13
 ARG AGENTIFYME_VERSION=0.2
-ARG AGENTIFYME_INIT_VERSION=0.1.2
+ARG AGENTIFYME_INIT_VERSION=0.1.3
 LABEL maintainer="AgentifyMe Devs <devs@agentifyme.ai>"
 LABEL description="AgentifyMe docker image for python runtime"
 LABEL version=${AGENTIFYME_VERSION}-py${PYTHON_VERSION}
