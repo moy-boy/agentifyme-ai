@@ -42,7 +42,7 @@ def get_resource_attributes() -> Resource:
 
 
 def configure_sentry(env: str, agentifyme_worker_version: str):
-    sentry_dsn = os.getenv("AGENTIFYME_SENTRY_DSN")
+    sentry_dsn = os.getenv("AGENTIFYME_PYTHON_WORKER_SENTRY_DSN")
     if not sentry_dsn:
         return
 
