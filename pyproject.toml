@@ -25,6 +25,8 @@ dependencies = [
     "joblib~=1.4",
 ]
 
+[tool.hatch.build.targets.wheel]
+packages = ["agentifyme"]
 
 [project.optional-dependencies]
  grpc = ["grpcio~=1.66"]
